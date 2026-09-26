@@ -5,6 +5,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { SupabaseGate, money } from "@/components/SupabaseGate";
 import { useSupabase } from "@/lib/supabase";
+import { fetchBalances } from "@/lib/books";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -64,9 +65,7 @@ function AccountsInner() {
   const { data: accounts = [], isLoading } = useQuery({
     queryKey: ["accounts"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("accounts").select("*").order("code");
-      if (error) throw error;
-      return data;
+      return fetchBalances(supabase);
     },
   });
 
@@ -149,15 +148,16 @@ function AccountsInner() {
                 <TableHead>Code</TableHead>
                 <TableHead>Name</TableHead>
                 <TableHead>Type</TableHead>
-                <TableHead className="text-right">Opening Balance</TableHead>
+                <TableHead className="text-right">Opening</TableHead>
+                <TableHead className="text-right">Balance</TableHead>
                 <TableHead className="w-12" />
               </TableRow>
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">Loading…</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Loading…</TableCell></TableRow>
               ) : accounts.length === 0 ? (
-                <TableRow><TableCell colSpan={5} className="text-center text-muted-foreground">No accounts yet — create cash, bank, sales and expense accounts.</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">No accounts yet — create cash, bank, sales and expense accounts.</TableCell></TableRow>
               ) : (
                 accounts.map((a) => (
                   <TableRow key={a.id}>
@@ -166,7 +166,8 @@ function AccountsInner() {
                     <TableCell>
                       <Badge variant="secondary" className={`capitalize ${TYPE_COLORS[a.type as AccountType] ?? ""}`}>{a.type}</Badge>
                     </TableCell>
-                    <TableCell className="text-right font-medium">{money(a.opening_balance)}</TableCell>
+                    <TableCell className="text-right text-muted-foreground">{money(a.opening_balance)}</TableCell>
+                    <TableCell className="text-right font-semibold">{money(a.balance)}</TableCell>
                     <TableCell>
                       <Button variant="ghost" size="icon" onClick={() => removeAccount.mutate(a.id)}>
                         <Trash2 className="h-4 w-4 text-destructive" />

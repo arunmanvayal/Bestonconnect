@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Users, Wallet, Package, AlertTriangle, ArrowRight } from "lucide-react";
+import { Users, Wallet, Package, AlertTriangle, ArrowRight, ShoppingCart, Truck } from "lucide-react";
+import { fetchBalances } from "@/lib/books";
 import { AppLayout } from "@/components/AppLayout";
 import { SupabaseGate, money } from "@/components/SupabaseGate";
 import { useSupabase } from "@/lib/supabase";
@@ -36,21 +37,23 @@ function DashboardInner() {
   const { data } = useQuery({
     queryKey: ["dashboard"],
     queryFn: async () => {
-      const [customers, accounts, products, entries] = await Promise.all([
+      const [customers, accounts, products, entries, invoices] = await Promise.all([
         supabase.from("customers").select("id", { count: "exact", head: true }),
-        supabase.from("accounts").select("type, opening_balance"),
+        fetchBalances(supabase).then((d) => ({ data: d, error: null })).catch((e) => ({ data: [] as any[], error: e })),
         supabase.from("products").select("id, name, quantity, reorder_level"),
         supabase
           .from("journal_entries")
           .select("id, entry_date, description, journal_lines(debit, credit)")
           .order("entry_date", { ascending: false })
           .limit(5),
+        supabase.from("invoices").select("kind, net_total, bill_date, payment_mode"),
       ]);
       return {
         customerCount: customers.count ?? 0,
         accounts: accounts.data ?? [],
         products: products.data ?? [],
         recentEntries: entries.data ?? [],
+        invoices: (invoices.data ?? []) as any[],
         error: customers.error ?? accounts.error ?? products.error ?? entries.error,
       };
     },
@@ -75,14 +78,24 @@ function DashboardInner() {
   const products = data?.products ?? [];
   const lowStock = products.filter((p) => Number(p.quantity) <= Number(p.reorder_level));
   const balanceByType = (t: string) =>
-    accounts.filter((a) => a.type === t).reduce((s, a) => s + Number(a.opening_balance ?? 0), 0);
+    accounts.filter((a: any) => a.type === t).reduce((s: number, a: any) => s + Number(a.balance ?? 0), 0);
+  const byCode = (c: string) => Number(accounts.find((a: any) => a.code === c)?.balance ?? 0);
+  const inv = data?.invoices ?? [];
+  const month = new Date().toISOString().slice(0, 7);
+  const sumKind = (k: string, m?: boolean) => inv.filter((i) => i.kind === k && (!m || String(i.bill_date).startsWith(month))).reduce((s, i) => s + Number(i.net_total), 0);
 
   const stats = [
     { label: "Customers", value: String(data?.customerCount ?? 0), icon: Users, to: "/customers" },
     { label: "Total Assets", value: money(balanceByType("asset")), icon: Wallet, to: "/accounts" },
     { label: "Products", value: String(products.length), icon: Package, to: "/stock" },
     { label: "Low Stock Alerts", value: String(lowStock.length), icon: AlertTriangle, to: "/stock" },
+    { label: "Sales (this month)", value: money(sumKind("sale", true)), icon: ShoppingCart, to: "/sales" },
+    { label: "Purchases (this month)", value: money(sumKind("purchase", true)), icon: Truck, to: "/purchase" },
+    { label: "Receivables", value: money(byCode("1100")), icon: Wallet, to: "/accounts" },
+    { label: "Payables", value: money(byCode("2000")), icon: Wallet, to: "/accounts" },
   ];
+  const salesAll = sumKind("sale"), purchAll = sumKind("purchase");
+  const maxBar = Math.max(salesAll, purchAll, 1);
 
   return (
     <div className="space-y-8">
@@ -106,6 +119,19 @@ function DashboardInner() {
           </Link>
         ))}
       </div>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Sales vs Purchase (all time)</CardTitle></CardHeader>
+        <CardContent className="space-y-3">
+          {[["Sales", salesAll, "bg-primary"], ["Purchase", purchAll, "bg-accent-foreground/60"], ["Gross margin", salesAll - purchAll, "bg-emerald-500"]].map(([k, v, c]) => (
+            <div key={k as string} className="flex items-center gap-3 text-sm">
+              <span className="w-28 text-muted-foreground">{k}</span>
+              <div className="h-3 flex-1 rounded bg-muted"><div className={`h-3 rounded ${c}`} style={{ width: `${Math.max(0, (Number(v) / maxBar) * 100)}%` }} /></div>
+              <span className="w-32 text-right font-semibold">{money(Number(v))}</span>
+            </div>
+          ))}
+        </CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>

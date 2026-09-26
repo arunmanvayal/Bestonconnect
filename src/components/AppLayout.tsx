@@ -6,11 +6,15 @@ import {
   Wallet,
   Package,
   Settings2,
+  ShoppingCart,
+  Truck,
 } from "lucide-react";
 import type { ReactNode } from "react";
 
 const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/sales", label: "Sales", icon: ShoppingCart },
+  { to: "/purchase", label: "Purchase", icon: Truck },
   { to: "/customers", label: "Customers", icon: Users },
   { to: "/accounts", label: "Accounts", icon: Wallet },
   { to: "/ledger", label: "Ledger", icon: BookOpen },
