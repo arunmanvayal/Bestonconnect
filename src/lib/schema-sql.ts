@@ -125,4 +125,21 @@ create table if not exists invoice_items (
 
 alter table invoices disable row level security;
 alter table invoice_items disable row level security;
+
+-- ===== Receipts & Payments =====
+create table if not exists payments (
+  id uuid primary key default gen_random_uuid(),
+  kind text not null check (kind in ('receipt','payment')),
+  voucher_no text default '',
+  pay_date date not null default current_date,
+  party_id uuid references customers(id) on delete set null,
+  party_name text default '',
+  amount numeric not null default 0,
+  mode text default 'cash',
+  reference text default '',
+  notes text default '',
+  journal_entry_id uuid references journal_entries(id) on delete set null,
+  created_at timestamptz default now()
+);
+alter table payments disable row level security;
 `;

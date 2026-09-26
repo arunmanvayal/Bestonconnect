@@ -195,5 +195,60 @@ export async function fetchBalances(sb: SupabaseClient) {
 }
 
 export const INVOICE_QUERY_KEYS = [
-  ["invoices"], ["products"], ["accounts"], ["balances"], ["dashboard"], ["journal"], ["journal_entries"], ["customers"], ["ledger"],
+  ["invoices"], ["products"], ["accounts"], ["balances"], ["dashboard"], ["journal"], ["journal_entries"], ["customers"], ["ledger"], ["payments"], ["outstanding"],
 ];
+
+export type PayKind = "receipt" | "payment";
+
+/** Records a customer receipt or supplier payment and posts it to the ledger. */
+export async function postPayment(sb: SupabaseClient, p: {
+  kind: PayKind; voucher_no: string; pay_date: string; party_id: string | null; party_name: string;
+  amount: number; mode: string; reference: string; notes: string;
+}) {
+  if (!p.party_name.trim()) throw new Error("Select a party");
+  if (!(p.amount > 0)) throw new Error("Enter an amount");
+  const cashAcc = p.mode === "cash"
+    ? await ensureAccount(sb, "1000", "Cash", "asset")
+    : await ensureAccount(sb, "1010", "Bank", "asset");
+  const partyAcc = p.kind === "receipt"
+    ? await ensureAccount(sb, "1100", "Accounts Receivable", "asset")
+    : await ensureAccount(sb, "2000", "Accounts Payable", "liability");
+  const { data: je, error } = await sb.from("journal_entries").insert({
+    entry_date: p.pay_date, reference: p.voucher_no,
+    description: `${p.kind === "receipt" ? "Receipt from" : "Payment to"} ${p.party_name}`,
+  }).select("id").single();
+  if (error) throw error;
+  const amt = r2(p.amount);
+  const jl = p.kind === "receipt"
+    ? [{ entry_id: je.id, account_id: cashAcc, debit: amt, credit: 0 }, { entry_id: je.id, account_id: partyAcc, debit: 0, credit: amt }]
+    : [{ entry_id: je.id, account_id: partyAcc, debit: amt, credit: 0 }, { entry_id: je.id, account_id: cashAcc, debit: 0, credit: amt }];
+  const { error: e2 } = await sb.from("journal_lines").insert(jl);
+  if (e2) throw e2;
+  const { error: e3 } = await sb.from("payments").insert({ ...p, amount: amt, journal_entry_id: je.id });
+  if (e3) throw e3;
+}
+
+/** Outstanding per party: credit bills minus receipts/payments. */
+export async function fetchOutstanding(sb: SupabaseClient) {
+  const [{ data: inv }, { data: pays }] = await Promise.all([
+    sb.from("invoices").select("kind, party_id, party_name, net_total, payment_mode, bill_no, bill_date"),
+    sb.from("payments").select("*").order("pay_date", { ascending: false }),
+  ]);
+  const map = new Map<string, { key: string; party_id: string | null; party_name: string; side: "customer" | "supplier"; billed: number; settled: number; balance: number }>();
+  const key = (side: string, id: string | null, name: string) => `${side}:${id ?? name.toLowerCase()}`;
+  for (const i of inv ?? []) {
+    if (i.payment_mode !== "credit" || !i.party_name) continue;
+    const side = i.kind === "sale" ? "customer" : "supplier";
+    const k = key(side, i.party_id, i.party_name);
+    const r = map.get(k) ?? { key: k, party_id: i.party_id, party_name: i.party_name, side, billed: 0, settled: 0, balance: 0 };
+    r.billed += Number(i.net_total); map.set(k, r);
+  }
+  for (const p of pays ?? []) {
+    const side = p.kind === "receipt" ? "customer" : "supplier";
+    const k = key(side, p.party_id, p.party_name);
+    const r = map.get(k) ?? { key: k, party_id: p.party_id, party_name: p.party_name, side, billed: 0, settled: 0, balance: 0 };
+    r.settled += Number(p.amount); map.set(k, r);
+  }
+  const rows = [...map.values()].map((r) => ({ ...r, balance: r2(r.billed - r.settled) }));
+  return { rows, payments: pays ?? [], invoices: (inv ?? []).filter((i) => i.payment_mode === "credit") };
+}
