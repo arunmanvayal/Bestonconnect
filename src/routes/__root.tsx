@@ -77,14 +77,13 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "Lovable App" },
-      { name: "description", content: "Lovable Generated Project" },
-      { name: "author", content: "Lovable" },
-      { property: "og:title", content: "Lovable App" },
-      { property: "og:description", content: "Lovable Generated Project" },
+      { title: "BusinessDesk — CRM, Accounts & Stock" },
+      { name: "description", content: "CRM, double-entry bookkeeping, ledger and stock management for your business." },
+      { name: "author", content: "BusinessDesk" },
+      { property: "og:title", content: "BusinessDesk — CRM, Accounts & Stock" },
+      { property: "og:description", content: "CRM, double-entry bookkeeping, ledger and stock management for your business." },
       { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-      { name: "twitter:site", content: "@Lovable" },
+      { name: "twitter:card", content: "summary" },
     ],
     links: [
       {
