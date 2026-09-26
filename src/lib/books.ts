@@ -98,7 +98,7 @@ export async function postInvoice(sb: SupabaseClient, kind: Kind, h: Header, raw
   const party_id = await ensureParty(sb, h.party_name, h.contact, kind, h.billing_address);
 
   // Ledger accounts
-  const payCode = h.payment_mode === "credit"
+  const payCode: [string, string, string] = h.payment_mode === "credit"
     ? (kind === "sale" ? ["1100", "Accounts Receivable", "asset"] : ["2000", "Accounts Payable", "liability"])
     : h.payment_mode === "bank" || h.payment_mode === "upi"
       ? ["1010", "Bank", "asset"] : ["1000", "Cash", "asset"];
@@ -170,8 +170,8 @@ export async function postInvoice(sb: SupabaseClient, kind: Kind, h: Header, raw
       quantity: Number(cur?.quantity ?? 0) + (kind === "sale" ? -qty : qty),
     };
     if (kind === "purchase") {
-      update.cost_price = l.rate;
-      if (l.profit_pct > 0) update.unit_price = r2(l.rate * (1 + l.profit_pct / 100));
+      update["cost_price"] = l.rate;
+      if (l.profit_pct > 0) update["unit_price"] = r2(l.rate * (1 + l.profit_pct / 100));
     }
     await sb.from("products").update(update).eq("id", productId);
   }

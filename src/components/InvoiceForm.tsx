@@ -68,7 +68,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
   const updateLine = (i: number, patch: Partial<Line>) =>
     setLines((ls) => {
       const next = ls.map((l, idx) => (idx === i ? { ...l, ...patch } : l));
-      if (i === next.length - 1 && next[i].item_name) next.push(emptyLine());
+      if (i === next.length - 1 && next[i]?.item_name) next.push(emptyLine());
       return next;
     });
 
@@ -78,7 +78,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
       updateLine(i, {
         product_id: p.id, item_name: p.name, barcode: p.barcode || p.sku || "", unit: p.unit || "pcs",
         rate: Number(isSale ? p.unit_price : p.cost_price || p.unit_price) || 0,
-        gst_rate: Number(p.gst_rate ?? 18), quantity: lines[i].quantity || 1,
+        gst_rate: Number(p.gst_rate ?? 18), quantity: lines[i]?.quantity || 1,
       });
     } else updateLine(i, { product_id: null, item_name: name });
   };
