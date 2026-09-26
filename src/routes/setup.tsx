@@ -2,7 +2,8 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { Check, Copy } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
-import { SETUP_SQL } from "@/lib/schema-sql";
+import { SETUP_SQL as BASE_SQL, INVOICE_SQL } from "@/lib/schema-sql";
+const SETUP_SQL = BASE_SQL + INVOICE_SQL;
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
