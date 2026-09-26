@@ -1,5 +1,5 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { getSupabaseConfig } from "./config.functions";
 
@@ -21,6 +21,7 @@ export function getSupabase(): SupabaseClient {
 
 /** React hook: loads config from the server and returns a ready client (or null). */
 export function useSupabase(): SupabaseClient | null {
+  const [ready, setReady] = useState(client !== null);
   const { data } = useQuery({
     queryKey: ["supabase-config"],
     queryFn: () => getSupabaseConfig(),
@@ -28,9 +29,11 @@ export function useSupabase(): SupabaseClient | null {
   });
 
   useEffect(() => {
-    if (data?.url && data?.anonKey) initSupabase(data.url, data.anonKey);
+    if (data?.url && data?.anonKey) {
+      initSupabase(data.url, data.anonKey);
+      setReady(true);
+    }
   }, [data]);
 
-  if (!data?.url || !data?.anonKey || !client) return null;
-  return client;
+  return ready ? client : null;
 }
