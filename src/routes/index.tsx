@@ -1,6 +1,6 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
-import { Users, Wallet, Package, AlertTriangle, ArrowRight, ShoppingCart, Truck } from "lucide-react";
+import { Users, Wallet, Package, AlertTriangle, ArrowRight, ShoppingCart, Truck, TrendingUp, ArrowUpRight } from "lucide-react";
 import { fetchBalances } from "@/lib/books";
 import { AppLayout } from "@/components/AppLayout";
 import { SupabaseGate, money } from "@/components/SupabaseGate";
@@ -98,50 +98,54 @@ function DashboardInner() {
   const maxBar = Math.max(salesAll, purchAll, 1);
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Dashboard</h1>
-        <p className="text-sm text-muted-foreground">Your business at a glance</p>
+    <div className="space-y-6">
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4">
+        <div className="min-w-0">
+          <p className="mb-1 text-xs font-semibold uppercase text-primary/65">Business overview</p>
+          <h1 className="truncate text-2xl font-bold text-foreground sm:text-3xl">Good day</h1>
+          <p className="mt-1 text-sm text-muted-foreground">Your live financial position and daily operations.</p>
+        </div>
+        <div className="hidden shrink-0 rounded-full border border-border/70 bg-card/80 px-4 py-2 text-xs font-semibold text-muted-foreground shadow-sm sm:block">{new Date().toLocaleDateString("en-IN", { dateStyle: "medium" })}</div>
       </div>
 
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        {stats.map(({ label, value, icon: Icon, to }) => (
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {stats.map(({ label, value, icon: Icon, to }, index) => (
           <Link key={label} to={to}>
-            <Card className="transition-shadow hover:shadow-md">
-              <CardHeader className="flex flex-row items-center justify-between pb-2">
-                <CardTitle className="text-sm font-medium text-muted-foreground">{label}</CardTitle>
-                <Icon className="h-4 w-4 text-muted-foreground" />
+            <Card className={`group h-full overflow-hidden hover:-translate-y-1 hover:shadow-lg ${index === 0 || index === 4 ? "border-primary/10 bg-primary text-primary-foreground" : index === 2 ? "border-accent/30 bg-accent/25" : ""}`}>
+              <CardHeader className="flex flex-row items-center justify-between p-5 pb-3">
+                <CardTitle className={`text-xs font-semibold ${index === 0 || index === 4 ? "text-primary-foreground/70" : "text-muted-foreground"}`}>{label}</CardTitle>
+                <div className={`grid h-9 w-9 place-items-center rounded-full ${index === 0 || index === 4 ? "bg-primary-foreground/12" : "bg-muted"}`}><Icon className="h-4 w-4" /></div>
               </CardHeader>
-              <CardContent>
-                <p className="text-2xl font-bold text-foreground">{value}</p>
+              <CardContent className="flex items-end justify-between p-5 pt-0">
+                <p className="font-display text-2xl font-bold sm:text-[1.65rem]">{value}</p>
+                <ArrowUpRight className="h-4 w-4 opacity-40 transition-transform group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
               </CardContent>
             </Card>
           </Link>
         ))}
       </div>
 
-      <Card>
-        <CardHeader><CardTitle className="text-base">Sales vs Purchase (all time)</CardTitle></CardHeader>
-        <CardContent className="space-y-3">
+      <Card className="overflow-hidden">
+        <CardHeader className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3 border-b border-border/60 p-5"><div className="min-w-0"><CardTitle className="text-base">Sales performance</CardTitle><p className="mt-1 text-xs text-muted-foreground">All-time sales, purchases and gross margin</p></div><div className="grid h-10 w-10 shrink-0 place-items-center rounded-full bg-accent/25"><TrendingUp className="h-4 w-4 text-accent-foreground" /></div></CardHeader>
+        <CardContent className="space-y-5 p-5">
           {[["Sales", salesAll, "bg-primary"], ["Purchase", purchAll, "bg-accent-foreground/60"], ["Gross margin", salesAll - purchAll, "bg-emerald-500"]].map(([k, v, c]) => (
-            <div key={k as string} className="flex items-center gap-3 text-sm">
-              <span className="w-28 text-muted-foreground">{k}</span>
-              <div className="h-3 flex-1 rounded bg-muted"><div className={`h-3 rounded ${c}`} style={{ width: `${Math.max(0, (Number(v) / maxBar) * 100)}%` }} /></div>
-              <span className="w-32 text-right font-semibold">{money(Number(v))}</span>
+            <div key={k as string} className="grid grid-cols-[minmax(0,1fr)_auto] gap-2 text-sm">
+              <span className="font-medium text-muted-foreground">{k}</span><span className="font-display text-sm font-semibold">{money(Number(v))}</span>
+              <div className="col-span-2 h-2 overflow-hidden rounded-full bg-muted"><div className={`h-full rounded-full ${c} transition-[width] duration-700`} style={{ width: `${Math.max(0, (Number(v) / maxBar) * 100)}%` }} /></div>
             </div>
           ))}
         </CardContent>
       </Card>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
+      <div className="grid gap-5 lg:grid-cols-2">
+        <Card className="overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base">Recent Journal Entries</CardTitle>
             <Link to="/ledger" className="flex items-center gap-1 text-sm text-primary hover:underline">
               View all <ArrowRight className="h-3 w-3" />
             </Link>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-5 pb-5">
             {(data?.recentEntries ?? []).length === 0 ? (
               <p className="text-sm text-muted-foreground">No entries yet. Add your first one in the Ledger.</p>
             ) : (
@@ -163,14 +167,14 @@ function DashboardInner() {
           </CardContent>
         </Card>
 
-        <Card>
+        <Card className="overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base">Low Stock Items</CardTitle>
             <Link to="/stock" className="flex items-center gap-1 text-sm text-primary hover:underline">
               Manage stock <ArrowRight className="h-3 w-3" />
             </Link>
           </CardHeader>
-          <CardContent>
+          <CardContent className="px-5 pb-5">
             {lowStock.length === 0 ? (
               <p className="text-sm text-muted-foreground">All items are above their reorder level.</p>
             ) : (

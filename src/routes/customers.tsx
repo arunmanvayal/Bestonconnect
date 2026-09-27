@@ -82,14 +82,14 @@ function CustomersInner() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-foreground">Customers</h1>
           <p className="text-sm text-muted-foreground">Your CRM contact list</p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button><Plus className="mr-2 h-4 w-4" /> Add Customer</Button>
+            <Button><Plus className="h-4 w-4" /><span className="hidden sm:inline">Add Customer</span><span className="sm:hidden">Add</span></Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>New Customer</DialogTitle></DialogHeader>

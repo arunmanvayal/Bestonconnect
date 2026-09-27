@@ -19,13 +19,13 @@ const emptyHeader = (kind: Kind): Header => ({
 });
 
 const cellInput = "h-8 w-full rounded-none border-0 bg-transparent px-2 text-sm focus-visible:ring-1 focus-visible:ring-primary";
-const selectCls = "h-9 w-full rounded-md border border-input bg-background px-2 text-sm";
+const selectCls = "h-10 w-full rounded-xl border border-input bg-background/80 px-3 text-sm focus:outline-none focus:ring-2 focus:ring-ring";
 
 function Field({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <label className="flex items-center gap-2 text-sm">
-      <span className="w-24 shrink-0 text-muted-foreground">{label}</span>
-      <div className="flex-1">{children}</div>
+    <label className="grid gap-1.5 text-sm sm:grid-cols-[6rem_minmax(0,1fr)] sm:items-center">
+      <span className="text-xs font-semibold text-muted-foreground">{label}</span>
+      <div className="min-w-0">{children}</div>
     </label>
   );
 }
@@ -123,15 +123,14 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <FileText className="h-6 w-6 text-primary" />
-        <h1 className="text-2xl font-bold text-foreground">{isSale ? "Retail Invoice" : "Purchase Invoice"}</h1>
-        <span className="ml-auto text-sm text-muted-foreground">{new Date().toLocaleDateString("en-IN", { dateStyle: "medium" })}</span>
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+        <div className="flex min-w-0 items-center gap-3"><div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-sm"><FileText className="h-5 w-5" /></div><div className="min-w-0"><h1 className="truncate text-xl font-bold text-foreground sm:text-2xl">{isSale ? "Retail Invoice" : "Purchase Invoice"}</h1><p className="text-xs text-muted-foreground">Stock and ledger update automatically</p></div></div>
+        <span className="hidden shrink-0 rounded-full bg-card px-3 py-2 text-xs font-medium text-muted-foreground shadow-sm sm:block">{new Date().toLocaleDateString("en-IN", { dateStyle: "medium" })}</span>
       </div>
 
-      <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <div className="overflow-hidden rounded-2xl border border-border/70 bg-card/90 shadow-sm backdrop-blur-sm">
         {/* Header */}
-        <div className="grid gap-3 border-b border-border p-4 md:grid-cols-2 xl:grid-cols-4">
+        <div className="grid gap-4 border-b border-border/70 p-4 sm:p-5 md:grid-cols-2 xl:grid-cols-4">
           <Field label="Bill No"><Input value={billNo} onChange={(e) => set("bill_no", e.target.value)} /></Field>
           <Field label="Bill Date"><Input type="date" value={h.bill_date} onChange={(e) => set("bill_date", e.target.value)} /></Field>
           <Field label={isSale ? "MOP" : "Bill Type"}>
@@ -165,7 +164,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
           )}
         </div>
 
-        <div className="grid xl:grid-cols-[1fr_300px]">
+        <div className="grid xl:grid-cols-[minmax(0,1fr)_300px]">
           {/* Items grid */}
           <div className="min-w-0 border-b border-border xl:border-b-0 xl:border-r">
             <div className="overflow-x-auto">
@@ -230,7 +229,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
 
           {/* Bill details */}
           <div className="flex flex-col">
-            <div className="bg-primary/90 px-4 py-2 text-sm font-medium text-primary-foreground">Bill Details</div>
+            <div className="bg-primary px-4 py-3 text-sm font-semibold text-primary-foreground">Bill Details</div>
             <div className="flex-1 space-y-1.5 p-4 text-sm">
               {[
                 ["Gross Total", t.gross], ["Taxable", t.taxable], ["Total Tax", t.total_tax],
@@ -247,12 +246,12 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
               ))}
               <div className="flex justify-between"><span className="text-muted-foreground">Round Off (auto)</span><span className="tabular-nums">{t.round_off.toFixed(2)}</span></div>
             </div>
-            <div className="bg-primary px-4 py-4 text-right text-3xl font-semibold tabular-nums text-primary-foreground">{money(t.net_total)}</div>
+            <div className="bg-primary px-4 py-5 text-right font-display text-2xl font-bold tabular-nums text-primary-foreground sm:text-3xl">{money(t.net_total)}</div>
           </div>
         </div>
 
         {/* Actions */}
-        <div className="flex flex-wrap justify-end gap-2 border-t border-border bg-muted/40 p-3">
+        <div className="grid grid-cols-2 gap-2 border-t border-border bg-muted/40 p-3 sm:flex sm:flex-wrap sm:justify-end">
           <Button variant="outline" disabled={selected === null} onClick={() => { if (selected !== null) { setLines((ls) => ls.length > 1 ? ls.filter((_, i) => i !== selected) : [emptyLine()]); setSelected(null); } }}><Trash2 className="mr-2 h-4 w-4" />Remove</Button>
           <Button variant="outline" onClick={reset}><RefreshCw className="mr-2 h-4 w-4" />Refresh</Button>
           <Button variant="outline" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" />Print</Button>
@@ -261,12 +260,12 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
       </div>
 
       {/* Recent invoices */}
-      <div className="rounded-lg border border-border bg-card">
+      <div className="overflow-hidden rounded-2xl border border-border/70 bg-card/90 shadow-sm">
         <div className="border-b border-border px-4 py-3 font-semibold text-foreground">Recent {isSale ? "sales" : "purchase"} invoices</div>
         {invoices.length === 0 ? (
           <p className="p-4 text-sm text-muted-foreground">No invoices yet.</p>
         ) : (
-          <table className="w-full text-sm">
+          <table className="w-full min-w-[680px] text-sm">
             <thead className="text-left text-muted-foreground"><tr><th className="px-4 py-2">Bill No</th><th>Date</th><th>{isSale ? "Party" : "Supplier"}</th><th>Mode</th><th className="text-right">Tax</th><th className="px-4 text-right">Net Total</th></tr></thead>
             <tbody>
               {invoices.map((inv) => (

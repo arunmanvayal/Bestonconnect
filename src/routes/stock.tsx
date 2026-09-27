@@ -114,14 +114,14 @@ function StockInner() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-foreground">Stock</h1>
           <p className="text-sm text-muted-foreground">Inventory and stock movements</p>
         </div>
         <Dialog open={addOpen} onOpenChange={setAddOpen}>
           <DialogTrigger asChild>
-            <Button><Plus className="mr-2 h-4 w-4" /> Add Product</Button>
+            <Button><Plus className="h-4 w-4" /><span className="hidden sm:inline">Add Product</span><span className="sm:hidden">Add</span></Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>New Product</DialogTitle></DialogHeader>
@@ -140,7 +140,7 @@ function StockInner() {
                 <Label>Product Name *</Label>
                 <Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
               </div>
-              <div className="grid grid-cols-3 gap-4">
+               <div className="grid gap-4 sm:grid-cols-3">
                 <div className="space-y-2">
                   <Label>Opening Qty</Label>
                   <Input type="number" step="0.01" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} />
