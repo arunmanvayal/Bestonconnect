@@ -8,3 +8,5 @@
 > Commits you push to the connected branch sync back to Lovable and show up in
 > the editor, so keep the branch in a working state.
 <!-- LOVABLE:END -->
+
+- Use the Ocean Deep semantic token system with Sora headings and Manrope body text so every business module shares one responsive visual language.
