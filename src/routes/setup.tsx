@@ -32,7 +32,7 @@ function SetupPage() {
 
   return (
     <AppLayout>
-      <div className="max-w-3xl space-y-6">
+      <div className="mx-auto max-w-4xl space-y-6">
         <div>
           <h1 className="text-2xl font-bold text-foreground">Database Setup</h1>
           <p className="text-sm text-muted-foreground">One-time step to create the tables in your Supabase project</p>
@@ -50,7 +50,7 @@ function SetupPage() {
         </Card>
 
         <Card>
-          <CardHeader className="flex flex-row items-center justify-between">
+           <CardHeader className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
             <CardTitle className="text-base">Setup script</CardTitle>
             <Button variant="outline" size="sm" onClick={copy}>
               {copied ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}

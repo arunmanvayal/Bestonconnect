@@ -96,14 +96,14 @@ function AccountsInner() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-foreground">Chart of Accounts</h1>
           <p className="text-sm text-muted-foreground">Bookkeeping account heads</p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button><Plus className="mr-2 h-4 w-4" /> Add Account</Button>
+            <Button><Plus className="h-4 w-4" /><span className="hidden sm:inline">Add Account</span><span className="sm:hidden">Add</span></Button>
           </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>New Account</DialogTitle></DialogHeader>

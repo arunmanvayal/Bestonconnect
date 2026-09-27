@@ -100,12 +100,12 @@ function PaymentsInner() {
       </div>
 
       <Card>
-        <CardHeader className="flex flex-row items-center justify-between">
+        <CardHeader className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
           <CardTitle>New {kind === "receipt" ? "Receipt" : "Payment"}</CardTitle>
           <Tabs value={kind} onValueChange={(v) => { setKind(v as PayKind); setForm({ ...form, partyKey: "" }); }}>
-            <TabsList>
-              <TabsTrigger value="receipt">Receipt (from customer)</TabsTrigger>
-              <TabsTrigger value="payment">Payment (to supplier)</TabsTrigger>
+            <TabsList className="grid h-auto grid-cols-2">
+              <TabsTrigger className="whitespace-normal text-center" value="receipt">Receipt (from customer)</TabsTrigger>
+              <TabsTrigger className="whitespace-normal text-center" value="payment">Payment (to supplier)</TabsTrigger>
             </TabsList>
           </Tabs>
         </CardHeader>

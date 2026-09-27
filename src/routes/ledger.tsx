@@ -118,19 +118,19 @@ function LedgerInner() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
+      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
+        <div className="min-w-0">
           <h1 className="text-2xl font-bold text-foreground">Ledger</h1>
           <p className="text-sm text-muted-foreground">Double-entry journal</p>
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button><Plus className="mr-2 h-4 w-4" /> New Entry</Button>
+            <Button><Plus className="h-4 w-4" /><span className="hidden sm:inline">New Entry</span><span className="sm:hidden">New</span></Button>
           </DialogTrigger>
           <DialogContent className="max-w-2xl">
             <DialogHeader><DialogTitle>New Journal Entry</DialogTitle></DialogHeader>
             <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); addEntry.mutate(); }}>
-              <div className="grid grid-cols-3 gap-4">
+               <div className="grid gap-4 sm:grid-cols-3">
                 <div className="space-y-2">
                   <Label>Date</Label>
                   <Input type="date" value={entry.entry_date} onChange={(e) => setEntry({ ...entry, entry_date: e.target.value })} />
@@ -149,7 +149,7 @@ function LedgerInner() {
                 <Label>Lines</Label>
                 <div className="space-y-2">
                   {lines.map((l, i) => (
-                    <div key={i} className="grid grid-cols-[1fr_110px_110px_36px] items-center gap-2">
+                     <div key={i} className="grid grid-cols-[minmax(0,1fr)_36px] items-center gap-2 sm:grid-cols-[minmax(0,1fr)_110px_110px_36px]">
                       <Select value={l.account_id} onValueChange={(v) => setLine(i, { account_id: v })}>
                         <SelectTrigger><SelectValue placeholder="Select account" /></SelectTrigger>
                         <SelectContent>
