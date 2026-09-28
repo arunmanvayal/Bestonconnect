@@ -72,9 +72,10 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
       return next;
     });
 
-  const fillFromProduct = (i: number, p: any) =>
+  const genBarcode = () => `BD${Date.now().toString().slice(-8)}${Math.floor(Math.random() * 90 + 10)}`;
+  const fillFromProduct = (i: number, p: any, code?: string) =>
     updateLine(i, {
-      product_id: p.id, item_name: p.name, barcode: p.barcode || p.sku || "", unit: p.unit || "pcs",
+      product_id: p.id, item_name: p.name, barcode: code ?? (isSale ? p.barcode || p.sku || "" : genBarcode()), unit: p.unit || "pcs",
       rate: Number(isSale ? p.unit_price : p.cost_price || p.unit_price) || 0,
       gst_rate: Number(p.gst_rate ?? 18), quantity: lines[i]?.quantity || 1,
     });
@@ -87,14 +88,41 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
 
   const onBarcode = (i: number, code: string) => {
     const p = findByCode(code);
-    if (p) fillFromProduct(i, p);
+    if (p) fillFromProduct(i, p, code);
     else updateLine(i, { barcode: code });
   };
 
   const pickItem = (i: number, name: string) => {
-    const p = products.find((x) => x.name.toLowerCase() === name.toLowerCase()) ?? findByCode(name);
-    if (p) fillFromProduct(i, p);
-    else updateLine(i, { product_id: null, item_name: name });
+    const byCode = findByCode(name);
+    if (byCode) return fillFromProduct(i, byCode, name);
+    updateLine(i, { product_id: null, item_name: name });
+  };
+
+  const [suggest, setSuggest] = useState<{ row: number; top: number; left: number; width: number } | null>(null);
+  const [hi, setHi] = useState(0);
+  const openSuggest = (i: number, el: HTMLElement) => {
+    const r = el.getBoundingClientRect();
+    setSuggest({ row: i, top: r.bottom + 4, left: Math.max(8, Math.min(r.left, window.innerWidth - 328)), width: Math.max(r.width, 320) });
+    setHi(0);
+  };
+  const query = suggest ? (lines[suggest.row]?.item_name ?? "").toLowerCase().trim() : "";
+  const matches = suggest
+    ? products.filter((p) => !query || p.name.toLowerCase().includes(query) || String(p.barcode ?? "").toLowerCase().includes(query) || String(p.sku ?? "").toLowerCase().includes(query)).slice(0, 8)
+    : [];
+  const choose = (i: number, p: any) => {
+    fillFromProduct(i, p);
+    setSuggest(null);
+    setTimeout(() => {
+      const el = tbodyRef.current?.querySelector<HTMLInputElement>(`input[data-row="${i}"][data-col="qty"]`);
+      el?.focus(); el?.select();
+    }, 0);
+  };
+  const onItemKeyDown = (i: number, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!suggest || matches.length === 0) return;
+    if (e.key === "ArrowDown") { e.preventDefault(); setHi((h) => Math.min(h + 1, matches.length - 1)); }
+    else if (e.key === "ArrowUp") { e.preventDefault(); setHi((h) => Math.max(h - 1, 0)); }
+    else if (e.key === "Enter" && query) { e.preventDefault(); e.stopPropagation(); choose(i, matches[hi] ?? matches[0]); }
+    else if (e.key === "Escape") setSuggest(null);
   };
 
   const tbodyRef = useRef<HTMLTableSectionElement>(null);
@@ -212,7 +240,11 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
                         <td className="w-8 px-2 text-muted-foreground">{i + 1}</td>
                         <td className="w-28"><Input className={cellInput} data-row={i} data-col="barcode" value={l.barcode} onChange={(e) => onBarcode(i, e.target.value)} placeholder="Scan / type" /></td>
                         <td className="min-w-48">
-                          <Input className={cellInput} data-row={i} data-col="item" list="product-list" placeholder="Type or pick item" value={l.item_name} onChange={(e) => pickItem(i, e.target.value)} />
+                          <Input className={cellInput} data-row={i} data-col="item" autoComplete="off" placeholder="Search item…" value={l.item_name}
+                            onFocus={(e) => openSuggest(i, e.currentTarget)}
+                            onChange={(e) => { pickItem(i, e.target.value); openSuggest(i, e.currentTarget); }}
+                            onBlur={() => setTimeout(() => setSuggest((s) => (s?.row === i ? null : s)), 150)}
+                            onKeyDown={(e) => onItemKeyDown(i, e)} />
                         </td>
                         <td className="w-16"><Input className={cellInput} data-row={i} data-col="unit" value={l.unit} onChange={(e) => updateLine(i, { unit: e.target.value })} /></td>
                         {isSale && <td className={`w-16 px-2 ${stock && Number(stock.quantity) < l.quantity ? "text-destructive" : "text-muted-foreground"}`}>{stock ? Number(stock.quantity) : "—"}</td>}
@@ -234,7 +266,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
                   })}
                 </tbody>
               </table>
-              <datalist id="product-list">{products.map((p) => <option key={p.id} value={p.name}>{`Stock ${Number(p.quantity)} · ₹${p.unit_price}`}</option>)}</datalist>
+              <datalist id="product-list-unused">{products.map((p) => <option key={p.id} value={p.name}>{`Stock ${Number(p.quantity)} · ₹${p.unit_price}`}</option>)}</datalist>
             </div>
             <div className="flex items-center gap-3 border-t border-border px-3 py-2">
               <Button size="sm" variant="ghost" onClick={() => setLines((ls) => [...ls, emptyLine()])}><Plus className="mr-1 h-4 w-4" />Add row</Button>
@@ -288,6 +320,31 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
           <Button variant="outline" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" />Print</Button>
           <Button onClick={() => save.mutate()} disabled={save.isPending}><Save className="mr-2 h-4 w-4" />{save.isPending ? "Saving…" : "Save"}</Button>
         </div>
+      </div>
+
+      {suggest && matches.length > 0 && (
+        <div className="fixed z-50 max-h-72 overflow-y-auto rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-xl animate-in fade-in-0 zoom-in-95"
+          style={{ top: suggest.top, left: suggest.left, width: suggest.width }}>
+          {matches.map((p, idx) => (
+            <button key={p.id} type="button" onMouseDown={(e) => { e.preventDefault(); choose(suggest.row, p); }}
+              className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors ${idx === hi ? "bg-primary/10" : "hover:bg-muted"}`}>
+              <span className="min-w-0">
+                <span className="block truncate font-medium">{p.name}</span>
+                <span className="block truncate text-xs text-muted-foreground">{p.barcode || p.sku || "No barcode"} · Stock {Number(p.quantity)} {p.unit}</span>
+              </span>
+              <span className="shrink-0 text-xs font-semibold tabular-nums">₹{Number(isSale ? p.unit_price : p.cost_price || p.unit_price)}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Always-visible total */}
+      <div className="sticky bottom-20 z-20 flex items-center gap-3 rounded-2xl border border-border/70 bg-card/95 px-4 py-3 shadow-xl backdrop-blur-xl lg:bottom-4">
+        <div className="min-w-0">
+          <p className="text-xs text-muted-foreground">Qty {t.total_qty} · Tax {money(t.total_tax)}</p>
+          <p className="font-display text-xl font-bold tabular-nums text-foreground sm:text-2xl">{money(t.net_total)}</p>
+        </div>
+        <Button className="ml-auto" onClick={() => save.mutate()} disabled={save.isPending}><Save className="mr-2 h-4 w-4" />{save.isPending ? "Saving…" : "Save"}</Button>
       </div>
 
       {/* Recent invoices */}
