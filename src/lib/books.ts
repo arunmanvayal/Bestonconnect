@@ -166,11 +166,12 @@ export async function postInvoice(sb: SupabaseClient, kind: Kind, h: Header, raw
       note: `${kind === "sale" ? "Sale" : "Purchase"} ${h.bill_no}`,
     });
     const { data: cur } = await sb.from("products").select("quantity").eq("id", productId).single();
-    const update: Record<string, number> = {
+    const update: Record<string, number | string> = {
       quantity: Number(cur?.quantity ?? 0) + (kind === "sale" ? -qty : qty),
     };
     if (kind === "purchase") {
       update["cost_price"] = l.rate;
+      if (l.barcode) { update["barcode"] = l.barcode; update["sku"] = l.barcode; }
       if (l.profit_pct > 0) update["unit_price"] = r2(l.rate * (1 + l.profit_pct / 100));
     }
     await sb.from("products").update(update).eq("id", productId);
