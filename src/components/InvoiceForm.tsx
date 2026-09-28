@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trash2, RefreshCw, Save, Printer, Plus, FileText } from "lucide-react";
 import { toast } from "sonner";
@@ -72,15 +72,46 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
       return next;
     });
 
+  const fillFromProduct = (i: number, p: any) =>
+    updateLine(i, {
+      product_id: p.id, item_name: p.name, barcode: p.barcode || p.sku || "", unit: p.unit || "pcs",
+      rate: Number(isSale ? p.unit_price : p.cost_price || p.unit_price) || 0,
+      gst_rate: Number(p.gst_rate ?? 18), quantity: lines[i]?.quantity || 1,
+    });
+
+  const findByCode = (code: string) => {
+    const c = code.trim().toLowerCase();
+    if (!c) return undefined;
+    return products.find((x) => (x.barcode && String(x.barcode).toLowerCase() === c) || (x.sku && String(x.sku).toLowerCase() === c));
+  };
+
+  const onBarcode = (i: number, code: string) => {
+    const p = findByCode(code);
+    if (p) fillFromProduct(i, p);
+    else updateLine(i, { barcode: code });
+  };
+
   const pickItem = (i: number, name: string) => {
-    const p = products.find((x) => x.name.toLowerCase() === name.toLowerCase() || (x.barcode && x.barcode === name) || (x.sku && x.sku === name));
-    if (p) {
-      updateLine(i, {
-        product_id: p.id, item_name: p.name, barcode: p.barcode || p.sku || "", unit: p.unit || "pcs",
-        rate: Number(isSale ? p.unit_price : p.cost_price || p.unit_price) || 0,
-        gst_rate: Number(p.gst_rate ?? 18), quantity: lines[i]?.quantity || 1,
-      });
-    } else updateLine(i, { product_id: null, item_name: name });
+    const p = products.find((x) => x.name.toLowerCase() === name.toLowerCase()) ?? findByCode(name);
+    if (p) fillFromProduct(i, p);
+    else updateLine(i, { product_id: null, item_name: name });
+  };
+
+  const tbodyRef = useRef<HTMLTableSectionElement>(null);
+  const onGridKeyDown = (e: React.KeyboardEvent<HTMLTableSectionElement>) => {
+    if (e.key !== "Enter") return;
+    const target = e.target as HTMLInputElement;
+    if (target.tagName !== "INPUT") return;
+    e.preventDefault();
+    const row = Number(target.dataset.row);
+    if (target.dataset.col === "barcode") onBarcode(row, target.value);
+    // wait for re-render (new row may be appended) then focus next field
+    setTimeout(() => {
+      const inputs = Array.from(tbodyRef.current?.querySelectorAll<HTMLInputElement>("input") ?? []);
+      const idx = inputs.findIndex((el) => el.dataset.row === String(row) && el.dataset.col === target.dataset.col);
+      const next = inputs[idx + 1];
+      if (next) { next.focus(); next.select(); }
+    }, 0);
   };
 
   const pickParty = (name: string) => {
