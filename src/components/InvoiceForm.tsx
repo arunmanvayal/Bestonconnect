@@ -203,31 +203,31 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
                 <thead className="bg-primary text-primary-foreground">
                   <tr>{cols.map((c) => <th key={c} className="px-2 py-2 text-left font-medium">{c}</th>)}</tr>
                 </thead>
-                <tbody>
+                <tbody ref={tbodyRef} onKeyDown={onGridKeyDown}>
                   {lines.map((l, i) => {
                     const c = lineCalc(l);
                     const stock = products.find((p) => p.id === l.product_id);
                     return (
                       <tr key={i} onClick={() => setSelected(i)} className={`border-b border-border ${selected === i ? "bg-primary/10" : ""}`}>
                         <td className="w-8 px-2 text-muted-foreground">{i + 1}</td>
-                        <td className="w-28"><Input className={cellInput} value={l.barcode} onChange={(e) => updateLine(i, { barcode: e.target.value })} onBlur={(e) => e.target.value && pickItem(i, e.target.value)} /></td>
+                        <td className="w-28"><Input className={cellInput} data-row={i} data-col="barcode" value={l.barcode} onChange={(e) => onBarcode(i, e.target.value)} placeholder="Scan / type" /></td>
                         <td className="min-w-48">
-                          <Input className={cellInput} list="product-list" placeholder="Type or pick item" value={l.item_name} onChange={(e) => pickItem(i, e.target.value)} />
+                          <Input className={cellInput} data-row={i} data-col="item" list="product-list" placeholder="Type or pick item" value={l.item_name} onChange={(e) => pickItem(i, e.target.value)} />
                         </td>
-                        <td className="w-16"><Input className={cellInput} value={l.unit} onChange={(e) => updateLine(i, { unit: e.target.value })} /></td>
+                        <td className="w-16"><Input className={cellInput} data-row={i} data-col="unit" value={l.unit} onChange={(e) => updateLine(i, { unit: e.target.value })} /></td>
                         {isSale && <td className={`w-16 px-2 ${stock && Number(stock.quantity) < l.quantity ? "text-destructive" : "text-muted-foreground"}`}>{stock ? Number(stock.quantity) : "—"}</td>}
-                        <td className="w-20"><Input className={cellInput} type="number" value={l.quantity || ""} onChange={(e) => updateLine(i, { quantity: num(e.target.value) })} /></td>
-                        {!isSale && <td className="w-20"><Input className={cellInput} type="number" value={l.free_qty || ""} onChange={(e) => updateLine(i, { free_qty: num(e.target.value) })} /></td>}
-                        <td className="w-24"><Input className={cellInput} type="number" value={l.rate || ""} onChange={(e) => updateLine(i, { rate: num(e.target.value) })} /></td>
+                        <td className="w-20"><Input className={cellInput} data-row={i} data-col="qty" type="number" value={l.quantity || ""} onChange={(e) => updateLine(i, { quantity: num(e.target.value) })} /></td>
+                        {!isSale && <td className="w-20"><Input className={cellInput} data-row={i} data-col="free" type="number" value={l.free_qty || ""} onChange={(e) => updateLine(i, { free_qty: num(e.target.value) })} /></td>}
+                        <td className="w-24"><Input className={cellInput} data-row={i} data-col="rate" type="number" value={l.rate || ""} onChange={(e) => updateLine(i, { rate: num(e.target.value) })} /></td>
                         {isSale ? (
-                          <td className="w-20"><Input className={cellInput} type="number" value={l.discount || ""} onChange={(e) => updateLine(i, { discount: num(e.target.value) })} /></td>
+                          <td className="w-20"><Input className={cellInput} data-row={i} data-col="disc" type="number" value={l.discount || ""} onChange={(e) => updateLine(i, { discount: num(e.target.value) })} /></td>
                         ) : (
                           <>
-                            <td className="w-20"><Input className={cellInput} type="number" value={l.profit_pct || ""} onChange={(e) => updateLine(i, { profit_pct: num(e.target.value) })} /></td>
+                            <td className="w-20"><Input className={cellInput} data-row={i} data-col="profit" type="number" value={l.profit_pct || ""} onChange={(e) => updateLine(i, { profit_pct: num(e.target.value) })} /></td>
                             <td className="w-24 px-2 text-muted-foreground">{l.profit_pct ? (l.rate * (1 + l.profit_pct / 100)).toFixed(2) : "—"}</td>
                           </>
                         )}
-                        <td className="w-16"><Input className={cellInput} type="number" value={l.gst_rate} onChange={(e) => updateLine(i, { gst_rate: num(e.target.value) })} /></td>
+                        <td className="w-16"><Input className={cellInput} data-row={i} data-col="gst" type="number" value={l.gst_rate} onChange={(e) => updateLine(i, { gst_rate: num(e.target.value) })} /></td>
                         <td className="w-28 px-2 text-right font-medium">{c.amount ? c.amount.toFixed(2) : ""}</td>
                       </tr>
                     );
