@@ -103,12 +103,12 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
     const target = e.target as HTMLInputElement;
     if (target.tagName !== "INPUT") return;
     e.preventDefault();
-    const row = Number(target.dataset.row);
-    if (target.dataset.col === "barcode") onBarcode(row, target.value);
+    const row = Number(target.dataset['row']);
+    if (target.dataset['col'] === "barcode") onBarcode(row, target.value);
     // wait for re-render (new row may be appended) then focus next field
     setTimeout(() => {
       const inputs = Array.from(tbodyRef.current?.querySelectorAll<HTMLInputElement>("input") ?? []);
-      const idx = inputs.findIndex((el) => el.dataset.row === String(row) && el.dataset.col === target.dataset.col);
+      const idx = inputs.findIndex((el) => el.dataset['row'] === String(row) && el.dataset['col'] === target.dataset['col']);
       const next = inputs[idx + 1];
       if (next) { next.focus(); next.select(); }
     }, 0);
