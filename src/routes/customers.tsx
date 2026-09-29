@@ -196,15 +196,20 @@ function CustomerDetail({ c }: { c: any }) {
   const { data, isLoading } = useQuery({
     queryKey: ["customer-detail", c.id],
     queryFn: async () => {
-      const [inv, pay] = await Promise.all([
+      const nm = c.name.replace(/"/g, "");
+      const [inv, pay, ret] = await Promise.all([
         sb.from("invoices").select("*").or(`party_id.eq.${c.id},party_name.eq."${c.name.replace(/"/g, "")}"`).order("bill_date", { ascending: false }),
         sb.from("payments").select("*").or(`party_id.eq.${c.id},party_name.eq."${c.name.replace(/"/g, "")}"`).order("pay_date", { ascending: false }),
+        sb.from("sales_returns").select("*").or(`party_id.eq.${c.id},party_name.eq."${nm}"`),
       ]);
-      return { invoices: (inv.data ?? []) as any[], payments: (pay.data ?? []) as any[] };
+      return { invoices: (inv.data ?? []) as any[], payments: (pay.data ?? []) as any[], returns: (ret.data ?? []) as any[] };
     },
   });
   const invoices = data?.invoices ?? [];
   const payments = data?.payments ?? [];
+  const returns = data?.returns ?? [];
+  const returnedAll = returns.reduce((a, r) => a + Number(r.amount), 0);
+  const returnedCredit = returns.filter((r) => r.refund_mode === "credit").reduce((a, r) => a + Number(r.amount), 0);
   const sales = invoices.filter((i) => i.kind === "sale").reduce((a, i) => a + Number(i.net_total), 0);
   const purchases = invoices.filter((i) => i.kind === "purchase").reduce((a, i) => a + Number(i.net_total), 0);
   const creditSale = invoices.filter((i) => i.kind === "sale" && i.payment_mode === "credit").reduce((a, i) => a + Number(i.net_total), 0);
@@ -214,6 +219,7 @@ function CustomerDetail({ c }: { c: any }) {
   const tx = [
     ...invoices.map((i) => ({ id: "i" + i.id, date: i.bill_date, type: i.kind === "sale" ? "Sale" : "Purchase", ref: i.bill_no, mode: i.payment_mode, amount: Number(i.net_total) })),
     ...payments.map((p) => ({ id: "p" + p.id, date: p.pay_date, type: p.kind === "receipt" ? "Receipt" : "Payment", ref: p.voucher_no, mode: p.mode, amount: Number(p.amount) })),
+    ...returns.map((r) => ({ id: "r" + r.id, date: r.return_date, type: "Sales return", ref: r.return_no, mode: r.refund_mode === "credit" ? "balance" : r.refund_mode, amount: -Number(r.amount) })),
   ].sort((a, b) => String(b.date).localeCompare(String(a.date)));
   const stat = (label: string, v: number) => (
     <div className="min-w-0 rounded-xl border border-border/70 bg-muted/40 p-3"><p className="text-xs text-muted-foreground">{label}</p><p className="truncate font-display text-base font-bold tabular-nums sm:text-lg">{money(v)}</p></div>
@@ -227,8 +233,8 @@ function CustomerDetail({ c }: { c: any }) {
         ))}
       </div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-        {stat("Total sales", sales)}{stat("Received", received)}{stat("Owes you", Math.max(0, creditSale - received))}
-        {stat("Total purchases", purchases)}{stat("Paid", paid)}{stat("You owe", Math.max(0, creditPurch - paid))}
+        {stat("Total sales", sales)}{stat("Received", received)}{stat("Owes you", Math.max(0, creditSale - returnedCredit - received))}
+        {stat("Total purchases", purchases)}{stat("Paid", paid)}{stat("You owe", Math.max(0, creditPurch - paid))}{stat("Returns", returnedAll)}
       </div>
       <div>
         <h3 className="mb-2 font-semibold">Transactions</h3>
