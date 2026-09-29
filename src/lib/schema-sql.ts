@@ -142,4 +142,37 @@ create table if not exists payments (
   created_at timestamptz default now()
 );
 alter table payments disable row level security;
+
+-- ===== Sales returns =====
+create table if not exists sales_returns (
+  id uuid primary key default gen_random_uuid(),
+  return_no text not null,
+  return_date date not null default current_date,
+  invoice_id uuid references invoices(id) on delete set null,
+  bill_no text default '',
+  party_id uuid references customers(id) on delete set null,
+  party_name text default '',
+  refund_mode text default 'credit',
+  taxable numeric default 0,
+  total_tax numeric default 0,
+  amount numeric default 0,
+  reason text default '',
+  journal_entry_id uuid references journal_entries(id) on delete set null,
+  created_at timestamptz default now()
+);
+create table if not exists sales_return_items (
+  id uuid primary key default gen_random_uuid(),
+  return_id uuid references sales_returns(id) on delete cascade not null,
+  invoice_item_id uuid references invoice_items(id) on delete set null,
+  product_id uuid references products(id) on delete set null,
+  item_name text default '',
+  quantity numeric default 0,
+  rate numeric default 0,
+  gst_rate numeric default 0,
+  taxable numeric default 0,
+  tax numeric default 0,
+  amount numeric default 0
+);
+alter table sales_returns disable row level security;
+alter table sales_return_items disable row level security;
 `;

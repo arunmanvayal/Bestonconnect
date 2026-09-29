@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, ArrowDownToLine, ArrowUpFromLine } from "lucide-react";
+import { Plus, Trash2, ArrowDownToLine, ArrowUpFromLine, SlidersHorizontal } from "lucide-react";
+import { toast } from "sonner";
+import { adjustStock } from "@/lib/books";
 import { AppLayout } from "@/components/AppLayout";
 import { SupabaseGate, money } from "@/components/SupabaseGate";
 import { useSupabase } from "@/lib/supabase";
@@ -52,6 +54,9 @@ function StockInner() {
   const [moveQty, setMoveQty] = useState("1");
   const [moveNote, setMoveNote] = useState("");
   const [form, setForm] = useState(EMPTY_PRODUCT);
+  const [adj, setAdj] = useState<any | null>(null);
+  const [adjForm, setAdjForm] = useState({ quantity: "", cost_price: "", unit_price: "", reason: "" });
+  const openAdjust = (p: any) => { setAdj(p); setAdjForm({ quantity: String(Number(p.quantity)), cost_price: String(Number(p.cost_price ?? 0)), unit_price: String(Number(p.unit_price)), reason: "" }); };
 
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["products"],
@@ -174,7 +179,7 @@ function StockInner() {
                 <TableHead className="text-right">Unit Price</TableHead>
                 <TableHead className="text-right">Stock Value</TableHead>
                 <TableHead>Status</TableHead>
-                <TableHead className="w-28" />
+                <TableHead className="w-36" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -207,7 +212,10 @@ function StockInner() {
                           <Button variant="ghost" size="icon" title="Stock out" onClick={() => { setMoveProduct(p); setMoveType("out"); }}>
                             <ArrowUpFromLine className="h-4 w-4 text-amber-600" />
                           </Button>
-                          <Button variant="ghost" size="icon" onClick={() => removeProduct.mutate(p.id)}>
+                          <Button variant="ghost" size="icon" title="Adjust stock / price" onClick={() => openAdjust(p)}>
+                            <SlidersHorizontal className="h-4 w-4 text-primary" />
+                          </Button>
+                          <Button variant="ghost" size="icon" onClick={() => { if (confirm(`Delete ${p.name}?`)) removeProduct.mutate(p.id); }}>
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </div>
@@ -220,6 +228,31 @@ function StockInner() {
           </Table>
         </CardContent>
       </Card>
+
+      <Dialog open={!!adj} onOpenChange={(o) => !o && setAdj(null)}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Adjust — {adj?.name}</DialogTitle></DialogHeader>
+          <form className="space-y-4" onSubmit={async (e) => {
+            e.preventDefault();
+            try {
+              await adjustStock(supabase, adj, { quantity: Number(adjForm.quantity) || 0, cost_price: Number(adjForm.cost_price) || 0, unit_price: Number(adjForm.unit_price) || 0, reason: adjForm.reason });
+              toast.success("Stock adjusted"); qc.invalidateQueries(); setAdj(null);
+            } catch (err: any) { toast.error(err.message ?? "Could not adjust"); }
+          }}>
+            <p className="text-sm text-muted-foreground">Current stock: {Number(adj?.quantity ?? 0)} {adj?.unit}. Enter the correct counted quantity and prices.</p>
+            <div className="grid grid-cols-3 gap-3">
+              <div className="space-y-2"><Label>New qty</Label><Input type="number" step="0.01" required value={adjForm.quantity} onChange={(e) => setAdjForm({ ...adjForm, quantity: e.target.value })} /></div>
+              <div className="space-y-2"><Label>Cost price</Label><Input type="number" step="0.01" value={adjForm.cost_price} onChange={(e) => setAdjForm({ ...adjForm, cost_price: e.target.value })} /></div>
+              <div className="space-y-2"><Label>Sale price</Label><Input type="number" step="0.01" value={adjForm.unit_price} onChange={(e) => setAdjForm({ ...adjForm, unit_price: e.target.value })} /></div>
+            </div>
+            {adj && Number(adjForm.quantity) !== Number(adj.quantity) && (
+              <p className="text-sm font-medium">Change: {Number(adjForm.quantity) - Number(adj.quantity) > 0 ? "+" : ""}{(Number(adjForm.quantity) - Number(adj.quantity)).toFixed(2)} {adj.unit}</p>
+            )}
+            <div className="space-y-2"><Label>Reason</Label><Input placeholder="Stock count, damage, expiry, restock…" value={adjForm.reason} onChange={(e) => setAdjForm({ ...adjForm, reason: e.target.value })} /></div>
+            <Button type="submit" className="w-full">Save Adjustment</Button>
+          </form>
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!moveProduct} onOpenChange={(o) => !o && setMoveProduct(null)}>
         <DialogContent>

@@ -12,8 +12,7 @@ import {
   Menu,
   X,
   Bell,
-  Search,
-} from "lucide-react";
+  Search, Undo2, BarChart3 } from "lucide-react";
 import { useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 
@@ -21,11 +20,13 @@ const NAV = [
   { to: "/", label: "Dashboard", icon: LayoutDashboard },
   { to: "/sales", label: "Sales", icon: ShoppingCart },
   { to: "/purchase", label: "Purchase", icon: Truck },
+  { to: "/returns", label: "Sales Returns", icon: Undo2 },
   { to: "/customers", label: "Customers", icon: Users },
   { to: "/accounts", label: "Accounts", icon: Wallet },
   { to: "/payments", label: "Receipts & Payments", icon: HandCoins },
   { to: "/ledger", label: "Ledger", icon: BookOpen },
   { to: "/stock", label: "Stock", icon: Package },
+  { to: "/reports", label: "Reports", icon: BarChart3 },
   { to: "/setup", label: "Setup", icon: Settings2 },
 ] as const;
 
