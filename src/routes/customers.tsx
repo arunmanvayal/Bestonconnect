@@ -183,7 +183,7 @@ function CustomersInner() {
       </Card>
 
       <Dialog open={!!sel} onOpenChange={(o) => !o && setSel(null)}>
-        <DialogContent className="max-h-[90vh] w-[calc(100vw-1.5rem)] max-w-3xl overflow-x-hidden overflow-y-auto">
+        <DialogContent className="max-h-[90vh] grid-cols-[minmax(0,1fr)] w-[calc(100vw-1.5rem)] max-w-3xl overflow-x-hidden overflow-y-auto">
           {sel && <CustomerDetail c={sel} />}
         </DialogContent>
       </Dialog>
@@ -219,7 +219,7 @@ function CustomerDetail({ c }: { c: any }) {
     <div className="min-w-0 rounded-xl border border-border/70 bg-muted/40 p-3"><p className="text-xs text-muted-foreground">{label}</p><p className="truncate font-display text-base font-bold tabular-nums sm:text-lg">{money(v)}</p></div>
   );
   return (
-    <div className="space-y-5">
+    <div className="min-w-0 space-y-5">
       <DialogHeader><DialogTitle>{c.name}</DialogTitle></DialogHeader>
       <div className="grid gap-2 text-sm sm:grid-cols-2">
         {[["Company", c.company], ["Phone", c.phone], ["Email", c.email], ["Type", c.party_type ?? "customer"], ["Address", c.address], ["Notes", c.notes]].map(([k, v]) => (
