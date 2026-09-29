@@ -196,7 +196,7 @@ export async function fetchBalances(sb: SupabaseClient) {
 }
 
 export const INVOICE_QUERY_KEYS = [
-  ["invoices"], ["products"], ["accounts"], ["balances"], ["dashboard"], ["journal"], ["journal_entries"], ["customers"], ["ledger"], ["payments"], ["outstanding"],
+  ["invoices"], ["products"], ["accounts"], ["balances"], ["dashboard"], ["journal"], ["journal_entries"], ["customers"], ["ledger"], ["payments"], ["outstanding"], ["returns"], ["reports"],
 ];
 
 export type PayKind = "receipt" | "payment";
@@ -231,9 +231,10 @@ export async function postPayment(sb: SupabaseClient, p: {
 
 /** Outstanding per party: credit bills minus receipts/payments. */
 export async function fetchOutstanding(sb: SupabaseClient) {
-  const [{ data: inv }, { data: pays }] = await Promise.all([
+  const [{ data: inv }, { data: pays }, { data: rets }] = await Promise.all([
     sb.from("invoices").select("kind, party_id, party_name, net_total, payment_mode, bill_no, bill_date"),
     sb.from("payments").select("*").order("pay_date", { ascending: false }),
+    sb.from("sales_returns").select("party_id, party_name, amount, refund_mode"),
   ]);
   const map = new Map<string, { key: string; party_id: string | null; party_name: string; side: "customer" | "supplier"; billed: number; settled: number; balance: number }>();
   const key = (side: string, id: string | null, name: string) => `${side}:${id ?? name.toLowerCase()}`;
@@ -250,6 +251,94 @@ export async function fetchOutstanding(sb: SupabaseClient) {
     const r = map.get(k) ?? { key: k, party_id: p.party_id, party_name: p.party_name, side, billed: 0, settled: 0, balance: 0 };
     r.settled += Number(p.amount); map.set(k, r);
   }
-  const rows = [...map.values()].map((r) => ({ ...r, balance: r2(r.billed - r.settled) }));
+  for (const rt of rets ?? []) {
+    if (rt.refund_mode !== "credit" || !rt.party_name) continue;
+    const k = key("customer", rt.party_id, rt.party_name);
+    const r = map.get(k) ?? { key: k, party_id: rt.party_id, party_name: rt.party_name, side: "customer" as const, billed: 0, settled: 0, balance: 0 };
+    r.billed -= Number(rt.amount); map.set(k, r);
+  }
+  const rows = [...map.values()].map((r) => ({ ...r, billed: r2(r.billed), balance: r2(r.billed - r.settled) }));
   return { rows, payments: pays ?? [], invoices: (inv ?? []).filter((i) => i.payment_mode === "credit") };
+}
+
+export type ReturnLine = { invoice_item_id: string; product_id: string | null; item_name: string; sold: number; returned: number; qty: number; rate: number; gst_rate: number; unitTaxable: number; unitTax: number };
+
+/** Loads a sale invoice's items with already-returned quantities. */
+export async function loadReturnable(sb: SupabaseClient, invoiceId: string): Promise<ReturnLine[]> {
+  const [{ data: items, error }, { data: prev }] = await Promise.all([
+    sb.from("invoice_items").select("*").eq("invoice_id", invoiceId),
+    sb.from("sales_return_items").select("invoice_item_id, quantity, sales_returns!inner(invoice_id)").eq("sales_returns.invoice_id", invoiceId),
+  ]);
+  if (error) throw error;
+  return (items ?? []).map((it: any) => {
+    const sold = Number(it.quantity);
+    const returned = (prev ?? []).filter((p: any) => p.invoice_item_id === it.id).reduce((a: number, p: any) => a + Number(p.quantity), 0);
+    return {
+      invoice_item_id: it.id, product_id: it.product_id, item_name: it.item_name, sold, returned, qty: 0,
+      rate: Number(it.rate), gst_rate: Number(it.gst_rate),
+      unitTaxable: sold ? Number(it.taxable) / sold : 0, unitTax: sold ? Number(it.tax) / sold : 0,
+    };
+  });
+}
+
+/** Posts a partial/full sales return: restocks items, reverses ledger, reduces customer balance. */
+export async function postSalesReturn(sb: SupabaseClient, r: {
+  invoice: any; return_no: string; return_date: string; refund_mode: string; reason: string; lines: ReturnLine[];
+}) {
+  const lines = r.lines.filter((l) => l.qty > 0);
+  if (lines.length === 0) throw new Error("Enter a return quantity for at least one item");
+  for (const l of lines) if (l.qty > l.sold - l.returned) throw new Error(`Only ${l.sold - l.returned} of ${l.item_name} can be returned`);
+  const taxable = r2(lines.reduce((a, l) => a + l.unitTaxable * l.qty, 0));
+  const tax = r2(lines.reduce((a, l) => a + l.unitTax * l.qty, 0));
+  const amount = r2(taxable + tax);
+  const retAcc = await ensureAccount(sb, "4010", "Sales Returns", "income");
+  const taxAcc = await ensureAccount(sb, "2100", "GST Output", "liability");
+  const payAcc = r.refund_mode === "credit"
+    ? await ensureAccount(sb, "1100", "Accounts Receivable", "asset")
+    : r.refund_mode === "bank" ? await ensureAccount(sb, "1010", "Bank", "asset") : await ensureAccount(sb, "1000", "Cash", "asset");
+  const { data: je, error } = await sb.from("journal_entries").insert({
+    entry_date: r.return_date, reference: r.return_no,
+    description: `Sales return ${r.return_no} against ${r.invoice.bill_no}${r.invoice.party_name ? " — " + r.invoice.party_name : ""}`,
+  }).select("id").single();
+  if (error) throw error;
+  const jl = [
+    { entry_id: je.id, account_id: retAcc, debit: taxable, credit: 0 },
+    { entry_id: je.id, account_id: taxAcc, debit: tax, credit: 0 },
+    { entry_id: je.id, account_id: payAcc, debit: 0, credit: amount },
+  ].filter((l) => l.debit || l.credit);
+  const { error: e2 } = await sb.from("journal_lines").insert(jl);
+  if (e2) throw e2;
+  const { data: ret, error: e3 } = await sb.from("sales_returns").insert({
+    return_no: r.return_no, return_date: r.return_date, invoice_id: r.invoice.id, bill_no: r.invoice.bill_no,
+    party_id: r.invoice.party_id, party_name: r.invoice.party_name, refund_mode: r.refund_mode,
+    taxable, total_tax: tax, amount, reason: r.reason, journal_entry_id: je.id,
+  }).select("id").single();
+  if (e3) throw e3;
+  for (const l of lines) {
+    await sb.from("sales_return_items").insert({
+      return_id: ret.id, invoice_item_id: l.invoice_item_id, product_id: l.product_id, item_name: l.item_name,
+      quantity: l.qty, rate: l.rate, gst_rate: l.gst_rate,
+      taxable: r2(l.unitTaxable * l.qty), tax: r2(l.unitTax * l.qty), amount: r2((l.unitTaxable + l.unitTax) * l.qty),
+    });
+    if (l.product_id) {
+      await sb.from("stock_movements").insert({ product_id: l.product_id, type: "in", quantity: l.qty, note: `Sales return ${r.return_no}` });
+      const { data: cur } = await sb.from("products").select("quantity").eq("id", l.product_id).single();
+      await sb.from("products").update({ quantity: Number(cur?.quantity ?? 0) + l.qty }).eq("id", l.product_id);
+    }
+  }
+  return amount;
+}
+
+/** Sets a product's stock quantity and prices, recording the difference as an adjustment. */
+export async function adjustStock(sb: SupabaseClient, p: any, a: { quantity: number; cost_price: number; unit_price: number; reason: string }) {
+  const diff = r2(a.quantity - Number(p.quantity));
+  if (diff !== 0) {
+    const { error } = await sb.from("stock_movements").insert({
+      product_id: p.id, type: "adjustment", quantity: Math.abs(diff),
+      note: `Adjustment ${diff > 0 ? "+" : "-"}${Math.abs(diff)}${a.reason ? " — " + a.reason : ""}`,
+    });
+    if (error) throw error;
+  }
+  const { error } = await sb.from("products").update({ quantity: a.quantity, cost_price: a.cost_price, unit_price: a.unit_price }).eq("id", p.id);
+  if (error) throw error;
 }
