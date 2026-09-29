@@ -183,7 +183,7 @@ function CustomersInner() {
       </Card>
 
       <Dialog open={!!sel} onOpenChange={(o) => !o && setSel(null)}>
-        <DialogContent className="max-h-[90vh] max-w-3xl overflow-y-auto">
+        <DialogContent className="max-h-[90vh] w-[calc(100vw-1.5rem)] max-w-3xl overflow-x-hidden overflow-y-auto">
           {sel && <CustomerDetail c={sel} />}
         </DialogContent>
       </Dialog>
@@ -216,7 +216,7 @@ function CustomerDetail({ c }: { c: any }) {
     ...payments.map((p) => ({ id: "p" + p.id, date: p.pay_date, type: p.kind === "receipt" ? "Receipt" : "Payment", ref: p.voucher_no, mode: p.mode, amount: Number(p.amount) })),
   ].sort((a, b) => String(b.date).localeCompare(String(a.date)));
   const stat = (label: string, v: number) => (
-    <div className="rounded-xl border border-border/70 bg-muted/40 p-3"><p className="text-xs text-muted-foreground">{label}</p><p className="font-display text-lg font-bold tabular-nums">{money(v)}</p></div>
+    <div className="min-w-0 rounded-xl border border-border/70 bg-muted/40 p-3"><p className="text-xs text-muted-foreground">{label}</p><p className="truncate font-display text-base font-bold tabular-nums sm:text-lg">{money(v)}</p></div>
   );
   return (
     <div className="space-y-5">
