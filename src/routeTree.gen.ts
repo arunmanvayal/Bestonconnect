@@ -15,6 +15,7 @@ import { Route as CustomersRouteImport } from './routes/customers'
 import { Route as LedgerRouteImport } from './routes/ledger'
 import { Route as PaymentsRouteImport } from './routes/payments'
 import { Route as PurchaseRouteImport } from './routes/purchase'
+import { Route as ReportsRouteImport } from './routes/reports'
 import { Route as ReturnsRouteImport } from './routes/returns'
 import { Route as SalesRouteImport } from './routes/sales'
 import { Route as SetupRouteImport } from './routes/setup'
@@ -50,6 +51,11 @@ const PurchaseRoute = PurchaseRouteImport.update({
   path: '/purchase',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ReportsRoute = ReportsRouteImport.update({
+  id: '/reports',
+  path: '/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ReturnsRoute = ReturnsRouteImport.update({
   id: '/returns',
   path: '/returns',
@@ -78,6 +84,7 @@ export interface FileRoutesByFullPath {
   '/ledger': typeof LedgerRoute
   '/payments': typeof PaymentsRoute
   '/purchase': typeof PurchaseRoute
+  '/reports': typeof ReportsRoute
   '/returns': typeof ReturnsRoute
   '/sales': typeof SalesRoute
   '/setup': typeof SetupRoute
@@ -90,6 +97,7 @@ export interface FileRoutesByTo {
   '/ledger': typeof LedgerRoute
   '/payments': typeof PaymentsRoute
   '/purchase': typeof PurchaseRoute
+  '/reports': typeof ReportsRoute
   '/returns': typeof ReturnsRoute
   '/sales': typeof SalesRoute
   '/setup': typeof SetupRoute
@@ -103,6 +111,7 @@ export interface FileRoutesById {
   '/ledger': typeof LedgerRoute
   '/payments': typeof PaymentsRoute
   '/purchase': typeof PurchaseRoute
+  '/reports': typeof ReportsRoute
   '/returns': typeof ReturnsRoute
   '/sales': typeof SalesRoute
   '/setup': typeof SetupRoute
@@ -117,6 +126,7 @@ export interface FileRouteTypes {
     | '/ledger'
     | '/payments'
     | '/purchase'
+    | '/reports'
     | '/returns'
     | '/sales'
     | '/setup'
@@ -129,6 +139,7 @@ export interface FileRouteTypes {
     | '/ledger'
     | '/payments'
     | '/purchase'
+    | '/reports'
     | '/returns'
     | '/sales'
     | '/setup'
@@ -141,6 +152,7 @@ export interface FileRouteTypes {
     | '/ledger'
     | '/payments'
     | '/purchase'
+    | '/reports'
     | '/returns'
     | '/sales'
     | '/setup'
@@ -154,6 +166,7 @@ export interface RootRouteChildren {
   LedgerRoute: typeof LedgerRoute
   PaymentsRoute: typeof PaymentsRoute
   PurchaseRoute: typeof PurchaseRoute
+  ReportsRoute: typeof ReportsRoute
   ReturnsRoute: typeof ReturnsRoute
   SalesRoute: typeof SalesRoute
   SetupRoute: typeof SetupRoute
@@ -204,6 +217,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof PurchaseRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/reports': {
+      id: '/reports'
+      path: '/reports'
+      fullPath: '/reports'
+      preLoaderRoute: typeof ReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/returns': {
       id: '/returns'
       path: '/returns'
@@ -242,6 +262,7 @@ const rootRouteChildren: RootRouteChildren = {
   LedgerRoute: LedgerRoute,
   PaymentsRoute: PaymentsRoute,
   PurchaseRoute: PurchaseRoute,
+  ReportsRoute: ReportsRoute,
   ReturnsRoute: ReturnsRoute,
   SalesRoute: SalesRoute,
   SetupRoute: SetupRoute,

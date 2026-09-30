@@ -118,7 +118,7 @@ function ReturnsInner() {
         <Card>
           <CardHeader><CardTitle className="text-base">2. Choose items to return {inv && <span className="font-mono text-muted-foreground">— {inv.bill_no}</span>}</CardTitle></CardHeader>
           <CardContent className="space-y-4">
-            {!inv ? <p className="text-sm text-muted-foreground">Pick a bill on the left.</p> : (
+            {!inv ? <p className="text-sm text-muted-foreground">Pick a sale bill to start.</p> : (
               <>
                 <div className="overflow-x-auto rounded-xl border border-border/70">
                   <table className="w-full min-w-[560px] text-sm">
