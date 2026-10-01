@@ -10,3 +10,5 @@
 <!-- LOVABLE:END -->
 
 - Use the Ocean Deep semantic token system with Sora headings and Manrope body text so every business module shares one responsive visual language.
+- Keep device-specific layout density, sidebar, invoice column widths, and shortcut assignments in the shared workspace preferences context so every module stays synchronized.
+- Publish page actions through the shared workspace command event so configurable shortcuts never depend on page-specific keyboard listeners.
