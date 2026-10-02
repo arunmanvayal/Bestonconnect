@@ -90,8 +90,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
           return iconOnly ? <Tooltip key={to}><TooltipTrigger asChild>{link}</TooltipTrigger><TooltipContent side="right">{label}</TooltipContent></Tooltip> : link;
         })}
       </nav>
-      <div className={`mx-3 mb-4 rounded-2xl border border-sidebar-border/70 bg-background/60 p-3 backdrop-blur-sm ${iconOnly ? "grid place-items-center" : ""}`}>
-        <div className="flex items-center gap-2 text-xs font-semibold text-sidebar-foreground"><span className="h-2 w-2 rounded-full bg-accent" />Database connected</div>
+      <div className={`mx-3 mb-4 rounded-2xl border border-sidebar-border/70 bg-background/60 p-3 backdrop-blur-sm ${iconOnly ? "grid place-items-center" : ""}`} title={iconOnly ? "Database connected" : undefined}>
+        <div className="flex items-center gap-2 text-xs font-semibold text-sidebar-foreground"><span className="h-2 w-2 shrink-0 rounded-full bg-accent" /><span className={iconOnly ? "sr-only" : ""}>Database connected</span></div>
         {!iconOnly && <p className="mt-1 text-[10px] leading-relaxed text-sidebar-foreground/50">Live records sync across every workspace.</p>}
       </div>
     </>
@@ -102,7 +102,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
     <div className="min-h-screen bg-background/70">
       <aside data-app-navigation className={`fixed inset-y-4 left-4 z-30 hidden flex-col overflow-hidden rounded-3xl border border-sidebar-border/70 bg-sidebar text-sidebar-foreground shadow-[0_24px_60px_-36px_color-mix(in_oklab,var(--foreground)_45%,transparent)] backdrop-blur-xl transition-[width] duration-300 lg:flex ${collapsed ? "w-20" : "w-60"}`}>
         {navigation(collapsed)}
-        <Button variant="outline" size="icon" aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} title={collapsed ? "Expand sidebar" : "Collapse sidebar"} className="absolute bottom-4 right-[-1px] rounded-r-none border-r-0" onClick={() => setCollapsed(!collapsed)}>{collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}</Button>
+        <Button variant="outline" size="icon" aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} title={collapsed ? "Expand sidebar" : "Collapse sidebar"} className="absolute right-[-1px] top-16 rounded-r-none border-r-0" onClick={() => setCollapsed(!collapsed)}>{collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}</Button>
       </aside>
 
       {menuOpen && <button aria-label="Close navigation" className="fixed inset-0 z-40 bg-foreground/20 backdrop-blur-sm lg:hidden" onClick={() => setMenuOpen(false)} />}
@@ -114,7 +114,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
       <header data-mobile-header className="sticky top-0 z-20 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-border/60 bg-background/80 px-4 py-3 backdrop-blur-xl lg:hidden">
         <Button variant="outline" size="icon" aria-label="Open navigation" className="shrink-0 rounded-full bg-card/80" onClick={() => setMenuOpen(true)}><Menu /></Button>
         <div className="min-w-0"><p className="truncate font-display text-sm font-bold">{current?.label}</p><p className="truncate text-[10px] text-muted-foreground">BusinessDesk</p></div>
-        <Button variant="outline" size="icon" aria-label="Notifications" className="shrink-0 rounded-full bg-card/80"><Bell /></Button>
+        <div className="flex shrink-0 items-center gap-1"><WorkspacePreferencesDialog /><Button variant="outline" size="icon" aria-label="Notifications" className="shrink-0 rounded-full bg-card/80"><Bell /></Button></div>
       </header>
 
       <header className={`fixed right-6 top-4 z-20 hidden h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-5 rounded-2xl border border-border/60 bg-card/80 px-5 shadow-sm backdrop-blur-xl transition-[left] duration-300 lg:grid ${collapsed ? "left-28" : "left-72"}`}>
