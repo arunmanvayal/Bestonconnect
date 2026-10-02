@@ -1,12 +1,13 @@
 import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Trash2, RefreshCw, Save, Printer, Plus, FileText } from "lucide-react";
+import { Trash2, RefreshCw, Save, Printer, Plus, FileText, Columns3 } from "lucide-react";
 import { toast } from "sonner";
 import { useSupabase } from "@/lib/supabase";
 import { money } from "@/components/SupabaseGate";
 import { type Header, type Kind, type Line, lineCalc, postInvoice, totals } from "@/lib/books";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { useWorkspaceCommands, useWorkspacePreferences } from "@/lib/workspace-preferences";
 
 const today = () => new Date().toISOString().slice(0, 10);
 const emptyLine = (): Line => ({
@@ -37,6 +38,10 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
   const [lines, setLines] = useState<Line[]>([emptyLine()]);
   const [selected, setSelected] = useState<number | null>(null);
   const isSale = kind === "sale";
+  const { shortcuts, columnWidths, setColumnWidths, resetColumnWidths } = useWorkspacePreferences();
+  const widthKey = `invoice-${kind}`;
+  const defaultWidths = isSale ? [42, 112, 210, 72, 70, 78, 92, 78, 70, 112] : [42, 112, 210, 72, 78, 78, 96, 82, 96, 70, 112];
+  const widths = columnWidths[widthKey] ?? defaultWidths;
 
   const { data: products = [] } = useQuery({
     queryKey: ["products"],
@@ -167,6 +172,33 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
     onError: (e: any) => toast.error(e.message ?? "Could not save"),
   });
 
+  const addRow = () => setLines((ls) => [...ls, emptyLine()]);
+  const removeSelected = () => {
+    if (selected === null) return;
+    setLines((ls) => ls.length > 1 ? ls.filter((_, i) => i !== selected) : [emptyLine()]);
+    setSelected(null);
+  };
+  const focusProduct = () => {
+    const row = selected ?? 0;
+    const input = tbodyRef.current?.querySelector<HTMLInputElement>(`input[data-row="${row}"][data-col="item"]`);
+    input?.focus(); input?.select();
+  };
+  useWorkspaceCommands({ save: () => save.mutate(), addRow, removeRow: removeSelected, print: () => window.print(), refresh: reset, focusProduct });
+
+  const startResize = (index: number, event: React.PointerEvent<HTMLSpanElement>) => {
+    event.preventDefault();
+    const startX = event.clientX;
+    const startWidth = widths[index] ?? defaultWidths[index] ?? 80;
+    const onMove = (move: PointerEvent) => {
+      const next = [...widths];
+      next[index] = Math.max(index === 2 ? 150 : 54, startWidth + move.clientX - startX);
+      setColumnWidths(widthKey, next);
+    };
+    const onUp = () => { window.removeEventListener("pointermove", onMove); window.removeEventListener("pointerup", onUp); };
+    window.addEventListener("pointermove", onMove);
+    window.addEventListener("pointerup", onUp);
+  };
+
   if (invError) {
     return (
       <div className="max-w-lg rounded-lg border border-destructive/40 bg-destructive/10 p-6 text-sm">
@@ -181,7 +213,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
     : ["#", "Barcode", "Item Name", "Unit", "Qty", "Free Qty", "Unit Cost", "Profit %", "Sale Price", "GST %", "Amount"];
 
   return (
-    <div className="space-y-6">
+    <div className="entry-workspace space-y-6">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
         <div className="flex min-w-0 items-center gap-3"><div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-sm"><FileText className="h-5 w-5" /></div><div className="min-w-0"><h1 className="truncate text-xl font-bold text-foreground sm:text-2xl">{isSale ? "Retail Invoice" : "Purchase Invoice"}</h1><p className="text-xs text-muted-foreground">Stock and ledger update automatically</p></div></div>
         <span className="hidden shrink-0 rounded-full bg-card px-3 py-2 text-xs font-medium text-muted-foreground shadow-sm sm:block">{new Date().toLocaleDateString("en-IN", { dateStyle: "medium" })}</span>
@@ -227,9 +259,10 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
           {/* Items grid */}
           <div className="min-w-0 border-b border-border xl:border-b-0 xl:border-r">
             <div className="overflow-x-auto">
-              <table className="w-full min-w-[820px] text-sm">
+              <table className="invoice-grid w-full table-fixed text-sm" style={{ minWidth: widths.reduce((sum, width) => sum + width, 0) }}>
+                <colgroup>{widths.map((width, index) => <col key={index} style={{ width }} />)}</colgroup>
                 <thead className="bg-primary text-primary-foreground">
-                  <tr>{cols.map((c) => <th key={c} className="px-2 py-2 text-left font-medium">{c}</th>)}</tr>
+                  <tr>{cols.map((c, index) => <th key={c} className="relative px-2 py-2 text-left font-medium"><span className="block truncate">{c}</span><span role="separator" aria-orientation="vertical" aria-label={`Resize ${c} column`} onPointerDown={(event) => startResize(index, event)} className="absolute inset-y-0 right-0 w-2 cursor-col-resize touch-none border-r border-primary-foreground/25 hover:bg-primary-foreground/15" /></th>)}</tr>
                 </thead>
                 <tbody ref={tbodyRef} onKeyDown={onGridKeyDown}>
                   {lines.map((l, i) => {
@@ -269,7 +302,8 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
               <datalist id="product-list-unused">{products.map((p) => <option key={p.id} value={p.name}>{`Stock ${Number(p.quantity)} · ₹${p.unit_price}`}</option>)}</datalist>
             </div>
             <div className="flex items-center gap-3 border-t border-border px-3 py-2">
-              <Button size="sm" variant="ghost" onClick={() => setLines((ls) => [...ls, emptyLine()])}><Plus className="mr-1 h-4 w-4" />Add row</Button>
+              <Button size="sm" variant="ghost" title={`Add row · ${shortcuts.addRow}`} onClick={addRow}><Plus className="mr-1 h-4 w-4" />Add row</Button>
+              <Button size="sm" variant="ghost" title="Reset column widths" onClick={() => resetColumnWidths(widthKey)}><Columns3 className="mr-1 h-4 w-4" />Reset columns</Button>
               <span className="ml-auto text-sm text-muted-foreground">Total Qty</span>
               <span className="rounded bg-primary px-3 py-0.5 text-sm font-semibold text-primary-foreground">{t.total_qty}</span>
             </div>
@@ -315,10 +349,10 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
 
         {/* Actions */}
         <div className="grid grid-cols-2 gap-2 border-t border-border bg-muted/40 p-3 sm:flex sm:flex-wrap sm:justify-end">
-          <Button variant="outline" disabled={selected === null} onClick={() => { if (selected !== null) { setLines((ls) => ls.length > 1 ? ls.filter((_, i) => i !== selected) : [emptyLine()]); setSelected(null); } }}><Trash2 className="mr-2 h-4 w-4" />Remove</Button>
-          <Button variant="outline" onClick={reset}><RefreshCw className="mr-2 h-4 w-4" />Refresh</Button>
-          <Button variant="outline" onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" />Print</Button>
-          <Button onClick={() => save.mutate()} disabled={save.isPending}><Save className="mr-2 h-4 w-4" />{save.isPending ? "Saving…" : "Save"}</Button>
+          <Button variant="outline" title={`Remove row · ${shortcuts.removeRow}`} disabled={selected === null} onClick={removeSelected}><Trash2 className="mr-2 h-4 w-4" />Remove</Button>
+          <Button variant="outline" title={`Refresh · ${shortcuts.refresh}`} onClick={reset}><RefreshCw className="mr-2 h-4 w-4" />Refresh</Button>
+          <Button variant="outline" title={`Print · ${shortcuts.print}`} onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" />Print</Button>
+          <Button title={`Save · ${shortcuts.save}`} onClick={() => save.mutate()} disabled={save.isPending}><Save className="mr-2 h-4 w-4" />{save.isPending ? "Saving…" : "Save"}</Button>
         </div>
       </div>
 
@@ -344,7 +378,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
           <p className="text-xs text-muted-foreground">Qty {t.total_qty} · Tax {money(t.total_tax)}</p>
           <p className="font-display text-xl font-bold tabular-nums text-foreground sm:text-2xl">{money(t.net_total)}</p>
         </div>
-        <Button className="ml-auto" onClick={() => save.mutate()} disabled={save.isPending}><Save className="mr-2 h-4 w-4" />{save.isPending ? "Saving…" : "Save"}</Button>
+        <Button className="ml-auto" title={`Save · ${shortcuts.save}`} onClick={() => save.mutate()} disabled={save.isPending}><Save className="mr-2 h-4 w-4" />{save.isPending ? "Saving…" : "Save"}</Button>
       </div>
 
       {/* Recent invoices */}

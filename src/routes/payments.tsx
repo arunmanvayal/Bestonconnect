@@ -13,6 +13,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
+import { useWorkspaceCommands, useWorkspacePreferences } from "@/lib/workspace-preferences";
 
 export const Route = createFileRoute("/payments")({
   head: () => ({
@@ -42,6 +43,7 @@ function PaymentsInner() {
   const [kind, setKind] = useState<PayKind>("receipt");
   const [form, setForm] = useState({ partyKey: "", party_name: "", amount: "", mode: "cash", pay_date: today(), reference: "", notes: "" });
   const [historyParty, setHistoryParty] = useState<string>("all");
+  const { shortcuts } = useWorkspacePreferences();
 
   const { data, isLoading } = useQuery({ queryKey: ["outstanding"], queryFn: () => fetchOutstanding(sb) });
   const { data: parties = [] } = useQuery({
@@ -77,6 +79,7 @@ function PaymentsInner() {
       setForm({ ...form, partyKey: "", amount: "", reference: "", notes: "" });
     },
   });
+  useWorkspaceCommands({ save: () => save.mutate(), refresh: () => setForm({ partyKey: "", party_name: "", amount: "", mode: "cash", pay_date: today(), reference: "", notes: "" }) });
 
   const history = (data?.payments ?? []).filter((p: any) => {
     if (historyParty === "all") return true;
@@ -88,7 +91,7 @@ function PaymentsInner() {
   const totPay = allRows.filter((r) => r.side === "supplier").reduce((s, r) => s + r.balance, 0);
 
   return (
-    <div className="space-y-6">
+    <div className="entry-workspace space-y-6">
       <div>
         <h1 className="text-2xl font-bold text-foreground">Receipts & Payments</h1>
         <p className="text-sm text-muted-foreground">Collect from customers, pay suppliers, track balances</p>
@@ -143,7 +146,7 @@ function PaymentsInner() {
             </div>
             <div className="space-y-2"><Label>Reference / Cheque no.</Label><Input value={form.reference} onChange={(e) => setForm({ ...form, reference: e.target.value })} /></div>
             <div className="space-y-2 md:col-span-2"><Label>Notes</Label><Input value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} /></div>
-            <div className="flex items-end"><Button type="submit" className="w-full" disabled={save.isPending}>{save.isPending ? "Saving…" : `Save ${kind === "receipt" ? "Receipt" : "Payment"}`}</Button></div>
+             <div className="flex items-end"><Button type="submit" title={`Save · ${shortcuts.save}`} className="w-full" disabled={save.isPending}>{save.isPending ? "Saving…" : `Save ${kind === "receipt" ? "Receipt" : "Payment"}`}</Button></div>
             {save.isError && <p className="text-sm text-destructive md:col-span-3">{(save.error as Error).message}</p>}
           </form>
         </CardContent>
