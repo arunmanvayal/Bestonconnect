@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2, ArrowDownToLine, ArrowUpFromLine, SlidersHorizontal } from "lucide-react";
 import { toast } from "sonner";
@@ -18,6 +18,7 @@ import {
 import {
   Table, TableBody, TableCell, TableHead, TableHeader, TableRow,
 } from "@/components/ui/table";
+import { useWorkspaceCommands, useWorkspacePreferences } from "@/lib/workspace-preferences";
 
 export const Route = createFileRoute("/stock")({
   head: () => ({
@@ -56,6 +57,8 @@ function StockInner() {
   const [form, setForm] = useState(EMPTY_PRODUCT);
   const [adj, setAdj] = useState<any | null>(null);
   const [adjForm, setAdjForm] = useState({ quantity: "", cost_price: "", unit_price: "", reason: "" });
+  const activeFormRef = useRef<HTMLFormElement>(null);
+  const { shortcuts } = useWorkspacePreferences();
   const openAdjust = (p: any) => { setAdj(p); setAdjForm({ quantity: String(Number(p.quantity)), cost_price: String(Number(p.cost_price ?? 0)), unit_price: String(Number(p.unit_price)), reason: "" }); };
 
   const { data: products = [], isLoading } = useQuery({
@@ -116,9 +119,10 @@ function StockInner() {
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ["products"] }),
   });
+  useWorkspaceCommands({ save: () => activeFormRef.current?.requestSubmit(), addRow: () => setAddOpen(true), refresh: () => qc.invalidateQueries({ queryKey: ["products"] }) });
 
   return (
-    <div className="space-y-6">
+    <div className="entry-workspace space-y-6">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
         <div className="min-w-0">
           <h1 className="text-2xl font-bold text-foreground">Stock</h1>
@@ -130,7 +134,7 @@ function StockInner() {
           </DialogTrigger>
           <DialogContent>
             <DialogHeader><DialogTitle>New Product</DialogTitle></DialogHeader>
-            <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); addProduct.mutate(); }}>
+            <form ref={activeFormRef} className="space-y-4" onSubmit={(e) => { e.preventDefault(); addProduct.mutate(); }}>
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label>SKU</Label>
@@ -159,7 +163,7 @@ function StockInner() {
                   <Input type="number" step="0.01" value={form.unit_price} onChange={(e) => setForm({ ...form, unit_price: e.target.value })} />
                 </div>
               </div>
-              <Button type="submit" className="w-full" disabled={addProduct.isPending}>
+              <Button type="submit" title={`Save · ${shortcuts.save}`} className="w-full" disabled={addProduct.isPending}>
                 {addProduct.isPending ? "Saving…" : "Save Product"}
               </Button>
               {addProduct.isError && <p className="text-sm text-destructive">{String(addProduct.error)}</p>}
@@ -232,7 +236,7 @@ function StockInner() {
       <Dialog open={!!adj} onOpenChange={(o) => !o && setAdj(null)}>
         <DialogContent>
           <DialogHeader><DialogTitle>Adjust — {adj?.name}</DialogTitle></DialogHeader>
-          <form className="space-y-4" onSubmit={async (e) => {
+          <form ref={activeFormRef} className="space-y-4" onSubmit={async (e) => {
             e.preventDefault();
             try {
               await adjustStock(supabase, adj, { quantity: Number(adjForm.quantity) || 0, cost_price: Number(adjForm.cost_price) || 0, unit_price: Number(adjForm.unit_price) || 0, reason: adjForm.reason });
@@ -249,7 +253,7 @@ function StockInner() {
               <p className="text-sm font-medium">Change: {Number(adjForm.quantity) - Number(adj.quantity) > 0 ? "+" : ""}{(Number(adjForm.quantity) - Number(adj.quantity)).toFixed(2)} {adj.unit}</p>
             )}
             <div className="space-y-2"><Label>Reason</Label><Input placeholder="Stock count, damage, expiry, restock…" value={adjForm.reason} onChange={(e) => setAdjForm({ ...adjForm, reason: e.target.value })} /></div>
-            <Button type="submit" className="w-full">Save Adjustment</Button>
+            <Button type="submit" title={`Save · ${shortcuts.save}`} className="w-full">Save Adjustment</Button>
           </form>
         </DialogContent>
       </Dialog>
@@ -259,7 +263,7 @@ function StockInner() {
           <DialogHeader>
             <DialogTitle>{moveType === "in" ? "Stock In" : "Stock Out"} — {moveProduct?.name}</DialogTitle>
           </DialogHeader>
-          <form className="space-y-4" onSubmit={(e) => { e.preventDefault(); recordMovement.mutate(); }}>
+          <form ref={activeFormRef} className="space-y-4" onSubmit={(e) => { e.preventDefault(); recordMovement.mutate(); }}>
             <div className="space-y-2">
               <Label>Quantity</Label>
               <Input type="number" step="0.01" min="0.01" required value={moveQty} onChange={(e) => setMoveQty(e.target.value)} />

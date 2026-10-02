@@ -10,6 +10,7 @@ import { loadReturnable, postSalesReturn, type ReturnLine } from "@/lib/books";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useWorkspaceCommands, useWorkspacePreferences } from "@/lib/workspace-preferences";
 
 export const Route = createFileRoute("/returns")({
   head: () => ({
@@ -43,6 +44,7 @@ function ReturnsInner() {
   const [date, setDate] = useState(today());
   const [mode, setMode] = useState("credit");
   const [reason, setReason] = useState("");
+  const { shortcuts } = useWorkspacePreferences();
 
   const { data: invoices = [] } = useQuery({
     queryKey: ["invoices", "sale", "all"],
@@ -78,6 +80,7 @@ function ReturnsInner() {
     },
     onError: (e: any) => toast.error(e.message ?? "Could not save return"),
   });
+  useWorkspaceCommands({ save: () => save.mutate(), refresh: () => { setInv(null); setLines([]); setReason(""); }, focusProduct: () => document.querySelector<HTMLInputElement>('input[placeholder="Bill no or customer name"]')?.focus() });
 
   if (retErr) {
     return (
@@ -89,7 +92,7 @@ function ReturnsInner() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="entry-workspace space-y-6">
       <div className="flex items-center gap-3">
         <div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-primary text-primary-foreground"><Undo2 className="h-5 w-5" /></div>
         <div><h1 className="text-xl font-bold sm:text-2xl">Sales Returns</h1><p className="text-xs text-muted-foreground">Return items partly or fully — stock and customer balance update automatically</p></div>
@@ -153,7 +156,7 @@ function ReturnsInner() {
                 </div>
                 <div className="sticky bottom-20 flex items-center gap-3 rounded-2xl border border-border/70 bg-card/95 px-4 py-3 shadow-lg backdrop-blur lg:bottom-4">
                   <div><p className="text-xs text-muted-foreground">Return total (incl. GST)</p><p className="font-display text-xl font-bold tabular-nums">{money(total)}</p></div>
-                  <Button className="ml-auto" disabled={save.isPending || total <= 0} onClick={() => save.mutate()}>{save.isPending ? "Saving…" : "Save Return"}</Button>
+                  <Button className="ml-auto" title={`Save · ${shortcuts.save}`} disabled={save.isPending || total <= 0} onClick={() => save.mutate()}>{save.isPending ? "Saving…" : "Save Return"}</Button>
                 </div>
               </>
             )}

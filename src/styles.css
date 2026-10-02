@@ -165,6 +165,15 @@
   animation: content-enter 360ms cubic-bezier(.2,.8,.2,1) both;
 }
 
+/* Shared data-entry density: one preference keeps all operational screens aligned. */
+[data-density="compact"] .entry-workspace { --entry-gap: 0.625rem; --entry-height: 2rem; --entry-pad-y: 0.35rem; }
+[data-density="standard"] .entry-workspace { --entry-gap: 1rem; --entry-height: 2.25rem; --entry-pad-y: 0.5rem; }
+[data-density="spacious"] .entry-workspace { --entry-gap: 1.35rem; --entry-height: 2.75rem; --entry-pad-y: 0.75rem; }
+.entry-workspace form[class*="grid"], .entry-workspace form[class*="space-y"], .entry-workspace div[class*="gap-3"], .entry-workspace div[class*="gap-4"] { gap: var(--entry-gap); }
+.entry-workspace input:not([type="checkbox"]):not([type="radio"]), .entry-workspace select { min-height: var(--entry-height); }
+.entry-workspace table th, .entry-workspace table td { padding-top: var(--entry-pad-y); padding-bottom: var(--entry-pad-y); }
+.invoice-grid th, .invoice-grid td { overflow: hidden; }
+
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
 }
