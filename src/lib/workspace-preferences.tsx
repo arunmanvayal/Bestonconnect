@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react";
+import { createContext, useContext, useEffect, useMemo, useState, type KeyboardEvent as ReactKeyboardEvent, type ReactNode } from "react";
 
 export type Density = "compact" | "standard" | "spacious";
 export type CommandId =
@@ -107,7 +107,7 @@ export function useWorkspacePreferences() {
   return value;
 }
 
-export function normalizeShortcut(event: KeyboardEvent | React.KeyboardEvent) {
+export function normalizeShortcut(event: KeyboardEvent | ReactKeyboardEvent) {
   const modifiers = [event.ctrlKey ? "Ctrl" : "", event.altKey ? "Alt" : "", event.shiftKey ? "Shift" : "", event.metaKey ? "Meta" : ""].filter(Boolean);
   const raw = event.key === " " ? "Space" : event.key.length === 1 ? event.key.toUpperCase() : event.key;
   if (["Control", "Alt", "Shift", "Meta"].includes(raw)) return "";
