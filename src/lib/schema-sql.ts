@@ -176,3 +176,79 @@ create table if not exists sales_return_items (
 alter table sales_returns disable row level security;
 alter table sales_return_items disable row level security;
 `;
+
+export const COMPANY_SQL = `
+-- ===== Login + separate company accounts (safe to run again) =====
+create table if not exists companies (
+  id uuid primary key default gen_random_uuid(),
+  owner_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  name text not null,
+  logo text default '',
+  tagline text default '',
+  address text default '',
+  state text default '',
+  gstin text default '',
+  phone text default '',
+  email text default '',
+  website text default '',
+  bank_name text default '',
+  account_name text default '',
+  account_no text default '',
+  ifsc text default '',
+  upi text default '',
+  terms text default '',
+  signature_label text default 'Authorised Signatory',
+  created_at timestamptz default now()
+);
+create table if not exists user_settings (
+  user_id uuid primary key default auth.uid() references auth.users(id) on delete cascade,
+  active_company_id uuid references companies(id) on delete set null
+);
+revoke all on companies, user_settings from anon;
+grant select, insert, update, delete on companies, user_settings to authenticated;
+alter table companies enable row level security;
+alter table user_settings enable row level security;
+drop policy if exists "own companies" on companies;
+create policy "own companies" on companies for all to authenticated
+  using (owner_id = auth.uid()) with check (owner_id = auth.uid());
+drop policy if exists "own settings" on user_settings;
+create policy "own settings" on user_settings for all to authenticated
+  using (user_id = auth.uid())
+  with check (user_id = auth.uid() and (active_company_id is null or exists (
+    select 1 from companies c where c.id = active_company_id and c.owner_id = auth.uid())));
+
+create or replace function public.current_company() returns uuid
+language sql stable security definer set search_path = public as $fn$
+  select s.active_company_id from user_settings s
+  join companies c on c.id = s.active_company_id and c.owner_id = auth.uid()
+  where s.user_id = auth.uid()
+$fn$;
+grant execute on function public.current_company() to authenticated;
+
+do $do$ declare t text; begin
+  foreach t in array array['customers','accounts','journal_entries','journal_lines','products','stock_movements',
+    'invoices','invoice_items','payments','sales_returns','sales_return_items'] loop
+    execute format('alter table %I add column if not exists company_id uuid default public.current_company() references companies(id) on delete cascade', t);
+    execute format('create index if not exists %I on %I(company_id)', t || '_company_idx', t);
+    execute format('revoke all on %I from anon', t);
+    execute format('grant select, insert, update, delete on %I to authenticated', t);
+    execute format('alter table %I enable row level security', t);
+    execute format('drop policy if exists "company scope" on %I', t);
+    execute format('create policy "company scope" on %I for all to authenticated using (company_id = public.current_company()) with check (company_id = public.current_company())', t);
+  end loop;
+end $do$;
+
+-- Moves records created before logins existed into the owner's first company
+create or replace function public.claim_unassigned_data(_company uuid) returns void
+language plpgsql security definer set search_path = public as $fn$
+declare t text; begin
+  if not exists (select 1 from companies where id = _company and owner_id = auth.uid()) then
+    raise exception 'Not your company';
+  end if;
+  foreach t in array array['customers','accounts','journal_entries','journal_lines','products','stock_movements',
+    'invoices','invoice_items','payments','sales_returns','sales_return_items'] loop
+    execute format('update %I set company_id = $1 where company_id is null', t) using _company;
+  end loop;
+end $fn$;
+grant execute on function public.claim_unassigned_data(uuid) to authenticated;
+`;
