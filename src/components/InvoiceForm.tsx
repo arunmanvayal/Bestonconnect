@@ -164,14 +164,22 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
       }
       return postInvoice(sb, kind, { ...h, bill_no: billNo }, lines);
     },
-    onSuccess: () => {
-      toast.success(`${isSale ? "Sales" : "Purchase"} invoice ${billNo} saved — stock and ledger updated`);
+    onSuccess: (id) => {
+      lastSavedId.current = id;
+      toast.success(`${isSale ? "Sales" : "Purchase"} invoice ${billNo} saved — stock and ledger updated`, {
+        action: { label: "Print A4", onClick: () => window.open(`/invoice/${id}?print=1`, "_blank") },
+      });
       qc.invalidateQueries();
       reset();
     },
     onError: (e: any) => toast.error(e.message ?? "Could not save"),
   });
 
+  const lastSavedId = useRef<string | null>(null);
+  const printInvoice = () => {
+    if (!lastSavedId.current) { toast.info("Save the bill first, then print it on A4"); return; }
+    window.open(`/invoice/${lastSavedId.current}?print=1`, "_blank");
+  };
   const addRow = () => setLines((ls) => [...ls, emptyLine()]);
   const removeSelected = () => {
     if (selected === null) return;
@@ -183,7 +191,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
     const input = tbodyRef.current?.querySelector<HTMLInputElement>(`input[data-row="${row}"][data-col="item"]`);
     input?.focus(); input?.select();
   };
-  useWorkspaceCommands({ save: () => save.mutate(), addRow, removeRow: removeSelected, print: () => window.print(), refresh: reset, focusProduct });
+  useWorkspaceCommands({ save: () => save.mutate(), addRow, removeRow: removeSelected, print: printInvoice, refresh: reset, focusProduct });
 
   const startResize = (index: number, event: React.PointerEvent<HTMLSpanElement>) => {
     event.preventDefault();
@@ -351,7 +359,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
         <div className="grid grid-cols-2 gap-2 border-t border-border bg-muted/40 p-3 sm:flex sm:flex-wrap sm:justify-end">
           <Button variant="outline" title={`Remove row · ${shortcuts.removeRow}`} disabled={selected === null} onClick={removeSelected}><Trash2 className="mr-2 h-4 w-4" />Remove</Button>
           <Button variant="outline" title={`Refresh · ${shortcuts.refresh}`} onClick={reset}><RefreshCw className="mr-2 h-4 w-4" />Refresh</Button>
-          <Button variant="outline" title={`Print · ${shortcuts.print}`} onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" />Print</Button>
+          <Button variant="outline" title={`Print · ${shortcuts.print}`} onClick={printInvoice}><Printer className="mr-2 h-4 w-4" />Print</Button>
           <Button title={`Save · ${shortcuts.save}`} onClick={() => save.mutate()} disabled={save.isPending}><Save className="mr-2 h-4 w-4" />{save.isPending ? "Saving…" : "Save"}</Button>
         </div>
       </div>

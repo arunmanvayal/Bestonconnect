@@ -8,7 +8,7 @@ let client: SupabaseClient | null = null;
 export function initSupabase(url: string, anonKey: string) {
   if (!client) {
     client = createClient(url, anonKey, {
-      auth: { persistSession: false, autoRefreshToken: false },
+      auth: { persistSession: true, autoRefreshToken: true, storageKey: "businessdesk.auth" },
     });
   }
   return client;
