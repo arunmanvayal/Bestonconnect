@@ -48,6 +48,7 @@ function PrintInvoice() {
 
   useEffect(() => {
     if (print && data && company) { const t = setTimeout(() => window.print(), 400); return () => clearTimeout(t); }
+    return undefined;
   }, [print, data, company]);
 
   if (isLoading || !company) return <p className="text-center text-sm text-muted-foreground">Loading invoice…</p>;
