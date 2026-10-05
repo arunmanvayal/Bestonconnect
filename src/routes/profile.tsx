@@ -72,10 +72,10 @@ function ProfilePage() {
     try { await createCompany(sb, newName.trim(), false); setNewName(""); qc.clear(); toast.success("New company created and opened"); } catch (err: any) { toast.error(err.message); }
   };
   const removeCompany = async (c: { id: string; name: string }) => {
-    if (companies.length <= 1) return toast.error("You need at least one company");
+    if (companies.length <= 1) { toast.error("You need at least one company"); return; }
     if (!window.confirm(`Delete "${c.name}" and ALL its records? This cannot be undone.`)) return;
     const { error } = await sb.from("companies").delete().eq("id", c.id);
-    if (error) return toast.error(error.message);
+    if (error) { toast.error(error.message); return; }
     qc.clear(); toast.success("Company deleted");
   };
   const signOut = async () => {
@@ -85,7 +85,7 @@ function ProfilePage() {
   };
   const onLogo = async (file?: File) => {
     if (!file) return;
-    if (!file.type.startsWith("image/")) return toast.error("Choose an image file");
+    if (!file.type.startsWith("image/")) { toast.error("Choose an image file"); return; }
     setForm((f) => ({ ...f, logo: "" }));
     const url = await logoToDataUrl(file);
     setForm((f) => ({ ...f, logo: url }));

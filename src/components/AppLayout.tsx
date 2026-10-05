@@ -12,11 +12,12 @@ import {
   Menu,
   X,
   Bell,
-  Search, Undo2, BarChart3, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+  Search, Undo2, UserCircle, BarChart3, PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { WorkspacePreferencesDialog } from "@/components/WorkspacePreferencesDialog";
+import { useActiveCompany } from "@/lib/company";
 import { emitWorkspaceCommand, normalizeShortcut, useWorkspacePreferences, type CommandId } from "@/lib/workspace-preferences";
 
 const NAV = [
@@ -30,6 +31,7 @@ const NAV = [
   { to: "/ledger", label: "Ledger", icon: BookOpen },
   { to: "/stock", label: "Stock", icon: Package },
   { to: "/reports", label: "Reports", icon: BarChart3 },
+  { to: "/profile", label: "Profile & Companies", icon: UserCircle },
   { to: "/setup", label: "Setup", icon: Settings2 },
 ] as const;
 
@@ -39,6 +41,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const { collapsed, setCollapsed, shortcuts } = useWorkspacePreferences();
 
+  const { data: company } = useActiveCompany();
+  const brand = company?.name ?? "BusinessDesk";
+  const initials = brand.slice(0, 2).toUpperCase();
   const current = NAV.find((item) => item.to === pathname) ?? NAV[0];
 
   useEffect(() => {
@@ -66,9 +71,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const navigation = (iconOnly = false) => (
     <>
       <div className={`grid items-center gap-3 px-4 py-5 ${iconOnly ? "grid-cols-1 justify-items-center" : "grid-cols-[auto_minmax(0,1fr)] lg:px-5"}`}>
-        <div className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-primary text-sm font-bold text-primary-foreground shadow-sm">BD</div>
+        <div className="grid h-10 w-10 shrink-0 place-items-center overflow-hidden rounded-xl bg-primary text-sm font-bold text-primary-foreground shadow-sm">{company?.logo ? <img src={company.logo} alt="" className="h-full w-full bg-card object-contain" /> : initials}</div>
         <div className={`min-w-0 ${iconOnly ? "hidden" : ""}`}>
-          <p className="truncate font-display text-sm font-bold text-sidebar-foreground">BusinessDesk</p>
+          <p className="truncate font-display text-sm font-bold text-sidebar-foreground">{brand}</p>
           <p className="truncate text-[11px] font-medium text-sidebar-foreground/55">CRM · Accounts · Stock</p>
         </div>
       </div>
@@ -113,13 +118,13 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
       <header data-mobile-header className="sticky top-0 z-20 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-border/60 bg-background/80 px-4 py-3 backdrop-blur-xl lg:hidden">
         <Button variant="outline" size="icon" aria-label="Open navigation" className="shrink-0 rounded-full bg-card/80" onClick={() => setMenuOpen(true)}><Menu /></Button>
-        <div className="min-w-0"><p className="truncate font-display text-sm font-bold">{current?.label}</p><p className="truncate text-[10px] text-muted-foreground">BusinessDesk</p></div>
+        <div className="min-w-0"><p className="truncate font-display text-sm font-bold">{current?.label}</p><p className="truncate text-[10px] text-muted-foreground">{brand}</p></div>
         <div className="flex shrink-0 items-center gap-1"><WorkspacePreferencesDialog /><Button variant="outline" size="icon" aria-label="Notifications" className="shrink-0 rounded-full bg-card/80"><Bell /></Button></div>
       </header>
 
       <header className={`fixed right-6 top-4 z-20 hidden h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-5 rounded-2xl border border-border/60 bg-card/80 px-5 shadow-sm backdrop-blur-xl transition-[left] duration-300 lg:grid ${collapsed ? "left-28" : "left-72"}`}>
         <div className="flex min-w-0 items-center gap-3 text-muted-foreground"><Search className="h-4 w-4 shrink-0" /><span className="truncate text-sm">Search customers, invoices, products…</span></div>
-        <div className="flex shrink-0 items-center gap-2"><WorkspacePreferencesDialog /><Button variant="ghost" size="icon" aria-label="Notifications" className="rounded-full"><Bell /></Button><div className="grid h-9 w-9 place-items-center rounded-full bg-accent/25 font-display text-xs font-bold text-accent-foreground">BD</div></div>
+        <div className="flex shrink-0 items-center gap-2"><WorkspacePreferencesDialog /><Button variant="ghost" size="icon" aria-label="Notifications" className="rounded-full"><Bell /></Button><Link to="/profile" title="Profile & Companies" className="grid h-9 w-9 place-items-center rounded-full bg-accent/25 font-display text-xs font-bold text-accent-foreground">{initials}</Link></div>
       </header>
 
       <main data-app-main className={`min-w-0 px-4 pb-24 pt-5 transition-[margin] duration-300 sm:px-6 lg:px-6 lg:pb-10 lg:pt-24 ${collapsed ? "lg:ml-24" : "lg:ml-68"}`}>
