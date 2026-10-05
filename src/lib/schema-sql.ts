@@ -252,3 +252,47 @@ declare t text; begin
 end $fn$;
 grant execute on function public.claim_unassigned_data(uuid) to authenticated;
 `;
+
+export const USERNAME_SQL = `
+-- ===== Username login (safe to run again) =====
+create extension if not exists pgcrypto with schema extensions;
+create table if not exists profiles (
+  user_id uuid primary key references auth.users(id) on delete cascade,
+  username text not null,
+  created_at timestamptz default now()
+);
+create unique index if not exists profiles_username_key on profiles (lower(username));
+revoke all on profiles from anon;
+grant select, insert, update on profiles to authenticated;
+alter table profiles enable row level security;
+drop policy if exists "own profile" on profiles;
+create policy "own profile" on profiles for all to authenticated
+  using (user_id = auth.uid()) with check (user_id = auth.uid());
+
+create or replace function public.handle_new_user_profile() returns trigger
+language plpgsql security definer set search_path = public as $fn$
+begin
+  if coalesce(new.raw_user_meta_data->>'username', '') <> '' then
+    insert into profiles (user_id, username) values (new.id, lower(new.raw_user_meta_data->>'username'))
+    on conflict (user_id) do nothing;
+  end if;
+  return new;
+end $fn$;
+drop trigger if exists on_auth_user_profile on auth.users;
+create trigger on_auth_user_profile after insert on auth.users
+  for each row execute function public.handle_new_user_profile();
+
+create or replace function public.username_available(_username text) returns boolean
+language sql stable security definer set search_path = public as $fn$
+  select not exists (select 1 from profiles where lower(username) = lower(trim(_username)))
+$fn$;
+
+-- Returns the login email only when the username AND password are correct
+create or replace function public.login_email(_username text, _password text) returns text
+language sql stable security definer set search_path = public, extensions, auth as $fn$
+  select u.email from profiles p join auth.users u on u.id = p.user_id
+  where lower(p.username) = lower(trim(_username))
+    and u.encrypted_password = extensions.crypt(_password, u.encrypted_password)
+$fn$;
+grant execute on function public.username_available(text), public.login_email(text, text) to anon, authenticated;
+`;

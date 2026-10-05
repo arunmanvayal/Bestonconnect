@@ -11,6 +11,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { CredentialsForm } from "@/components/CredentialsForm";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const Route = createFileRoute("/profile")({
@@ -109,6 +110,11 @@ function ProfilePage() {
         </div>
         <Button variant="outline" onClick={signOut}><LogOut className="mr-2 h-4 w-4" />Sign out</Button>
       </div>
+
+      <Card>
+        <CardHeader><CardTitle className="text-base">Login details</CardTitle></CardHeader>
+        <CardContent>{session && <CredentialsForm userId={session.user.id} requireCurrent />}</CardContent>
+      </Card>
 
       <div className="grid gap-6 lg:grid-cols-[320px_minmax(0,1fr)]">
         <Card className="h-fit">
