@@ -231,13 +231,21 @@ export async function postPayment(sb: SupabaseClient, p: {
 
 /** Outstanding per party: credit bills minus receipts/payments. */
 export async function fetchOutstanding(sb: SupabaseClient) {
-  const [{ data: inv }, { data: pays }, { data: rets }] = await Promise.all([
+  const [{ data: inv }, { data: pays }, { data: rets }, { data: parties }] = await Promise.all([
     sb.from("invoices").select("kind, party_id, party_name, net_total, payment_mode, bill_no, bill_date"),
     sb.from("payments").select("*").order("pay_date", { ascending: false }),
     sb.from("sales_returns").select("party_id, party_name, amount, refund_mode"),
+    sb.from("customers").select("*"),
   ]);
   const map = new Map<string, { key: string; party_id: string | null; party_name: string; side: "customer" | "supplier"; billed: number; settled: number; balance: number }>();
   const key = (side: string, id: string | null, name: string) => `${side}:${id ?? name.toLowerCase()}`;
+  for (const c of (parties ?? []) as any[]) {
+    const ob = Number(c.opening_balance ?? 0);
+    if (!ob) continue;
+    const side = c.party_type === "supplier" ? "supplier" : "customer";
+    const k = key(side, c.id, c.name);
+    map.set(k, { key: k, party_id: c.id, party_name: c.name, side, billed: ob, settled: 0, balance: 0 });
+  }
   for (const i of inv ?? []) {
     if (i.payment_mode !== "credit" || !i.party_name) continue;
     const side = i.kind === "sale" ? "customer" : "supplier";

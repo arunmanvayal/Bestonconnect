@@ -12,7 +12,7 @@ import {
   Menu,
   X,
   Bell,
-  Search, Undo2, UserCircle, BarChart3, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+  Search, Undo2, UserCircle, BarChart3, PanelLeftClose, PanelLeftOpen, Wrench } from "lucide-react";
 import { useEffect, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
@@ -31,6 +31,7 @@ const NAV = [
   { to: "/ledger", label: "Ledger", icon: BookOpen },
   { to: "/stock", label: "Stock", icon: Package },
   { to: "/reports", label: "Reports", icon: BarChart3 },
+  { to: "/tools", label: "Tools", icon: Wrench },
   { to: "/profile", label: "Profile & Companies", icon: UserCircle },
   { to: "/setup", label: "Setup", icon: Settings2 },
 ] as const;

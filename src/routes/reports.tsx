@@ -1,3 +1,4 @@
+import { fetchAll } from "@/lib/data-transfer";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -52,7 +53,7 @@ function ReportsInner() {
       const [inv, rets, prods, parties, balances, outstanding] = await Promise.all([
         sb.from("invoices").select("*").order("bill_date", { ascending: false }),
         sb.from("sales_returns").select("*").order("return_date", { ascending: false }),
-        sb.from("products").select("*").order("name"),
+        fetchAll(sb, "products").then((data) => ({ data, error: null })),
         sb.from("customers").select("*"),
         fetchBalances(sb),
         fetchOutstanding(sb),

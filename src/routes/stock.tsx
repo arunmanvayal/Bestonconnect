@@ -1,3 +1,4 @@
+import { fetchAll } from "@/lib/data-transfer";
 import { createFileRoute } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -64,7 +65,7 @@ function StockInner() {
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["products"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("products").select("*").order("name");
+      const data = await fetchAll(supabase, "products"); const error = null;
       if (error) throw error;
       return data;
     },
