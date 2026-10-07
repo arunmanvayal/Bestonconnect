@@ -296,3 +296,22 @@ language sql stable security definer set search_path = public, extensions, auth 
 $fn$;
 grant execute on function public.username_available(text), public.login_email(text, text) to anon, authenticated;
 `;
+
+export const IMPORT_SQL = `
+-- ===== Excel import/export fields (safe to run again) =====
+alter table customers add column if not exists code text default '';
+alter table customers add column if not exists area text default '';
+alter table customers add column if not exists contact_no text default '';
+alter table customers add column if not exists discount numeric default 0;
+alter table customers add column if not exists opening_balance numeric default 0;
+alter table products add column if not exists hsn text default '';
+alter table products add column if not exists category text default '';
+alter table products add column if not exists manufacturer text default '';
+alter table products add column if not exists rack text default '';
+alter table products add column if not exists alt_unit text default '';
+alter table products add column if not exists conv_factor numeric default 1;
+alter table products add column if not exists mrp numeric default 0;
+alter table products add column if not exists purchase_tax_incl boolean default false;
+alter table products add column if not exists sale_tax_incl boolean default false;
+alter table products add column if not exists expiry_date text default '';
+`;
