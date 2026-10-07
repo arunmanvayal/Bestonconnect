@@ -1,3 +1,4 @@
+import { fetchAll } from "@/lib/data-transfer";
 import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trash2, RefreshCw, Save, Printer, Plus, FileText, Columns3 } from "lucide-react";
@@ -46,7 +47,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
   const { data: products = [] } = useQuery({
     queryKey: ["products"],
     queryFn: async () => {
-      const { data, error } = await sb.from("products").select("*").order("name");
+      const data = await fetchAll(sb, "products"); const error = null;
       if (error) throw error;
       return data as any[];
     },

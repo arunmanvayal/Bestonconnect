@@ -18,7 +18,7 @@ const fix = (n: number) => Number(n || 0).toFixed(2);
 const pct = (n: number) => Number(n || 0).toFixed(1);
 
 /** Reads every row of a table, past the 1000-row page limit. */
-async function fetchAll(sb: SupabaseClient, table: string, filter?: (q: any) => any) {
+export async function fetchAll(sb: SupabaseClient, table: string, filter?: (q: any) => any) {
   const out: any[] = [];
   for (let from = 0; ; from += 1000) {
     let q = sb.from(table).select("*").order("name").range(from, from + 999);
