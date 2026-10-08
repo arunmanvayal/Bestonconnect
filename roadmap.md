@@ -1,0 +1,4 @@
+- [x] Sales bill-number lookup with preview and reprint.
+- [x] Safe transactional updates preserving bill identity and synchronizing stock/ledger.
+- [ ] Apply external database Setup script (requires the owner to run it).
+- [ ] Verify signed-in bill lookup and update against live data (external authentication session unavailable).

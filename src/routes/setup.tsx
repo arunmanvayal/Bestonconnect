@@ -3,7 +3,8 @@ import { useState } from "react";
 import { Check, Copy } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { SETUP_SQL as BASE_SQL, INVOICE_SQL, COMPANY_SQL, USERNAME_SQL, IMPORT_SQL } from "@/lib/schema-sql";
-const SETUP_SQL = BASE_SQL + INVOICE_SQL + COMPANY_SQL + USERNAME_SQL + IMPORT_SQL;
+import { INVOICE_EDIT_SQL } from "@/lib/invoice-edit-sql";
+const SETUP_SQL = BASE_SQL + INVOICE_SQL + COMPANY_SQL + USERNAME_SQL + IMPORT_SQL + INVOICE_EDIT_SQL;
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
