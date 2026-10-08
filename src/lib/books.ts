@@ -94,6 +94,9 @@ async function ensureParty(sb: SupabaseClient, name: string, contact: string, ki
 export async function postInvoice(sb: SupabaseClient, kind: Kind, h: Header, rawLines: Line[]) {
   const lines = rawLines.filter((l) => l.item_name.trim() && l.quantity > 0);
   if (lines.length === 0) throw new Error("Add at least one item with quantity");
+  const { data: duplicate, error: duplicateError } = await sb.from("invoices").select("id").eq("kind", kind).eq("bill_no", h.bill_no).limit(1);
+  if (duplicateError) throw duplicateError;
+  if (duplicate?.length) throw new Error(`Bill ${h.bill_no} already exists. Clear Bill No to use the next automatic number.`);
   const t = totals(lines, h);
   const party_id = await ensureParty(sb, h.party_name, h.contact, kind, h.billing_address);
 

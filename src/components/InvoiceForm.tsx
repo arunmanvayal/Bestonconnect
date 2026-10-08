@@ -1,4 +1,5 @@
 import { fetchAll } from "@/lib/data-transfer";
+import { fetchNextInvoiceNumber } from "@/lib/invoice-number";
 import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trash2, RefreshCw, Save, Printer, Plus, FileText, Columns3, Search, Eye, X } from "lucide-react";
@@ -41,6 +42,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [lookup, setLookup] = useState("");
   const [loadingBill, setLoadingBill] = useState(false);
+  const [matchingBills, setMatchingBills] = useState<any[]>([]);
   const isSale = kind === "sale";
   const { shortcuts, columnWidths, setColumnWidths, resetColumnWidths } = useWorkspacePreferences();
   const widthKey = `invoice-${kind}`;
@@ -70,8 +72,15 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
     },
   });
 
-  const nextNo = `${isSale ? "RT" : "PI"}${String(1000 + invoices.length + 1)}`;
-  const billNo = h.bill_no || nextNo;
+  const { data: nextNo } = useQuery({
+    queryKey: ["invoice-next-number", kind],
+    enabled: !!sb,
+    queryFn: () => {
+      if (!sb) throw new Error("Database connection unavailable");
+      return fetchNextInvoiceNumber(sb, kind);
+    },
+  });
+  const billNo = h.bill_no || nextNo || "";
   const t = useMemo(() => totals(lines, h), [lines, h]);
   const set = <K extends keyof Header>(k: K, v: Header[K]) => setH((p) => ({ ...p, [k]: v }));
   const num = (v: string) => Number(v) || 0;
@@ -158,7 +167,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
     setH((prev) => ({ ...prev, party_name: name, contact: p?.phone ?? prev.contact, billing_address: p?.address ?? prev.billing_address }));
   };
 
-  const reset = () => { setH(emptyHeader(kind)); setLines([emptyLine()]); setSelected(null); setEditingId(null); };
+  const reset = () => { setH(emptyHeader(kind)); setLines([emptyLine()]); setSelected(null); setEditingId(null); setMatchingBills([]); };
 
   const loadBill = async (no?: string, invoiceId?: string) => {
     if (!sb) return;
@@ -169,9 +178,10 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
     setLoadingBill(true);
     try {
     const search = sb.from("invoices").select("*").eq("kind", kind);
-    const { data: inv, error } = await (invoiceId ? search.eq("id", invoiceId) : search.ilike("bill_no", q.replace(/[\\%_]/g, "\\$&"))).limit(2);
+    const { data: inv, error } = await (invoiceId ? search.eq("id", invoiceId) : search.ilike("bill_no", q.replace(/[\\%_]/g, "\\$&"))).order("created_at", { ascending: false });
     if (error) throw error;
-    if (inv && inv.length > 1) throw new Error("More than one bill has this number. Choose a bill from recent sales.");
+    if (inv && inv.length > 1) { setMatchingBills(inv); return; }
+    setMatchingBills([]);
     const bill = inv?.[0];
     if (!bill) { toast.error(`Bill ${q} not found`); return; }
     const { data: items, error: itemError } = await sb.from("invoice_items").select("*").eq("invoice_id", bill.id);
@@ -199,7 +209,8 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
       if (!sb) throw new Error("Database connection unavailable");
       if (editingId) {
         if (!confirm(`Update bill ${billNo}? Stock and ledger will be recalculated.`)) throw new Error("Update cancelled");
-        return updateSalesInvoice(sb, editingId, { ...h, bill_no: billNo }, lines);
+        const id = await updateSalesInvoice(sb, editingId, { ...h, bill_no: billNo }, lines);
+        return { id, number: billNo };
       }
       if (isSale && !editingId) {
         for (const l of lines) {
@@ -207,11 +218,13 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
           if (p && l.quantity + l.free_qty > Number(p.quantity)) throw new Error(`Only ${Number(p.quantity)} ${p.unit} of ${p.name} in stock`);
         }
       }
-      return postInvoice(sb, kind, { ...h, bill_no: billNo }, lines);
+      const number = h.bill_no.trim() || await fetchNextInvoiceNumber(sb, kind);
+      const id = await postInvoice(sb, kind, { ...h, bill_no: number }, lines);
+      return { id, number };
     },
-    onSuccess: (id) => {
+    onSuccess: ({ id, number }) => {
       lastSavedId.current = id;
-      toast.success(`${isSale ? "Sales" : "Purchase"} invoice ${billNo} ${editingId ? "updated" : "saved"} — stock and ledger updated`, {
+      toast.success(`${isSale ? "Sales" : "Purchase"} invoice ${number} ${editingId ? "updated" : "saved"} — stock and ledger updated`, {
         action: { label: "Print A4", onClick: () => window.open(`/invoice/${id}?print=1`, "_blank") },
       });
       void qc.invalidateQueries();
@@ -286,10 +299,16 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
         </>}
       </div>}
 
+      {matchingBills.length > 0 && <div className="overflow-x-auto rounded-lg border border-border bg-card">
+        <table className="w-full text-sm"><thead><tr className="border-b border-border text-left"><th className="p-3">Bill No</th><th>Date</th><th>Customer</th><th>Total</th><th /></tr></thead>
+          <tbody>{matchingBills.map((bill) => <tr key={bill.id} className="border-b border-border"><td className="p-3">{bill.bill_no}</td><td>{bill.bill_date}</td><td>{bill.party_name || "Walk-in"}</td><td>{money(bill.net_total)}</td><td className="p-2"><Button variant="outline" size="sm" disabled={loadingBill} onClick={() => void loadBill(bill.bill_no, bill.id)}>Open</Button></td></tr>)}</tbody>
+        </table>
+      </div>}
+
       <div className="overflow-hidden rounded-2xl border border-border/70 bg-card/90 shadow-sm backdrop-blur-sm">
         {/* Header */}
         <div className="grid gap-4 border-b border-border/70 p-4 sm:p-5 md:grid-cols-2 xl:grid-cols-4">
-          <Field label="Bill No"><Input value={billNo} onChange={(e) => set("bill_no", e.target.value)} /></Field>
+          <Field label="Bill No"><Input value={billNo} placeholder="Loading…" onChange={(e) => set("bill_no", e.target.value)} /></Field>
           <Field label="Bill Date"><Input type="date" value={h.bill_date} onChange={(e) => set("bill_date", e.target.value)} /></Field>
           <Field label={isSale ? "MOP" : "Bill Type"}>
             <select className={selectCls} value={h.payment_mode} onChange={(e) => set("payment_mode", e.target.value)}>
