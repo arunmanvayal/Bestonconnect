@@ -42,7 +42,11 @@ function PrintInvoice() {
         sb.from("invoice_items").select("*").eq("invoice_id", id),
         inv.party_id ? sb.from("customers").select("gstin, email, address").eq("id", inv.party_id).maybeSingle() : Promise.resolve({ data: null }),
       ]);
-      return { inv, items: items ?? [], party: party.data as any };
+      const pids = (items ?? []).map((i: any) => i.product_id).filter(Boolean);
+      const { data: prods } = pids.length ? await sb.from("products").select("id, hsn").in("id", pids) : { data: [] as any[] };
+      const hsn: Record<string, string> = {};
+      (prods ?? []).forEach((p: any) => { hsn[p.id] = p.hsn ?? ""; });
+      return { inv, items: (items ?? []).map((i: any) => ({ ...i, hsn: hsn[i.product_id] ?? "" })), party: party.data as any };
     },
   });
 
@@ -55,7 +59,15 @@ function PrintInvoice() {
   if (!data) return <p className="text-center text-sm text-muted-foreground">Invoice not found in this company.</p>;
   const { inv, items, party } = data;
   const isSale = inv.kind === "sale";
-  const minRows = Math.max(0, 8 - items.length);
+  const fillRows = Math.max(0, 28 - items.length);
+  const totalQty = items.reduce((a: number, i: any) => a + Number(i.quantity || 0), 0);
+  const itemTotal = items.reduce((a: number, i: any) => a + Number(i.amount || 0), 0);
+  const stateCode = (company.gstin || "").slice(0, 2);
+  const date = new Date(inv.bill_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }).replace(/ /g, "-");
+  const B = "border-foreground";
+  const td = `border-x ${B} px-1 py-[3px] align-top`;
+  const cols = ["No", "Name of Product / Service", "HSN Code", "Qty", "Rate", "Gross Amt.", "Disc %", "Taxable Value", "CGST %", "CGST Amt", "SGST %", "SGST Amt", "Total"];
+  const widths = ["4%", "22%", "10%", "5%", "7%", "7.5%", "5%", "7.5%", "5%", "6.5%", "5%", "6.5%", "9%"];
 
   return (
     <>
@@ -64,127 +76,107 @@ function PrintInvoice() {
         <Button onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" />Print A4</Button>
       </div>
 
-      <article className="a4-sheet mx-auto flex flex-col bg-card text-[11px] leading-snug text-foreground shadow-xl print:shadow-none">
-        {/* Header */}
-        <header className="grid grid-cols-[minmax(0,1fr)_auto] items-stretch">
-          <div className="flex items-center gap-3 px-8 py-6">
-            {company.logo
-              ? <img src={company.logo} alt="" className="h-16 w-16 object-contain" />
-              : <div className="grid h-14 w-14 place-items-center rounded-lg bg-primary font-display text-lg font-bold text-primary-foreground">{company.name.slice(0, 2).toUpperCase()}</div>}
-            <div className="min-w-0">
-              <p className="font-display text-lg font-bold uppercase tracking-wide text-primary">{company.name}</p>
-              {company.tagline && <p className="text-[10px] uppercase tracking-widest text-muted-foreground">{company.tagline}</p>}
+      <article className="a4-sheet mx-auto bg-background p-[8mm] font-sans text-[10.5px] leading-tight text-foreground shadow-xl print:shadow-none">
+        <div className={`flex h-full flex-col border ${B}`}>
+          {/* Header */}
+          <header className="relative px-2 pb-1 pt-2 text-center">
+            <p className="absolute left-2 top-2 text-[10px] font-bold">GSTIN : {company.gstin}</p>
+            <div className="absolute right-1 top-1 text-left text-[9px]">
+              {["Original for Recipient", "Duplicate for Transporter", "Triplicate for Supplier"].map((t) => (
+                <p key={t} className="flex items-center gap-1"><span className={`inline-block h-3 w-3 border ${B}`} />{t}</p>
+              ))}
             </div>
-          </div>
-          <div className="flex items-center bg-primary px-10 [clip-path:polygon(12%_0,100%_0,100%_100%,0_100%)]">
-            <h1 className="font-display text-3xl font-bold tracking-wider text-primary-foreground">{isSale ? "INVOICE" : "PURCHASE"}</h1>
-          </div>
-        </header>
-        <div className="flex justify-between bg-foreground px-8 py-1.5 text-[10px] font-semibold text-background">
-          <span>Invoice No: {inv.bill_no}</span>
-          <span>{inv.tax_type === "gst" ? "TAX INVOICE" : ""}</span>
-          <span>Date: {new Date(inv.bill_date).toLocaleDateString("en-IN")}</span>
-        </div>
+            {company.logo && <img src={company.logo} alt="" className="absolute left-3 top-7 h-12 w-12 object-contain grayscale" />}
+            <h1 className="mt-3 text-[24px] font-semibold uppercase tracking-wide">{company.name}</h1>
+            {company.address && <p className="uppercase">{company.address}{company.state ? `, ${company.state}` : ""}</p>}
+            <p>{company.phone}{company.email ? ` E MAIL : ${company.email}` : ""}</p>
+            <p className="mt-2 text-[13px] font-bold">{isSale ? "INVOICE" : "PURCHASE INVOICE"}</p>
+          </header>
 
-        {/* Parties */}
-        <section className="grid grid-cols-2 gap-8 px-8 py-5">
-          <div>
-            <h2 className="mb-1 font-display text-[11px] font-bold uppercase text-primary">{isSale ? "Invoice to:" : "Supplier:"}</h2>
-            <p className="font-semibold">{inv.party_name || "Cash customer"}</p>
-            {(inv.billing_address || party?.address) && <p className="whitespace-pre-line">{inv.billing_address || party?.address}</p>}
-            {inv.contact && <p>Ph: {inv.contact}</p>}
-            {party?.email && <p>{party.email}</p>}
-            {party?.gstin && <p>GSTIN: {party.gstin}</p>}
+          {/* Meta */}
+          <div className={`grid grid-cols-2 border-t ${B}`}>
+            <div className={`space-y-1 border-r ${B} p-1.5 font-semibold`}>
+              <p><span className="inline-block w-24">Invoice No.</span>: {inv.bill_no}</p>
+              <p><span className="inline-block w-24">Invoice Date</span>: {date}</p>
+              <p className="flex justify-between"><span>State : {company.state || "—"} &nbsp; State Code : {stateCode}</span><span>Pay Mode : {String(inv.payment_mode).replace(/^./, (c: string) => c.toUpperCase())}</span></p>
+            </div>
+            <div className="p-1.5">{inv.ref_no && <p>Ref No : {inv.ref_no}</p>}</div>
           </div>
-          <div>
-            <h2 className="mb-1 font-display text-[11px] font-bold uppercase text-primary">From:</h2>
-            {company.address && <p className="whitespace-pre-line">{company.address}{company.state ? `, ${company.state}` : ""}</p>}
-            {company.phone && <p>Ph: {company.phone}</p>}
-            {company.email && <p>{company.email}</p>}
-            {company.gstin && <p className="font-semibold">GSTIN: {company.gstin}</p>}
-            <p className="mt-1 text-muted-foreground">Payment: {String(inv.payment_mode).toUpperCase()}{inv.ref_no ? ` · Ref ${inv.ref_no}` : ""}</p>
-          </div>
-        </section>
 
-        {/* Items */}
-        <section className="px-8">
-          <table className="w-full border-collapse border border-foreground/70 text-[10.5px]">
+          {/* Parties */}
+          <div className={`grid grid-cols-2 border-t-2 ${B}`}>
+            <p className={`border-b border-r ${B} py-1 text-center text-[11px]`}>Details of Receiver | Billed to:</p>
+            <p className={`border-b ${B} py-1 text-center text-[11px]`}>Details of Consignee | Shipped to:</p>
+            <div className={`min-h-[22mm] space-y-1 border-r ${B} p-1.5 font-semibold`}>
+              <p className="text-[11px]">{isSale ? "Customer" : "Supplier"}: {String(inv.party_name || "Cash").toUpperCase()}</p>
+              {(inv.billing_address || party?.address) && <p className="whitespace-pre-line font-normal">{inv.billing_address || party?.address}</p>}
+              <p>Ph: {inv.contact}</p>
+              <p>GSTIN : {party?.gstin}</p>
+            </div>
+            <div className="p-1.5 whitespace-pre-line">{inv.shipping_address}</div>
+          </div>
+
+          {/* Items */}
+          <table className={`w-full flex-1 table-fixed border-collapse border-t ${B}`}>
+            <colgroup>{widths.map((w, i) => <col key={i} style={{ width: w }} />)}</colgroup>
             <thead>
-              <tr className="bg-muted">
-                {["No", "Item Description", "Qty", "Rate", "Disc", "GST %", "Taxable", "Total"].map((h, i) => (
-                  <th key={h} className={`border border-foreground/70 px-2 py-1.5 font-semibold ${i > 1 ? "text-right" : "text-left"}`}>{h}</th>
-                ))}
-              </tr>
+              <tr>{cols.map((h) => <th key={h} className={`border ${B} px-1 py-1 text-left align-middle text-[10px] font-semibold`}>{h}</th>)}</tr>
             </thead>
-            <tbody>
-              {items.map((it: any, i: number) => (
-                <tr key={it.id}>
-                  <td className="border-x border-foreground/70 px-2 py-1.5">{i + 1}.</td>
-                  <td className="border-x border-foreground/70 px-2 py-1.5">{it.item_name}</td>
-                  <td className="border-x border-foreground/70 px-2 py-1.5 text-right">{Number(it.quantity)}{Number(it.free_qty) ? ` +${Number(it.free_qty)}` : ""} {it.unit}</td>
-                  <td className="border-x border-foreground/70 px-2 py-1.5 text-right">{fmt(it.rate)}</td>
-                  <td className="border-x border-foreground/70 px-2 py-1.5 text-right">{Number(it.discount) ? fmt(it.discount) : "—"}</td>
-                  <td className="border-x border-foreground/70 px-2 py-1.5 text-right">{Number(it.gst_rate)}%</td>
-                  <td className="border-x border-foreground/70 px-2 py-1.5 text-right">{fmt(it.taxable)}</td>
-                  <td className="border-x border-foreground/70 px-2 py-1.5 text-right font-semibold">{fmt(it.amount)}</td>
-                </tr>
+            <tbody className="font-semibold">
+              {items.map((it: any, i: number) => {
+                const half = Number(inv.igst) > 0 ? 0 : Number(it.tax) / 2;
+                const rate = Number(it.gst_rate) / 2;
+                const disc = Number(it.discount || 0);
+                const gross = Number(it.taxable) + disc;
+                const discPct = gross ? Math.round((disc / gross) * 1000) / 10 : 0;
+                return (
+                  <tr key={it.id}>
+                    <td className={`${td} text-center`}>{i + 1}</td>
+                    <td className={`${td} uppercase`}>{it.item_name}</td>
+                    <td className={td}>{it.hsn}</td>
+                    <td className={`${td} text-center`}>{Number(it.quantity)}</td>
+                    <td className={`${td} text-right`}>{fmt(it.rate)}</td>
+                    <td className={`${td} text-right`}>{fmt(gross)}</td>
+                    <td className={`${td} text-center`}>{discPct}</td>
+                    <td className={`${td} text-right`}>{fmt(it.taxable)}</td>
+                    <td className={td}>{rate.toFixed(1)}</td>
+                    <td className={`${td} text-right`}>{fmt(half)}</td>
+                    <td className={td}>{rate.toFixed(1)}</td>
+                    <td className={`${td} text-right`}>{fmt(half)}</td>
+                    <td className={`${td} text-right`}>{fmt(it.amount)}</td>
+                  </tr>
+                );
+              })}
+              {Array.from({ length: fillRows }).map((_, i) => (
+                <tr key={`f${i}`}>{cols.map((_c, j) => <td key={j} className={`${td} h-[15px]`} />)}</tr>
               ))}
-              {Array.from({ length: minRows }).map((_, i) => (
-                <tr key={`e${i}`}>{Array.from({ length: 8 }).map((__, j) => <td key={j} className="h-6 border-x border-foreground/70" />)}</tr>
-              ))}
-              <tr><td colSpan={8} className="border-t border-foreground/70" /></tr>
+              <tr className={`border-y ${B}`}>
+                <td colSpan={3} className="py-1" />
+                <td className="py-1 text-center">{Math.round(totalQty * 1000) / 1000}</td>
+                <td colSpan={8} />
+                <td className="py-1 pr-1 text-right">{fmt(itemTotal)}</td>
+              </tr>
             </tbody>
           </table>
-        </section>
 
-        {/* Payment + totals */}
-        <section className="grid grid-cols-[minmax(0,1fr)_250px] gap-8 px-8 py-4">
-          <div className="space-y-3">
-            <div>
-              <h2 className="mb-1 font-display text-[11px] font-bold uppercase text-primary">Amount in words</h2>
-              <p className="font-semibold italic">{amountInWords(inv.net_total)}</p>
+          {/* Footer */}
+          <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4 px-2 pt-2">
+            <p className="text-[12px]">{amountInWords(inv.net_total)}</p>
+            <p className="flex items-baseline gap-10"><span className="text-[12px]">Round Off :{fmt(inv.round_off)}</span><span className="text-[17px] font-semibold">Bill Amount : {fmt(inv.net_total)}</span></p>
+          </div>
+          <div className="grid grid-cols-[minmax(0,1fr)_200px] gap-4 px-2 pb-2 pt-4">
+            <dl className="grid grid-cols-[85px_minmax(0,1fr)] font-bold">
+              <dt>A/C No</dt><dd>: {company.account_no}</dd>
+              <dt>Bank Name</dt><dd className="uppercase">: {company.bank_name}</dd>
+              <dt>Name</dt><dd className="uppercase">: {company.account_name}</dd>
+              <dt>IFS CODE</dt><dd className="uppercase">: {company.ifsc}</dd>
+            </dl>
+            <div className="flex flex-col items-end justify-between text-[11px] font-semibold">
+              <p>For {company.name},</p>
+              <p className="mt-10">{company.signature_label || "Authorised Signature"}</p>
             </div>
-            {(company.bank_name || company.account_no || company.upi) && (
-              <div>
-                <h2 className="mb-1 font-display text-[11px] font-bold uppercase text-primary">Payment method</h2>
-                <dl className="grid grid-cols-[110px_minmax(0,1fr)] gap-y-0.5">
-                  {company.bank_name && <><dt>Bank Name</dt><dd>: {company.bank_name}</dd></>}
-                  {company.account_name && <><dt>Account Name</dt><dd>: {company.account_name}</dd></>}
-                  {company.account_no && <><dt>Account Number</dt><dd>: {company.account_no}</dd></>}
-                  {company.ifsc && <><dt>IFSC</dt><dd>: {company.ifsc}</dd></>}
-                  {company.upi && <><dt>UPI</dt><dd>: {company.upi}</dd></>}
-                </dl>
-              </div>
-            )}
           </div>
-          <dl className="grid grid-cols-[minmax(0,1fr)_auto] gap-x-4 gap-y-1 self-start">
-            <dt>Sub Total</dt><dd className="text-right">{fmt(inv.gross)}</dd>
-            {Number(inv.discount) > 0 && <><dt>Discount</dt><dd className="text-right">−{fmt(inv.discount)}</dd></>}
-            <dt>Taxable</dt><dd className="text-right">{fmt(inv.taxable)}</dd>
-            {Number(inv.igst) > 0
-              ? <><dt>IGST</dt><dd className="text-right">{fmt(inv.igst)}</dd></>
-              : <><dt>CGST</dt><dd className="text-right">{fmt(inv.cgst)}</dd><dt>SGST</dt><dd className="text-right">{fmt(inv.sgst)}</dd></>}
-            {Number(inv.freight) + Number(inv.other_exp) > 0 && <><dt>Freight & other</dt><dd className="text-right">{fmt(Number(inv.freight) + Number(inv.other_exp))}</dd></>}
-            {Number(inv.cash_disc) > 0 && <><dt>Cash discount</dt><dd className="text-right">−{fmt(inv.cash_disc)}</dd></>}
-            {Number(inv.round_off) !== 0 && <><dt>Round off</dt><dd className="text-right">{fmt(inv.round_off)}</dd></>}
-            <dt className="mt-1 border-t border-foreground/70 pt-1.5 font-display text-sm font-bold">Total</dt>
-            <dd className="mt-1 border-t border-foreground/70 pt-1.5 text-right font-display text-sm font-bold text-primary">{money(inv.net_total)}</dd>
-          </dl>
-        </section>
-
-        {/* Terms + signature */}
-        <section className="mt-auto grid grid-cols-[minmax(0,1fr)_200px] items-end gap-8 px-8 pb-6">
-          <div>
-            {(company.terms || inv.remarks) && <h2 className="mb-1 font-display text-[11px] font-bold uppercase text-primary">Terms and conditions</h2>}
-            {company.terms && <p className="whitespace-pre-line text-muted-foreground">{company.terms}</p>}
-            {inv.remarks && <p className="mt-1">Remarks: {inv.remarks}</p>}
-          </div>
-          <div className="text-center">
-            <p className="mb-10 text-[10px] text-muted-foreground">For {company.name}</p>
-            <p className="border-t border-foreground pt-1 text-[10px] font-semibold uppercase">{company.signature_label || "Authorised Signatory"}</p>
-          </div>
-        </section>
-        <footer className="grid grid-cols-[1fr_3fr_1fr]"><span className="h-3 bg-foreground" /><span className="h-3 bg-primary" /><span className="h-3 bg-foreground" /></footer>
+        </div>
       </article>
     </>
   );
