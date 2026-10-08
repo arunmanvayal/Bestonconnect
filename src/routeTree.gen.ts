@@ -11,7 +11,6 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AccountsRouteImport } from './routes/accounts'
-import { Route as AdminRouteImport } from './routes/admin'
 import { Route as CustomersRouteImport } from './routes/customers'
 import { Route as LedgerRouteImport } from './routes/ledger'
 import { Route as OnlineOrdersRouteImport } from './routes/online-orders'
@@ -26,7 +25,23 @@ import { Route as SalesRouteImport } from './routes/sales'
 import { Route as SetupRouteImport } from './routes/setup'
 import { Route as StockRouteImport } from './routes/stock'
 import { Route as ToolsRouteImport } from './routes/tools'
+import { Route as AdminIndexRouteImport } from './routes/admin.index'
+import { Route as AdminAccountsRouteImport } from './routes/admin.accounts'
+import { Route as AdminCustomersRouteImport } from './routes/admin.customers'
+import { Route as AdminLedgerRouteImport } from './routes/admin.ledger'
+import { Route as AdminOnlineOrdersRouteImport } from './routes/admin.online-orders'
+import { Route as AdminOnlineProductsRouteImport } from './routes/admin.online-products'
+import { Route as AdminPaymentsRouteImport } from './routes/admin.payments'
+import { Route as AdminProfileRouteImport } from './routes/admin.profile'
+import { Route as AdminPurchaseRouteImport } from './routes/admin.purchase'
+import { Route as AdminReportsRouteImport } from './routes/admin.reports'
+import { Route as AdminReturnsRouteImport } from './routes/admin.returns'
+import { Route as AdminSalesRouteImport } from './routes/admin.sales'
+import { Route as AdminSetupRouteImport } from './routes/admin.setup'
+import { Route as AdminStockRouteImport } from './routes/admin.stock'
+import { Route as AdminToolsRouteImport } from './routes/admin.tools'
 import { Route as InvoiceIdRouteImport } from './routes/invoice.$id'
+import { Route as AdminInvoiceIdRouteImport } from './routes/admin.invoice.$id'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -36,11 +51,6 @@ const IndexRoute = IndexRouteImport.update({
 const AccountsRoute = AccountsRouteImport.update({
   id: '/accounts',
   path: '/accounts',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const AdminRoute = AdminRouteImport.update({
-  id: '/admin',
-  path: '/admin',
   getParentRoute: () => rootRouteImport,
 } as any)
 const CustomersRoute = CustomersRouteImport.update({
@@ -113,16 +123,95 @@ const ToolsRoute = ToolsRouteImport.update({
   path: '/tools',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminAccountsRoute = AdminAccountsRouteImport.update({
+  id: '/admin/accounts',
+  path: '/admin/accounts',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminCustomersRoute = AdminCustomersRouteImport.update({
+  id: '/admin/customers',
+  path: '/admin/customers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminLedgerRoute = AdminLedgerRouteImport.update({
+  id: '/admin/ledger',
+  path: '/admin/ledger',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminOnlineOrdersRoute = AdminOnlineOrdersRouteImport.update({
+  id: '/admin/online-orders',
+  path: '/admin/online-orders',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminOnlineProductsRoute = AdminOnlineProductsRouteImport.update({
+  id: '/admin/online-products',
+  path: '/admin/online-products',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminPaymentsRoute = AdminPaymentsRouteImport.update({
+  id: '/admin/payments',
+  path: '/admin/payments',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminProfileRoute = AdminProfileRouteImport.update({
+  id: '/admin/profile',
+  path: '/admin/profile',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminPurchaseRoute = AdminPurchaseRouteImport.update({
+  id: '/admin/purchase',
+  path: '/admin/purchase',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminReportsRoute = AdminReportsRouteImport.update({
+  id: '/admin/reports',
+  path: '/admin/reports',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminReturnsRoute = AdminReturnsRouteImport.update({
+  id: '/admin/returns',
+  path: '/admin/returns',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminSalesRoute = AdminSalesRouteImport.update({
+  id: '/admin/sales',
+  path: '/admin/sales',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminSetupRoute = AdminSetupRouteImport.update({
+  id: '/admin/setup',
+  path: '/admin/setup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminStockRoute = AdminStockRouteImport.update({
+  id: '/admin/stock',
+  path: '/admin/stock',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminToolsRoute = AdminToolsRouteImport.update({
+  id: '/admin/tools',
+  path: '/admin/tools',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const InvoiceIdRoute = InvoiceIdRouteImport.update({
   id: '/invoice/$id',
   path: '/invoice/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminInvoiceIdRoute = AdminInvoiceIdRouteImport.update({
+  id: '/admin/invoice/$id',
+  path: '/admin/invoice/$id',
   getParentRoute: () => rootRouteImport,
 } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/accounts': typeof AccountsRoute
-  '/admin': typeof AdminRoute
   '/customers': typeof CustomersRoute
   '/ledger': typeof LedgerRoute
   '/online-orders': typeof OnlineOrdersRoute
@@ -137,12 +226,27 @@ export interface FileRoutesByFullPath {
   '/setup': typeof SetupRoute
   '/stock': typeof StockRoute
   '/tools': typeof ToolsRoute
+  '/admin/accounts': typeof AdminAccountsRoute
+  '/admin/customers': typeof AdminCustomersRoute
+  '/admin/ledger': typeof AdminLedgerRoute
+  '/admin/online-orders': typeof AdminOnlineOrdersRoute
+  '/admin/online-products': typeof AdminOnlineProductsRoute
+  '/admin/payments': typeof AdminPaymentsRoute
+  '/admin/profile': typeof AdminProfileRoute
+  '/admin/purchase': typeof AdminPurchaseRoute
+  '/admin/reports': typeof AdminReportsRoute
+  '/admin/returns': typeof AdminReturnsRoute
+  '/admin/sales': typeof AdminSalesRoute
+  '/admin/setup': typeof AdminSetupRoute
+  '/admin/stock': typeof AdminStockRoute
+  '/admin/tools': typeof AdminToolsRoute
   '/invoice/$id': typeof InvoiceIdRoute
+  '/admin/': typeof AdminIndexRoute
+  '/admin/invoice/$id': typeof AdminInvoiceIdRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/accounts': typeof AccountsRoute
-  '/admin': typeof AdminRoute
   '/customers': typeof CustomersRoute
   '/ledger': typeof LedgerRoute
   '/online-orders': typeof OnlineOrdersRoute
@@ -157,13 +261,28 @@ export interface FileRoutesByTo {
   '/setup': typeof SetupRoute
   '/stock': typeof StockRoute
   '/tools': typeof ToolsRoute
+  '/admin/accounts': typeof AdminAccountsRoute
+  '/admin/customers': typeof AdminCustomersRoute
+  '/admin/ledger': typeof AdminLedgerRoute
+  '/admin/online-orders': typeof AdminOnlineOrdersRoute
+  '/admin/online-products': typeof AdminOnlineProductsRoute
+  '/admin/payments': typeof AdminPaymentsRoute
+  '/admin/profile': typeof AdminProfileRoute
+  '/admin/purchase': typeof AdminPurchaseRoute
+  '/admin/reports': typeof AdminReportsRoute
+  '/admin/returns': typeof AdminReturnsRoute
+  '/admin/sales': typeof AdminSalesRoute
+  '/admin/setup': typeof AdminSetupRoute
+  '/admin/stock': typeof AdminStockRoute
+  '/admin/tools': typeof AdminToolsRoute
   '/invoice/$id': typeof InvoiceIdRoute
+  '/admin': typeof AdminIndexRoute
+  '/admin/invoice/$id': typeof AdminInvoiceIdRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/accounts': typeof AccountsRoute
-  '/admin': typeof AdminRoute
   '/customers': typeof CustomersRoute
   '/ledger': typeof LedgerRoute
   '/online-orders': typeof OnlineOrdersRoute
@@ -178,14 +297,29 @@ export interface FileRoutesById {
   '/setup': typeof SetupRoute
   '/stock': typeof StockRoute
   '/tools': typeof ToolsRoute
+  '/admin/accounts': typeof AdminAccountsRoute
+  '/admin/customers': typeof AdminCustomersRoute
+  '/admin/ledger': typeof AdminLedgerRoute
+  '/admin/online-orders': typeof AdminOnlineOrdersRoute
+  '/admin/online-products': typeof AdminOnlineProductsRoute
+  '/admin/payments': typeof AdminPaymentsRoute
+  '/admin/profile': typeof AdminProfileRoute
+  '/admin/purchase': typeof AdminPurchaseRoute
+  '/admin/reports': typeof AdminReportsRoute
+  '/admin/returns': typeof AdminReturnsRoute
+  '/admin/sales': typeof AdminSalesRoute
+  '/admin/setup': typeof AdminSetupRoute
+  '/admin/stock': typeof AdminStockRoute
+  '/admin/tools': typeof AdminToolsRoute
   '/invoice/$id': typeof InvoiceIdRoute
+  '/admin/': typeof AdminIndexRoute
+  '/admin/invoice/$id': typeof AdminInvoiceIdRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
     | '/accounts'
-    | '/admin'
     | '/customers'
     | '/ledger'
     | '/online-orders'
@@ -200,12 +334,27 @@ export interface FileRouteTypes {
     | '/setup'
     | '/stock'
     | '/tools'
+    | '/admin/accounts'
+    | '/admin/customers'
+    | '/admin/ledger'
+    | '/admin/online-orders'
+    | '/admin/online-products'
+    | '/admin/payments'
+    | '/admin/profile'
+    | '/admin/purchase'
+    | '/admin/reports'
+    | '/admin/returns'
+    | '/admin/sales'
+    | '/admin/setup'
+    | '/admin/stock'
+    | '/admin/tools'
     | '/invoice/$id'
+    | '/admin/'
+    | '/admin/invoice/$id'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/accounts'
-    | '/admin'
     | '/customers'
     | '/ledger'
     | '/online-orders'
@@ -220,12 +369,27 @@ export interface FileRouteTypes {
     | '/setup'
     | '/stock'
     | '/tools'
+    | '/admin/accounts'
+    | '/admin/customers'
+    | '/admin/ledger'
+    | '/admin/online-orders'
+    | '/admin/online-products'
+    | '/admin/payments'
+    | '/admin/profile'
+    | '/admin/purchase'
+    | '/admin/reports'
+    | '/admin/returns'
+    | '/admin/sales'
+    | '/admin/setup'
+    | '/admin/stock'
+    | '/admin/tools'
     | '/invoice/$id'
+    | '/admin'
+    | '/admin/invoice/$id'
   id:
     | '__root__'
     | '/'
     | '/accounts'
-    | '/admin'
     | '/customers'
     | '/ledger'
     | '/online-orders'
@@ -240,13 +404,28 @@ export interface FileRouteTypes {
     | '/setup'
     | '/stock'
     | '/tools'
+    | '/admin/accounts'
+    | '/admin/customers'
+    | '/admin/ledger'
+    | '/admin/online-orders'
+    | '/admin/online-products'
+    | '/admin/payments'
+    | '/admin/profile'
+    | '/admin/purchase'
+    | '/admin/reports'
+    | '/admin/returns'
+    | '/admin/sales'
+    | '/admin/setup'
+    | '/admin/stock'
+    | '/admin/tools'
     | '/invoice/$id'
+    | '/admin/'
+    | '/admin/invoice/$id'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AccountsRoute: typeof AccountsRoute
-  AdminRoute: typeof AdminRoute
   CustomersRoute: typeof CustomersRoute
   LedgerRoute: typeof LedgerRoute
   OnlineOrdersRoute: typeof OnlineOrdersRoute
@@ -261,7 +440,23 @@ export interface RootRouteChildren {
   SetupRoute: typeof SetupRoute
   StockRoute: typeof StockRoute
   ToolsRoute: typeof ToolsRoute
+  AdminAccountsRoute: typeof AdminAccountsRoute
+  AdminCustomersRoute: typeof AdminCustomersRoute
+  AdminLedgerRoute: typeof AdminLedgerRoute
+  AdminOnlineOrdersRoute: typeof AdminOnlineOrdersRoute
+  AdminOnlineProductsRoute: typeof AdminOnlineProductsRoute
+  AdminPaymentsRoute: typeof AdminPaymentsRoute
+  AdminProfileRoute: typeof AdminProfileRoute
+  AdminPurchaseRoute: typeof AdminPurchaseRoute
+  AdminReportsRoute: typeof AdminReportsRoute
+  AdminReturnsRoute: typeof AdminReturnsRoute
+  AdminSalesRoute: typeof AdminSalesRoute
+  AdminSetupRoute: typeof AdminSetupRoute
+  AdminStockRoute: typeof AdminStockRoute
+  AdminToolsRoute: typeof AdminToolsRoute
   InvoiceIdRoute: typeof InvoiceIdRoute
+  AdminIndexRoute: typeof AdminIndexRoute
+  AdminInvoiceIdRoute: typeof AdminInvoiceIdRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -278,13 +473,6 @@ declare module '@tanstack/react-router' {
       path: '/accounts'
       fullPath: '/accounts'
       preLoaderRoute: typeof AccountsRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/admin': {
-      id: '/admin'
-      path: '/admin'
-      fullPath: '/admin'
-      preLoaderRoute: typeof AdminRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/customers': {
@@ -385,11 +573,123 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ToolsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/accounts': {
+      id: '/admin/accounts'
+      path: '/admin/accounts'
+      fullPath: '/admin/accounts'
+      preLoaderRoute: typeof AdminAccountsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/customers': {
+      id: '/admin/customers'
+      path: '/admin/customers'
+      fullPath: '/admin/customers'
+      preLoaderRoute: typeof AdminCustomersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/ledger': {
+      id: '/admin/ledger'
+      path: '/admin/ledger'
+      fullPath: '/admin/ledger'
+      preLoaderRoute: typeof AdminLedgerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/online-orders': {
+      id: '/admin/online-orders'
+      path: '/admin/online-orders'
+      fullPath: '/admin/online-orders'
+      preLoaderRoute: typeof AdminOnlineOrdersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/online-products': {
+      id: '/admin/online-products'
+      path: '/admin/online-products'
+      fullPath: '/admin/online-products'
+      preLoaderRoute: typeof AdminOnlineProductsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/payments': {
+      id: '/admin/payments'
+      path: '/admin/payments'
+      fullPath: '/admin/payments'
+      preLoaderRoute: typeof AdminPaymentsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/profile': {
+      id: '/admin/profile'
+      path: '/admin/profile'
+      fullPath: '/admin/profile'
+      preLoaderRoute: typeof AdminProfileRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/purchase': {
+      id: '/admin/purchase'
+      path: '/admin/purchase'
+      fullPath: '/admin/purchase'
+      preLoaderRoute: typeof AdminPurchaseRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/reports': {
+      id: '/admin/reports'
+      path: '/admin/reports'
+      fullPath: '/admin/reports'
+      preLoaderRoute: typeof AdminReportsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/returns': {
+      id: '/admin/returns'
+      path: '/admin/returns'
+      fullPath: '/admin/returns'
+      preLoaderRoute: typeof AdminReturnsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/sales': {
+      id: '/admin/sales'
+      path: '/admin/sales'
+      fullPath: '/admin/sales'
+      preLoaderRoute: typeof AdminSalesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/setup': {
+      id: '/admin/setup'
+      path: '/admin/setup'
+      fullPath: '/admin/setup'
+      preLoaderRoute: typeof AdminSetupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/stock': {
+      id: '/admin/stock'
+      path: '/admin/stock'
+      fullPath: '/admin/stock'
+      preLoaderRoute: typeof AdminStockRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/tools': {
+      id: '/admin/tools'
+      path: '/admin/tools'
+      fullPath: '/admin/tools'
+      preLoaderRoute: typeof AdminToolsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/invoice/$id': {
       id: '/invoice/$id'
       path: '/invoice/$id'
       fullPath: '/invoice/$id'
       preLoaderRoute: typeof InvoiceIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/invoice/$id': {
+      id: '/admin/invoice/$id'
+      path: '/admin/invoice/$id'
+      fullPath: '/admin/invoice/$id'
+      preLoaderRoute: typeof AdminInvoiceIdRouteImport
       parentRoute: typeof rootRouteImport
     }
   }
@@ -398,7 +698,6 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountsRoute: AccountsRoute,
-  AdminRoute: AdminRoute,
   CustomersRoute: CustomersRoute,
   LedgerRoute: LedgerRoute,
   OnlineOrdersRoute: OnlineOrdersRoute,
@@ -413,7 +712,23 @@ const rootRouteChildren: RootRouteChildren = {
   SetupRoute: SetupRoute,
   StockRoute: StockRoute,
   ToolsRoute: ToolsRoute,
+  AdminAccountsRoute: AdminAccountsRoute,
+  AdminCustomersRoute: AdminCustomersRoute,
+  AdminLedgerRoute: AdminLedgerRoute,
+  AdminOnlineOrdersRoute: AdminOnlineOrdersRoute,
+  AdminOnlineProductsRoute: AdminOnlineProductsRoute,
+  AdminPaymentsRoute: AdminPaymentsRoute,
+  AdminProfileRoute: AdminProfileRoute,
+  AdminPurchaseRoute: AdminPurchaseRoute,
+  AdminReportsRoute: AdminReportsRoute,
+  AdminReturnsRoute: AdminReturnsRoute,
+  AdminSalesRoute: AdminSalesRoute,
+  AdminSetupRoute: AdminSetupRoute,
+  AdminStockRoute: AdminStockRoute,
+  AdminToolsRoute: AdminToolsRoute,
   InvoiceIdRoute: InvoiceIdRoute,
+  AdminIndexRoute: AdminIndexRoute,
+  AdminInvoiceIdRoute: AdminInvoiceIdRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

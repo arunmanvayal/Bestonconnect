@@ -14,7 +14,7 @@
 - Publish page actions through the shared workspace command event so configurable shortcuts never depend on page-specific keyboard listeners.
 - Update saved sales invoices through one company-scoped, security-invoker SQL transaction that preserves invoice IDs; this prevents partial stock or ledger changes on failure.
 - Derive new invoice numbers from the highest matching series number across all visible company bills and recheck before saving; recent-list counts and component defaults are not sequence sources.
-- Keep the public storefront at / and the existing owner-gated dashboard at /admin; this separates customer shopping from private business records.
+- Keep the customer storefront at / and every management page under the shared /admin parent, which gates its Outlet before any dashboard shell mounts; this shows only login to signed-out visitors and retains old URLs as redirects.
 - Store online listing metadata separately from real stock and expose only explicit customer-safe fields through the online_catalog RPC; this keeps unpublished products and private inventory fields inaccessible to guests.
 - Validate guest orders and owner status changes in transactional SQL RPCs; confirmation reserves stock and cancellation restores it without treating an unbilled order as a paid sales invoice.
 - Upload online product photos through the connected database Storage API with company-prefixed object paths; this preserves company ownership without embedding images in database rows.

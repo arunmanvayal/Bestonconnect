@@ -22,7 +22,7 @@ export function SupabaseGate({ children, requireCompany = true }: { children: Re
   const company = useActiveCompany();
 
   if (!supabase || session === undefined) return <Loading text="Connecting to your database…" />;
-  if (!session) return <AuthForm />;
+  if (!session) return <div className="grid min-h-screen place-items-center bg-background px-4 py-8"><AuthForm /></div>;
   if (!requireCompany) return <>{children}</>;
   if (company.isLoading) return <Loading text="Loading your company…" />;
   if (company.error) {
