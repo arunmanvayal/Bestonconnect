@@ -225,7 +225,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
     onSuccess: ({ id, number }) => {
       lastSavedId.current = id;
       toast.success(`${isSale ? "Sales" : "Purchase"} invoice ${number} ${editingId ? "updated" : "saved"} — stock and ledger updated`, {
-        action: { label: "Print A4", onClick: () => window.open(`/invoice/${id}?print=1`, "_blank") },
+        action: { label: "Print A4", onClick: () => window.open(`/admin/invoice/${id}?print=1`, "_blank") },
       });
       void qc.invalidateQueries();
       if (!editingId) reset();
@@ -236,7 +236,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
   const lastSavedId = useRef<string | null>(null);
   const printInvoice = () => {
     if (!lastSavedId.current) { toast.info("Save the bill first, then print it on A4"); return; }
-    window.open(`/invoice/${lastSavedId.current}?print=1`, "_blank");
+    window.open(`/admin/invoice/${lastSavedId.current}?print=1`, "_blank");
   };
   const addRow = () => setLines((ls) => [...ls, emptyLine()]);
   const removeSelected = () => {
@@ -293,8 +293,8 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
         <Button variant="secondary" disabled={loadingBill || save.isPending} onClick={() => void loadBill()}>{loadingBill ? "Loading…" : "Open bill"}</Button>
         {editingId && <>
           <span className="rounded-full bg-accent/30 px-3 py-1.5 text-xs font-semibold text-accent-foreground">Editing {billNo}</span>
-          <Button variant="outline" size="sm" onClick={() => window.open(`/invoice/${editingId}`, "_blank")}><Eye className="mr-1.5 h-4 w-4" />Preview</Button>
-          <Button variant="outline" size="sm" onClick={() => window.open(`/invoice/${editingId}?print=1`, "_blank")}><Printer className="mr-1.5 h-4 w-4" />Reprint</Button>
+          <Button variant="outline" size="sm" onClick={() => window.open(`/admin/invoice/${editingId}`, "_blank")}><Eye className="mr-1.5 h-4 w-4" />Preview</Button>
+          <Button variant="outline" size="sm" onClick={() => window.open(`/admin/invoice/${editingId}?print=1`, "_blank")}><Printer className="mr-1.5 h-4 w-4" />Reprint</Button>
           <Button variant="ghost" size="sm" onClick={reset}><X className="mr-1.5 h-4 w-4" />New bill</Button>
         </>}
       </div>}

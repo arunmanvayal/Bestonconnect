@@ -22,21 +22,21 @@ import { emitWorkspaceCommand, normalizeShortcut, useWorkspacePreferences, type 
 
 const NAV = [
   { to: "/admin", label: "Admin Dashboard", icon: LayoutDashboard },
-  { to: "/sales", label: "Sales", icon: ShoppingCart },
-  { to: "/purchase", label: "Purchase", icon: Truck },
-  { to: "/customers", label: "Customers", icon: Users },
-  { to: "/accounts", label: "Accounts", icon: Wallet },
-  { to: "/payments", label: "Receipts & Payments", icon: HandCoins },
-  { to: "/returns", label: "Sales Returns", icon: Undo2 },
-  { to: "/ledger", label: "Ledger", icon: BookOpen },
-  { to: "/stock", label: "Stock", icon: Package },
-  { to: "/online-products", label: "Online Products", icon: Package },
-  { to: "/online-orders", label: "Online Orders", icon: ShoppingCart },
-  { to: "/", label: "Online Shop", icon: ShoppingCart },
-  { to: "/reports", label: "Reports", icon: BarChart3 },
-  { to: "/tools", label: "Tools", icon: Wrench },
-  { to: "/profile", label: "Profile & Companies", icon: UserCircle },
-  { to: "/setup", label: "Setup", icon: Settings2 },
+  { to: "/admin/sales", label: "Sales", icon: ShoppingCart },
+  { to: "/admin/purchase", label: "Purchase", icon: Truck },
+  { to: "/admin/customers", label: "Customers", icon: Users },
+  { to: "/admin/accounts", label: "Accounts", icon: Wallet },
+  { to: "/admin/payments", label: "Receipts & Payments", icon: HandCoins },
+  { to: "/admin/returns", label: "Sales Returns", icon: Undo2 },
+  { to: "/admin/ledger", label: "Ledger", icon: BookOpen },
+  { to: "/admin/stock", label: "Stock", icon: Package },
+  { to: "/admin/online-products", label: "Online Products", icon: Package },
+  { to: "/admin/online-orders", label: "Online Orders", icon: ShoppingCart },
+  { to: "/admin/online-shop", label: "Online Shop", icon: ShoppingCart },
+  { to: "/admin/reports", label: "Reports", icon: BarChart3 },
+  { to: "/admin/tools", label: "Tools", icon: Wrench },
+  { to: "/admin/profile", label: "Profile & Companies", icon: UserCircle },
+  { to: "/admin/setup", label: "Setup", icon: Settings2 },
 ] as const;
 
 export function AppLayout({ children }: { children: ReactNode }) {
@@ -52,9 +52,9 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const routes: Partial<Record<CommandId, string>> = {
-      navDashboard: "/admin", navSales: "/sales", navPurchase: "/purchase", navCustomers: "/customers",
-      navAccounts: "/accounts", navPayments: "/payments", navReturns: "/returns", navLedger: "/ledger",
-      navStock: "/stock", navReports: "/reports",
+      navDashboard: "/admin", navSales: "/admin/sales", navPurchase: "/admin/purchase", navCustomers: "/admin/customers",
+      navAccounts: "/admin/accounts", navPayments: "/admin/payments", navReturns: "/admin/returns", navLedger: "/admin/ledger",
+      navStock: "/admin/stock", navReports: "/admin/reports",
     };
     const onKeyDown = (event: KeyboardEvent) => {
       const shortcut = normalizeShortcut(event);
@@ -128,7 +128,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
       <header className={`fixed right-6 top-4 z-20 hidden h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-5 rounded-2xl border border-border/60 bg-card/80 px-5 shadow-sm backdrop-blur-xl transition-[left] duration-300 lg:grid ${collapsed ? "left-28" : "left-72"}`}>
         <div className="flex min-w-0 items-center gap-3 text-muted-foreground"><Search className="h-4 w-4 shrink-0" /><span className="truncate text-sm">Search customers, invoices, products…</span></div>
-        <div className="flex shrink-0 items-center gap-2"><WorkspacePreferencesDialog /><Button variant="ghost" size="icon" aria-label="Notifications" className="rounded-full"><Bell /></Button><Link to="/profile" title="Profile & Companies" className="grid h-9 w-9 place-items-center rounded-full bg-accent/25 font-display text-xs font-bold text-accent-foreground">{initials}</Link></div>
+        <div className="flex shrink-0 items-center gap-2"><WorkspacePreferencesDialog /><Button variant="ghost" size="icon" aria-label="Notifications" className="rounded-full"><Bell /></Button><Link to="/admin/profile" title="Profile & Companies" className="grid h-9 w-9 place-items-center rounded-full bg-accent/25 font-display text-xs font-bold text-accent-foreground">{initials}</Link></div>
       </header>
 
       <main data-app-main className={`min-w-0 px-4 pb-24 pt-5 transition-[margin] duration-300 sm:px-6 lg:px-6 lg:pb-10 lg:pt-24 ${collapsed ? "lg:ml-24" : "lg:ml-68"}`}>

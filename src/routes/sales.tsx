@@ -1,24 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { AppLayout } from "@/components/AppLayout";
-import { SupabaseGate } from "@/components/SupabaseGate";
-import { InvoiceForm } from "@/components/InvoiceForm";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/sales")({
-  head: () => ({
-    meta: [
-      { title: "Sales Invoice — BusinessDesk" },
-      { name: "description", content: "Create GST retail invoices that update stock, customers and the ledger automatically." },
-      { property: "og:title", content: "Sales Invoice — BusinessDesk" },
-      { property: "og:description", content: "Create GST retail invoices that update stock, customers and the ledger automatically." },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
-    ],
-  }),
-  component: () => (
-    <AppLayout>
-      <SupabaseGate>
-        <InvoiceForm kind="sale" />
-      </SupabaseGate>
-    </AppLayout>
-  ),
+  beforeLoad: () => { throw redirect({ to: "/admin/sales", statusCode: 301, replace: true }); },
+  head: () => ({ meta: [{ title: "Sales moved — Bestonconnect" }, { name: "description", content: "Sales is now in Bestonconnect Admin." }, { property: "og:title", content: "Sales moved — Bestonconnect" }, { property: "og:description", content: "Open Sales in Bestonconnect Admin." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }, { name: "robots", content: "noindex" }] }),
 });

@@ -7,7 +7,7 @@ import { SupabaseGate, money } from "@/components/SupabaseGate";
 import { useSupabase } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-export const Route = createFileRoute("/admin")({
+export const Route = createFileRoute("/admin/")({
   head: () => ({
     meta: [
       { title: "Admin Dashboard — Bestonconnect" },
@@ -67,7 +67,7 @@ function DashboardInner() {
         <h2 className="font-semibold text-foreground">Tables not found yet</h2>
         <p className="mt-2 text-sm text-muted-foreground">
           Your database is connected, but the tables don't exist yet. Go to the{" "}
-          <Link to="/setup" className="font-medium text-primary underline">
+          <Link to="/admin/setup" className="font-medium text-primary underline">
             Setup page
           </Link>{" "}
           and run the one-time script in your Supabase SQL editor.
@@ -87,14 +87,14 @@ function DashboardInner() {
   const sumKind = (k: string, m?: boolean) => inv.filter((i) => i.kind === k && (!m || String(i.bill_date).startsWith(month))).reduce((s, i) => s + Number(i.net_total), 0);
 
   const stats = [
-    { label: "Customers", value: String(data?.customerCount ?? 0), icon: Users, to: "/customers" },
-    { label: "Total Assets", value: money(balanceByType("asset")), icon: Wallet, to: "/accounts" },
-    { label: "Products", value: String(products.length), icon: Package, to: "/stock" },
-    { label: "Low Stock Alerts", value: String(lowStock.length), icon: AlertTriangle, to: "/stock" },
-    { label: "Sales (this month)", value: money(sumKind("sale", true)), icon: ShoppingCart, to: "/sales" },
-    { label: "Purchases (this month)", value: money(sumKind("purchase", true)), icon: Truck, to: "/purchase" },
-    { label: "Receivables", value: money(byCode("1100")), icon: Wallet, to: "/accounts" },
-    { label: "Payables", value: money(byCode("2000")), icon: Wallet, to: "/accounts" },
+    { label: "Customers", value: String(data?.customerCount ?? 0), icon: Users, to: "/admin/customers" },
+    { label: "Total Assets", value: money(balanceByType("asset")), icon: Wallet, to: "/admin/accounts" },
+    { label: "Products", value: String(products.length), icon: Package, to: "/admin/stock" },
+    { label: "Low Stock Alerts", value: String(lowStock.length), icon: AlertTriangle, to: "/admin/stock" },
+    { label: "Sales (this month)", value: money(sumKind("sale", true)), icon: ShoppingCart, to: "/admin/sales" },
+    { label: "Purchases (this month)", value: money(sumKind("purchase", true)), icon: Truck, to: "/admin/purchase" },
+    { label: "Receivables", value: money(byCode("1100")), icon: Wallet, to: "/admin/accounts" },
+    { label: "Payables", value: money(byCode("2000")), icon: Wallet, to: "/admin/accounts" },
   ];
   const salesAll = sumKind("sale"), purchAll = sumKind("purchase");
   const maxBar = Math.max(salesAll, purchAll, 1);
@@ -110,7 +110,7 @@ function DashboardInner() {
         <div className="hidden shrink-0 rounded-full border border-border/70 bg-card/80 px-4 py-2 text-xs font-semibold text-muted-foreground shadow-sm sm:block">{new Date().toLocaleDateString("en-IN", { dateStyle: "medium" })}</div>
       </div>
 
-      <div className="flex flex-wrap gap-3"><Link to="/online-orders" className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-3 text-sm font-semibold"><ShoppingCart className="h-4 w-4" />Online orders <ArrowRight className="h-4 w-4" /></Link><Link to="/online-products" className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-3 text-sm font-semibold"><Package className="h-4 w-4" />Online products <ArrowRight className="h-4 w-4" /></Link></div>
+      <div className="flex flex-wrap gap-3"><Link to="/admin/online-orders" className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-3 text-sm font-semibold"><ShoppingCart className="h-4 w-4" />Online orders <ArrowRight className="h-4 w-4" /></Link><Link to="/admin/online-products" className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-3 text-sm font-semibold"><Package className="h-4 w-4" />Online products <ArrowRight className="h-4 w-4" /></Link></div>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {stats.map(({ label, value, icon: Icon, to }, index) => (
           <Link key={label} to={to}>
@@ -144,7 +144,7 @@ function DashboardInner() {
         <Card className="overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base">Recent Journal Entries</CardTitle>
-            <Link to="/ledger" className="flex items-center gap-1 text-sm text-primary hover:underline">
+            <Link to="/admin/ledger" className="flex items-center gap-1 text-sm text-primary hover:underline">
               View all <ArrowRight className="h-3 w-3" />
             </Link>
           </CardHeader>
@@ -173,7 +173,7 @@ function DashboardInner() {
         <Card className="overflow-hidden">
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle className="text-base">Low Stock Items</CardTitle>
-            <Link to="/stock" className="flex items-center gap-1 text-sm text-primary hover:underline">
+            <Link to="/admin/stock" className="flex items-center gap-1 text-sm text-primary hover:underline">
               Manage stock <ArrowRight className="h-3 w-3" />
             </Link>
           </CardHeader>

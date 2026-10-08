@@ -31,7 +31,7 @@ export function SupabaseGate({ children, requireCompany = true }: { children: Re
         <CardHeader><CardTitle className="text-base">One more setup step</CardTitle></CardHeader>
         <CardContent className="space-y-3 text-sm text-muted-foreground">
           <p>Company accounts aren't set up in your database yet. Run the latest setup script once, then refresh.</p>
-          <Button asChild><Link to="/setup">Open setup script</Link></Button>
+          <Button asChild><Link to="/admin/setup">Open setup script</Link></Button>
         </CardContent>
       </Card>
     );
