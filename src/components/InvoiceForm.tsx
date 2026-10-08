@@ -173,7 +173,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
     const { data: items, error: itemError } = await sb.from("invoice_items").select("*").eq("invoice_id", bill.id);
     if (itemError) throw itemError;
     const invData = bill;
-    const extraDisc = Math.max(0, Number(inv.discount) - (items ?? []).reduce((a: number, i: any) => a + Number(i.discount || 0), 0));
+    const extraDisc = Math.max(0, Number(bill.discount) - (items ?? []).reduce((a: number, i: any) => a + Number(i.discount || 0), 0));
     setH({
       bill_no: invData.bill_no, bill_date: invData.bill_date, party_name: invData.party_name ?? "", contact: invData.contact ?? "",
       payment_mode: invData.payment_mode ?? "cash", tax_type: invData.tax_type ?? "gst", bill_type: invData.bill_type ?? "", salesman: invData.salesman ?? "",
