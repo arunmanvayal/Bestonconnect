@@ -11,8 +11,11 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AccountsRouteImport } from './routes/accounts'
+import { Route as AdminRouteImport } from './routes/admin'
 import { Route as CustomersRouteImport } from './routes/customers'
 import { Route as LedgerRouteImport } from './routes/ledger'
+import { Route as OnlineOrdersRouteImport } from './routes/online-orders'
+import { Route as OnlineProductsRouteImport } from './routes/online-products'
 import { Route as PaymentsRouteImport } from './routes/payments'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as PurchaseRouteImport } from './routes/purchase'
@@ -35,6 +38,11 @@ const AccountsRoute = AccountsRouteImport.update({
   path: '/accounts',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminRoute = AdminRouteImport.update({
+  id: '/admin',
+  path: '/admin',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const CustomersRoute = CustomersRouteImport.update({
   id: '/customers',
   path: '/customers',
@@ -43,6 +51,16 @@ const CustomersRoute = CustomersRouteImport.update({
 const LedgerRoute = LedgerRouteImport.update({
   id: '/ledger',
   path: '/ledger',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnlineOrdersRoute = OnlineOrdersRouteImport.update({
+  id: '/online-orders',
+  path: '/online-orders',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnlineProductsRoute = OnlineProductsRouteImport.update({
+  id: '/online-products',
+  path: '/online-products',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PaymentsRoute = PaymentsRouteImport.update({
@@ -104,8 +122,11 @@ const InvoiceIdRoute = InvoiceIdRouteImport.update({
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/accounts': typeof AccountsRoute
+  '/admin': typeof AdminRoute
   '/customers': typeof CustomersRoute
   '/ledger': typeof LedgerRoute
+  '/online-orders': typeof OnlineOrdersRoute
+  '/online-products': typeof OnlineProductsRoute
   '/payments': typeof PaymentsRoute
   '/profile': typeof ProfileRoute
   '/purchase': typeof PurchaseRoute
@@ -121,8 +142,11 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/accounts': typeof AccountsRoute
+  '/admin': typeof AdminRoute
   '/customers': typeof CustomersRoute
   '/ledger': typeof LedgerRoute
+  '/online-orders': typeof OnlineOrdersRoute
+  '/online-products': typeof OnlineProductsRoute
   '/payments': typeof PaymentsRoute
   '/profile': typeof ProfileRoute
   '/purchase': typeof PurchaseRoute
@@ -139,8 +163,11 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/accounts': typeof AccountsRoute
+  '/admin': typeof AdminRoute
   '/customers': typeof CustomersRoute
   '/ledger': typeof LedgerRoute
+  '/online-orders': typeof OnlineOrdersRoute
+  '/online-products': typeof OnlineProductsRoute
   '/payments': typeof PaymentsRoute
   '/profile': typeof ProfileRoute
   '/purchase': typeof PurchaseRoute
@@ -158,8 +185,11 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/accounts'
+    | '/admin'
     | '/customers'
     | '/ledger'
+    | '/online-orders'
+    | '/online-products'
     | '/payments'
     | '/profile'
     | '/purchase'
@@ -175,8 +205,11 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/accounts'
+    | '/admin'
     | '/customers'
     | '/ledger'
+    | '/online-orders'
+    | '/online-products'
     | '/payments'
     | '/profile'
     | '/purchase'
@@ -192,8 +225,11 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/accounts'
+    | '/admin'
     | '/customers'
     | '/ledger'
+    | '/online-orders'
+    | '/online-products'
     | '/payments'
     | '/profile'
     | '/purchase'
@@ -210,8 +246,11 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AccountsRoute: typeof AccountsRoute
+  AdminRoute: typeof AdminRoute
   CustomersRoute: typeof CustomersRoute
   LedgerRoute: typeof LedgerRoute
+  OnlineOrdersRoute: typeof OnlineOrdersRoute
+  OnlineProductsRoute: typeof OnlineProductsRoute
   PaymentsRoute: typeof PaymentsRoute
   ProfileRoute: typeof ProfileRoute
   PurchaseRoute: typeof PurchaseRoute
@@ -241,6 +280,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AccountsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin': {
+      id: '/admin'
+      path: '/admin'
+      fullPath: '/admin'
+      preLoaderRoute: typeof AdminRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/customers': {
       id: '/customers'
       path: '/customers'
@@ -253,6 +299,20 @@ declare module '@tanstack/react-router' {
       path: '/ledger'
       fullPath: '/ledger'
       preLoaderRoute: typeof LedgerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/online-orders': {
+      id: '/online-orders'
+      path: '/online-orders'
+      fullPath: '/online-orders'
+      preLoaderRoute: typeof OnlineOrdersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/online-products': {
+      id: '/online-products'
+      path: '/online-products'
+      fullPath: '/online-products'
+      preLoaderRoute: typeof OnlineProductsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/payments': {
@@ -338,8 +398,11 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AccountsRoute: AccountsRoute,
+  AdminRoute: AdminRoute,
   CustomersRoute: CustomersRoute,
   LedgerRoute: LedgerRoute,
+  OnlineOrdersRoute: OnlineOrdersRoute,
+  OnlineProductsRoute: OnlineProductsRoute,
   PaymentsRoute: PaymentsRoute,
   ProfileRoute: ProfileRoute,
   PurchaseRoute: PurchaseRoute,

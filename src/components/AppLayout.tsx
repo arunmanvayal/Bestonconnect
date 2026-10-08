@@ -21,7 +21,7 @@ import { useActiveCompany } from "@/lib/company";
 import { emitWorkspaceCommand, normalizeShortcut, useWorkspacePreferences, type CommandId } from "@/lib/workspace-preferences";
 
 const NAV = [
-  { to: "/", label: "Dashboard", icon: LayoutDashboard },
+  { to: "/admin", label: "Admin Dashboard", icon: LayoutDashboard },
   { to: "/sales", label: "Sales", icon: ShoppingCart },
   { to: "/purchase", label: "Purchase", icon: Truck },
   { to: "/customers", label: "Customers", icon: Users },
@@ -30,6 +30,9 @@ const NAV = [
   { to: "/returns", label: "Sales Returns", icon: Undo2 },
   { to: "/ledger", label: "Ledger", icon: BookOpen },
   { to: "/stock", label: "Stock", icon: Package },
+  { to: "/online-products", label: "Online Products", icon: Package },
+  { to: "/online-orders", label: "Online Orders", icon: ShoppingCart },
+  { to: "/", label: "Online Shop", icon: ShoppingCart },
   { to: "/reports", label: "Reports", icon: BarChart3 },
   { to: "/tools", label: "Tools", icon: Wrench },
   { to: "/profile", label: "Profile & Companies", icon: UserCircle },
@@ -49,7 +52,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     const routes: Partial<Record<CommandId, string>> = {
-      navDashboard: "/", navSales: "/sales", navPurchase: "/purchase", navCustomers: "/customers",
+      navDashboard: "/admin", navSales: "/sales", navPurchase: "/purchase", navCustomers: "/customers",
       navAccounts: "/accounts", navPayments: "/payments", navReturns: "/returns", navLedger: "/ledger",
       navStock: "/stock", navReports: "/reports",
     };
