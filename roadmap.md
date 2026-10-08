@@ -3,3 +3,8 @@
 - [x] Safe transactional updates preserving bill identity and synchronizing stock/ledger.
 - [ ] Apply external database Setup script (requires the owner to run it).
 - [ ] Verify signed-in bill lookup and update against live data (external authentication session unavailable).
+- [ ] Fix invoice copy-option overlap and enforce pure black on white.
+- [ ] Replace public home with online storefront; move existing dashboard to admin.
+- [ ] Add owner-managed online products with stock visibility toggles and image uploads.
+- [ ] Add checkout and company-scoped online order processing.
+- [ ] Apply online-shop setup and image storage (requires external database owner).
