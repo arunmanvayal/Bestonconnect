@@ -184,10 +184,10 @@
 }
 
 /* A4 printable invoice */
-.a4-sheet { width: 210mm; min-height: 297mm; max-width: 100%; }
+.a4-sheet { width: 210mm; height: 297mm; overflow: hidden; max-width: 100%; }
 @media print {
   @page { size: A4; margin: 0; }
   html, body { background: var(--card) !important; }
-  .a4-sheet { width: 210mm; min-height: 297mm; margin: 0; box-shadow: none; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  .a4-sheet { width: 210mm; height: 297mm; margin: 0; box-shadow: none; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   [data-sonner-toaster] { display: none !important; }
 }
