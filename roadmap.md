@@ -1,4 +1,5 @@
 - [x] Sales bill-number lookup with preview and reprint.
+- [x] Generate next bill number from the highest existing series number and recheck on save; allow selecting existing duplicate bills.
 - [x] Safe transactional updates preserving bill identity and synchronizing stock/ledger.
 - [ ] Apply external database Setup script (requires the owner to run it).
 - [ ] Verify signed-in bill lookup and update against live data (external authentication session unavailable).
