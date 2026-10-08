@@ -9,3 +9,5 @@
 - [x] Add checkout and company-scoped online order processing.
 - [ ] Apply online-shop setup and image storage (requires external database owner).
 - [ ] Verify live publishing, checkout, image uploads, order processing and A4 output (external owner session and schema update required).
+- [x] Show only login before admin access and move management pages under /admin/ while preserving old links with redirects.
+- [ ] Verify login-to-dashboard with a real owner session (external authentication session unavailable).

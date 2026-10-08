@@ -1,24 +1,6 @@
-import { createFileRoute } from "@tanstack/react-router";
-import { AppLayout } from "@/components/AppLayout";
-import { SupabaseGate } from "@/components/SupabaseGate";
-import { InvoiceForm } from "@/components/InvoiceForm";
+import { createFileRoute, redirect } from "@tanstack/react-router";
 
 export const Route = createFileRoute("/purchase")({
-  head: () => ({
-    meta: [
-      { title: "Purchase Invoice — BusinessDesk" },
-      { name: "description", content: "Record supplier purchases that add stock and post to the ledger automatically." },
-      { property: "og:title", content: "Purchase Invoice — BusinessDesk" },
-      { property: "og:description", content: "Record supplier purchases that add stock and post to the ledger automatically." },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary" },
-    ],
-  }),
-  component: () => (
-    <AppLayout>
-      <SupabaseGate>
-        <InvoiceForm kind="purchase" />
-      </SupabaseGate>
-    </AppLayout>
-  ),
+  beforeLoad: () => { throw redirect({ to: "/admin/purchase", statusCode: 301, replace: true }); },
+  head: () => ({ meta: [{ title: "Purchase moved — Bestonconnect" }, { name: "description", content: "Purchase is now in Bestonconnect Admin." }, { property: "og:title", content: "Purchase moved — Bestonconnect" }, { property: "og:description", content: "Open Purchase in Bestonconnect Admin." }, { property: "og:type", content: "website" }, { name: "twitter:card", content: "summary" }, { name: "robots", content: "noindex" }] }),
 });

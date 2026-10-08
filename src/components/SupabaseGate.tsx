@@ -16,13 +16,14 @@ function Loading({ text }: { text: string }) {
 /** Waits for the database, then requires login and an active company before showing the page. */
 export { USERNAME_RE };
 
-export function SupabaseGate({ children }: { children: ReactNode }) {
+export function SupabaseGate({ children, requireCompany = true }: { children: ReactNode; requireCompany?: boolean }) {
   const supabase = useSupabase();
   const session = useSession();
   const company = useActiveCompany();
 
   if (!supabase || session === undefined) return <Loading text="Connecting to your database…" />;
-  if (!session) return <AuthForm />;
+  if (!session) return <div className="grid min-h-screen place-items-center bg-background px-4 py-8"><AuthForm /></div>;
+  if (!requireCompany) return <>{children}</>;
   if (company.isLoading) return <Loading text="Loading your company…" />;
   if (company.error) {
     return (
@@ -30,7 +31,7 @@ export function SupabaseGate({ children }: { children: ReactNode }) {
         <CardHeader><CardTitle className="text-base">One more setup step</CardTitle></CardHeader>
         <CardContent className="space-y-3 text-sm text-muted-foreground">
           <p>Company accounts aren't set up in your database yet. Run the latest setup script once, then refresh.</p>
-          <Button asChild><Link to="/setup">Open setup script</Link></Button>
+          <Button asChild><Link to="/admin/setup">Open setup script</Link></Button>
         </CardContent>
       </Card>
     );
