@@ -7,12 +7,12 @@ import { SupabaseGate, money } from "@/components/SupabaseGate";
 import { useSupabase } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
-export const Route = createFileRoute("/")({
+export const Route = createFileRoute("/admin")({
   head: () => ({
     meta: [
-      { title: "Dashboard — BusinessDesk" },
+      { title: "Admin Dashboard — Bestonconnect" },
       { name: "description", content: "Business overview: customers, accounts, ledger and stock at a glance." },
-      { property: "og:title", content: "Dashboard — BusinessDesk" },
+      { property: "og:title", content: "Admin Dashboard — Bestonconnect" },
       { property: "og:description", content: "Business overview: customers, accounts, ledger and stock at a glance." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
@@ -32,11 +32,13 @@ function Dashboard() {
 }
 
 function DashboardInner() {
-  const supabase = useSupabase()!;
+  const supabase = useSupabase();
 
   const { data } = useQuery({
     queryKey: ["dashboard"],
+    enabled: !!supabase,
     queryFn: async () => {
+      if (!supabase) throw new Error("Database is not connected");
       const [customers, accounts, products, entries, invoices] = await Promise.all([
         supabase.from("customers").select("id", { count: "exact", head: true }),
         fetchBalances(supabase).then((d) => ({ data: d, error: null })).catch((e) => ({ data: [] as any[], error: e })),
@@ -102,12 +104,13 @@ function DashboardInner() {
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4">
         <div className="min-w-0">
           <p className="mb-1 text-xs font-semibold uppercase text-primary/65">Business overview</p>
-          <h1 className="truncate text-2xl font-bold text-foreground sm:text-3xl">Good day</h1>
+          <h1 className="truncate text-2xl font-bold text-foreground sm:text-3xl">Admin dashboard</h1>
           <p className="mt-1 text-sm text-muted-foreground">Your live financial position and daily operations.</p>
         </div>
         <div className="hidden shrink-0 rounded-full border border-border/70 bg-card/80 px-4 py-2 text-xs font-semibold text-muted-foreground shadow-sm sm:block">{new Date().toLocaleDateString("en-IN", { dateStyle: "medium" })}</div>
       </div>
 
+      <div className="flex flex-wrap gap-3"><Link to="/online-orders" className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-3 text-sm font-semibold"><ShoppingCart className="h-4 w-4" />Online orders <ArrowRight className="h-4 w-4" /></Link><Link to="/online-products" className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-3 text-sm font-semibold"><Package className="h-4 w-4" />Online products <ArrowRight className="h-4 w-4" /></Link></div>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {stats.map(({ label, value, icon: Icon, to }, index) => (
           <Link key={label} to={to}>
@@ -150,7 +153,7 @@ function DashboardInner() {
               <p className="text-sm text-muted-foreground">No entries yet. Add your first one in the Ledger.</p>
             ) : (
               <ul className="divide-y divide-border">
-                {data!.recentEntries.map((e: any) => {
+                {data?.recentEntries.map((e: any) => {
                   const total = (e.journal_lines ?? []).reduce((s: number, l: any) => s + Number(l.debit ?? 0), 0);
                   return (
                     <li key={e.id} className="flex items-center justify-between py-2.5 text-sm">
