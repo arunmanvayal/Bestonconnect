@@ -31,11 +31,13 @@ const fmt = (n: number) => Number(n ?? 0).toLocaleString("en-IN", { minimumFract
 function PrintInvoice() {
   const { id } = Route.useParams();
   const { print } = Route.useSearch();
-  const sb = useSupabase()!;
+  const sb = useSupabase();
   const { data: company } = useActiveCompany();
   const { data, isLoading } = useQuery({
     queryKey: ["invoice-print", id],
+    enabled: !!sb,
     queryFn: async () => {
+      if (!sb) throw new Error("Database is not connected");
       const { data: inv, error } = await sb.from("invoices").select("*").eq("id", id).single();
       if (error) throw error;
       const [{ data: items }, party] = await Promise.all([
@@ -76,18 +78,22 @@ function PrintInvoice() {
         <Button onClick={() => window.print()}><Printer className="mr-2 h-4 w-4" />Print A4</Button>
       </div>
 
-      <article className="a4-sheet mx-auto bg-background p-[8mm] font-sans text-[10.5px] leading-tight text-foreground shadow-xl print:shadow-none">
+      <article className="a4-sheet invoice-monochrome mx-auto bg-background p-[8mm] font-sans text-[10.5px] leading-tight text-foreground shadow-xl print:shadow-none">
         <div className={`flex h-full flex-col border ${B}`}>
           {/* Header */}
-          <header className="relative px-2 pb-1 pt-2 text-center">
-            <p className="absolute left-2 top-2 text-[10px] font-bold">GSTIN : {company.gstin}</p>
-            <div className="absolute right-1 top-1 text-left text-[9px]">
+          <header className="px-2 pb-1 pt-2 text-center">
+            <div className="grid grid-cols-[minmax(0,1fr)_auto] items-start gap-3 text-left">
+            <p className="break-words text-[10px] font-bold">GSTIN : {company.gstin}</p>
+            <div className="shrink-0 text-left text-[9px]">
               {["Original for Recipient", "Duplicate for Transporter", "Triplicate for Supplier"].map((t) => (
                 <p key={t} className="flex items-center gap-1"><span className={`inline-block h-3 w-3 border ${B}`} />{t}</p>
               ))}
             </div>
-            {company.logo && <img src={company.logo} alt="" className="absolute left-3 top-7 h-12 w-12 object-contain grayscale" />}
-            <h1 className="mt-3 text-[24px] font-semibold uppercase tracking-wide">{company.name}</h1>
+            </div>
+            <div className="mt-2 flex items-center justify-center gap-2">
+            {company.logo && <img src={company.logo} alt="" className="h-10 w-10 shrink-0 object-contain grayscale" />}
+            <h1 className="min-w-0 break-words text-[24px] font-semibold uppercase">{company.name}</h1>
+            </div>
             {company.address && <p className="uppercase">{company.address}{company.state ? `, ${company.state}` : ""}</p>}
             <p>{company.phone}{company.email ? ` E MAIL : ${company.email}` : ""}</p>
             <p className="mt-2 text-[13px] font-bold">{isSale ? "INVOICE" : "PURCHASE INVOICE"}</p>
