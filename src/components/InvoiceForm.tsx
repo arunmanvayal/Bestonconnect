@@ -1,11 +1,11 @@
 import { fetchAll } from "@/lib/data-transfer";
 import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Trash2, RefreshCw, Save, Printer, Plus, FileText, Columns3 } from "lucide-react";
+import { Trash2, RefreshCw, Save, Printer, Plus, FileText, Columns3, Search, Eye, X } from "lucide-react";
 import { toast } from "sonner";
 import { useSupabase } from "@/lib/supabase";
 import { money } from "@/components/SupabaseGate";
-import { type Header, type Kind, type Line, lineCalc, postInvoice, totals } from "@/lib/books";
+import { type Header, type Kind, type Line, lineCalc, postInvoice, reverseInvoice, totals } from "@/lib/books";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useWorkspaceCommands, useWorkspacePreferences } from "@/lib/workspace-preferences";
@@ -38,6 +38,8 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
   const [h, setH] = useState<Header>(emptyHeader(kind));
   const [lines, setLines] = useState<Line[]>([emptyLine()]);
   const [selected, setSelected] = useState<number | null>(null);
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [lookup, setLookup] = useState("");
   const isSale = kind === "sale";
   const { shortcuts, columnWidths, setColumnWidths, resetColumnWidths } = useWorkspacePreferences();
   const widthKey = `invoice-${kind}`;
@@ -153,11 +155,38 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
     setH((prev) => ({ ...prev, party_name: name, contact: p?.phone ?? prev.contact, billing_address: p?.address ?? prev.billing_address }));
   };
 
-  const reset = () => { setH(emptyHeader(kind)); setLines([emptyLine()]); setSelected(null); };
+  const reset = () => { setH(emptyHeader(kind)); setLines([emptyLine()]); setSelected(null); setEditingId(null); };
+
+  const loadBill = async (no?: string) => {
+    const q = (no ?? lookup).trim();
+    if (!q) { toast.info("Type a bill number"); return; }
+    const { data: inv } = await sb.from("invoices").select("*").eq("kind", kind).ilike("bill_no", q).order("created_at", { ascending: false }).limit(1).maybeSingle();
+    if (!inv) { toast.error(`Bill ${q} not found`); return; }
+    const { data: items } = await sb.from("invoice_items").select("*").eq("invoice_id", inv.id);
+    const extraDisc = Math.max(0, Number(inv.discount) - (items ?? []).reduce((a: number, i: any) => a + Number(i.discount || 0), 0));
+    setH({
+      bill_no: inv.bill_no, bill_date: inv.bill_date, party_name: inv.party_name ?? "", contact: inv.contact ?? "",
+      payment_mode: inv.payment_mode ?? "cash", tax_type: inv.tax_type ?? "gst", bill_type: inv.bill_type ?? "", salesman: inv.salesman ?? "",
+      ref_no: inv.ref_no ?? "", bill_discount: Math.round(extraDisc * 100) / 100, other_exp: Number(inv.other_exp) || 0, freight: Number(inv.freight) || 0,
+      cash_disc: Number(inv.cash_disc) || 0, remarks: inv.remarks ?? "", shipping_address: inv.shipping_address ?? "", billing_address: inv.billing_address ?? "",
+    });
+    setLines((items ?? []).map((i: any) => {
+      const p = products.find((x: any) => x.id === i.product_id);
+      return { product_id: i.product_id, item_name: i.item_name, barcode: p?.barcode ?? "", unit: i.unit || "pcs", quantity: Number(i.quantity), free_qty: Number(i.free_qty) || 0,
+        rate: Number(i.rate), discount: Number(i.discount) || 0, gst_rate: Number(i.gst_rate), profit_pct: 0 };
+    }).concat([emptyLine()]));
+    setEditingId(inv.id); lastSavedId.current = inv.id; setLookup("");
+    toast.success(`Bill ${inv.bill_no} loaded — edit and press Update, or Preview / Print`);
+  };
 
   const save = useMutation({
     mutationFn: async () => {
-      if (isSale) {
+      if (editingId) {
+        if (!confirm(`Update bill ${billNo}? Stock and ledger will be recalculated.`)) throw new Error("Update cancelled");
+        await reverseInvoice(sb, editingId);
+        await qc.invalidateQueries({ queryKey: ["products"] });
+      }
+      if (isSale && !editingId) {
         for (const l of lines) {
           const p = products.find((x) => x.id === l.product_id);
           if (p && l.quantity + l.free_qty > Number(p.quantity)) throw new Error(`Only ${Number(p.quantity)} ${p.unit} of ${p.name} in stock`);
@@ -167,7 +196,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
     },
     onSuccess: (id) => {
       lastSavedId.current = id;
-      toast.success(`${isSale ? "Sales" : "Purchase"} invoice ${billNo} saved — stock and ledger updated`, {
+      toast.success(`${isSale ? "Sales" : "Purchase"} invoice ${billNo} ${editingId ? "updated" : "saved"} — stock and ledger updated`, {
         action: { label: "Print A4", onClick: () => window.open(`/invoice/${id}?print=1`, "_blank") },
       });
       qc.invalidateQueries();
@@ -226,6 +255,20 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
         <div className="flex min-w-0 items-center gap-3"><div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-sm"><FileText className="h-5 w-5" /></div><div className="min-w-0"><h1 className="truncate text-xl font-bold text-foreground sm:text-2xl">{isSale ? "Retail Invoice" : "Purchase Invoice"}</h1><p className="text-xs text-muted-foreground">Stock and ledger update automatically</p></div></div>
         <span className="hidden shrink-0 rounded-full bg-card px-3 py-2 text-xs font-medium text-muted-foreground shadow-sm sm:block">{new Date().toLocaleDateString("en-IN", { dateStyle: "medium" })}</span>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border/70 bg-card/90 p-3 shadow-sm">
+        <div className="relative min-w-[12rem] flex-1">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Input className="pl-9" placeholder="Enter bill number to open (e.g. RT1001)" value={lookup} onChange={(e) => setLookup(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void loadBill(); } }} />
+        </div>
+        <Button variant="secondary" onClick={() => void loadBill()}>Open bill</Button>
+        {editingId && <>
+          <span className="rounded-full bg-accent/30 px-3 py-1.5 text-xs font-semibold text-accent-foreground">Editing {billNo}</span>
+          <Button variant="outline" size="sm" onClick={() => window.open(`/invoice/${editingId}`, "_blank")}><Eye className="mr-1.5 h-4 w-4" />Preview</Button>
+          <Button variant="outline" size="sm" onClick={() => window.open(`/invoice/${editingId}?print=1`, "_blank")}><Printer className="mr-1.5 h-4 w-4" />Reprint</Button>
+          <Button variant="ghost" size="sm" onClick={reset}><X className="mr-1.5 h-4 w-4" />New bill</Button>
+        </>}
       </div>
 
       <div className="overflow-hidden rounded-2xl border border-border/70 bg-card/90 shadow-sm backdrop-blur-sm">
@@ -361,7 +404,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
           <Button variant="outline" title={`Remove row · ${shortcuts.removeRow}`} disabled={selected === null} onClick={removeSelected}><Trash2 className="mr-2 h-4 w-4" />Remove</Button>
           <Button variant="outline" title={`Refresh · ${shortcuts.refresh}`} onClick={reset}><RefreshCw className="mr-2 h-4 w-4" />Refresh</Button>
           <Button variant="outline" title={`Print · ${shortcuts.print}`} onClick={printInvoice}><Printer className="mr-2 h-4 w-4" />Print</Button>
-          <Button title={`Save · ${shortcuts.save}`} onClick={() => save.mutate()} disabled={save.isPending}><Save className="mr-2 h-4 w-4" />{save.isPending ? "Saving…" : "Save"}</Button>
+          <Button title={`Save · ${shortcuts.save}`} onClick={() => save.mutate()} disabled={save.isPending}><Save className="mr-2 h-4 w-4" />{save.isPending ? "Saving…" : editingId ? "Update" : "Save"}</Button>
         </div>
       </div>
 
@@ -387,7 +430,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
           <p className="text-xs text-muted-foreground">Qty {t.total_qty} · Tax {money(t.total_tax)}</p>
           <p className="font-display text-xl font-bold tabular-nums text-foreground sm:text-2xl">{money(t.net_total)}</p>
         </div>
-        <Button className="ml-auto" title={`Save · ${shortcuts.save}`} onClick={() => save.mutate()} disabled={save.isPending}><Save className="mr-2 h-4 w-4" />{save.isPending ? "Saving…" : "Save"}</Button>
+        <Button className="ml-auto" title={`Save · ${shortcuts.save}`} onClick={() => save.mutate()} disabled={save.isPending}><Save className="mr-2 h-4 w-4" />{save.isPending ? "Saving…" : editingId ? "Update" : "Save"}</Button>
       </div>
 
       {/* Recent invoices */}
@@ -400,7 +443,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
             <thead className="text-left text-muted-foreground"><tr><th className="px-4 py-2">Bill No</th><th>Date</th><th>{isSale ? "Party" : "Supplier"}</th><th>Mode</th><th className="text-right">Tax</th><th className="px-4 text-right">Net Total</th></tr></thead>
             <tbody>
               {invoices.map((inv) => (
-                <tr key={inv.id} className="border-t border-border">
+                <tr key={inv.id} className="cursor-pointer border-t border-border hover:bg-muted/50" title="Open this bill" onClick={() => void loadBill(inv.bill_no)}>
                   <td className="px-4 py-2 font-mono">{inv.bill_no}</td><td>{inv.bill_date}</td><td>{inv.party_name || "Walk-in"}</td>
                   <td className="capitalize">{inv.payment_mode}</td><td className="text-right">{money(inv.total_tax)}</td>
                   <td className="px-4 text-right font-semibold">{money(inv.net_total)}</td>
