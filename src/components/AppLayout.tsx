@@ -17,6 +17,7 @@ import { useEffect, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { WorkspacePreferencesDialog } from "@/components/WorkspacePreferencesDialog";
+import { WorkspaceSearch } from "@/components/WorkspaceSearch";
 import { useActiveCompany } from "@/lib/company";
 import { emitWorkspaceCommand, normalizeShortcut, useWorkspacePreferences, type CommandId } from "@/lib/workspace-preferences";
 
@@ -123,11 +124,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
       <header data-mobile-header className="sticky top-0 z-20 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-border/60 bg-background/80 px-4 py-3 backdrop-blur-xl lg:hidden">
         <Button variant="outline" size="icon" aria-label="Open navigation" className="shrink-0 rounded-full bg-card/80" onClick={() => setMenuOpen(true)}><Menu /></Button>
         <div className="min-w-0"><p className="truncate font-display text-sm font-bold">{current?.label}</p><p className="truncate text-[10px] text-muted-foreground">{brand}</p></div>
-        <div className="flex shrink-0 items-center gap-1"><WorkspacePreferencesDialog /><Button variant="outline" size="icon" aria-label="Notifications" className="shrink-0 rounded-full bg-card/80"><Bell /></Button></div>
+        <div className="flex shrink-0 items-center gap-1"><WorkspaceSearch compact /><WorkspacePreferencesDialog /><Button variant="outline" size="icon" aria-label="Notifications" className="shrink-0 rounded-full bg-card/80"><Bell /></Button></div>
       </header>
 
       <header className={`fixed right-6 top-4 z-20 hidden h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-5 rounded-2xl border border-border/60 bg-card/80 px-5 shadow-sm backdrop-blur-xl transition-[left] duration-300 lg:grid ${collapsed ? "left-28" : "left-72"}`}>
-        <div className="flex min-w-0 items-center gap-3 text-muted-foreground"><Search className="h-4 w-4 shrink-0" /><span className="truncate text-sm">Search customers, invoices, products…</span></div>
+        <WorkspaceSearch />
         <div className="flex shrink-0 items-center gap-2"><WorkspacePreferencesDialog /><Button variant="ghost" size="icon" aria-label="Notifications" className="rounded-full"><Bell /></Button><Link to="/admin/profile" title="Profile & Companies" className="grid h-9 w-9 place-items-center rounded-full bg-accent/25 font-display text-xs font-bold text-accent-foreground">{initials}</Link></div>
       </header>
 
