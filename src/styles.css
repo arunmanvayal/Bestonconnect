@@ -193,9 +193,9 @@
 .invoice-monochrome { --background: var(--invoice-paper); --foreground: var(--invoice-ink); --border: var(--invoice-ink); --card: var(--invoice-paper); color: var(--invoice-ink); background: var(--invoice-paper); color-scheme: light; }
 .storefront { --background: oklch(0.985 0 0); --foreground: oklch(0.22 0.02 245); --card: oklch(1 0 0); --muted: oklch(0.96 0.004 245); --primary: var(--shop-brand); --primary-foreground: var(--shop-brand-foreground); --border: oklch(0.91 0.008 245); --muted-foreground: oklch(0.5 0.018 245); background: var(--background); color: var(--foreground); min-height: 100vh; }
 .shop-cover { position: relative; min-height: 320px; overflow: hidden; background: var(--card); }
-.shop-cover > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
-.shop-cover-copy { position: relative; max-width: 440px; padding: 55px 36px; }
-@media (max-width: 640px) { .shop-cover { min-height: 290px; } .shop-cover > img { object-position: 64% center; opacity: .52; } .shop-cover-copy { padding: 42px 22px; max-width: 310px; } }
+.shop-cover > img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; object-position: right center; }
+.shop-cover-copy { position: relative; max-width: 440px; padding: 36px; }
+@media (max-width: 640px) { .shop-cover { min-height: 310px; } .shop-cover > img { width: 150%; max-width: none; left: -18%; object-fit: cover; opacity: .24; } .shop-cover-copy { padding: 30px 22px; max-width: 310px; } }
 .a4-sheet { width: 210mm; height: 297mm; overflow: hidden; max-width: 100%; }
 @media print {
   @page { size: A4; margin: 0; }
