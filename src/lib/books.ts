@@ -179,6 +179,26 @@ export async function postInvoice(sb: SupabaseClient, kind: Kind, h: Header, raw
   return inv.id as string;
 }
 
+/** Undoes a saved invoice: restores stock, removes its ledger entry and the bill. Used before re-saving an edited bill. */
+export async function reverseInvoice(sb: SupabaseClient, invoiceId: string) {
+  const { data: inv, error } = await sb.from("invoices").select("*").eq("id", invoiceId).single();
+  if (error) throw error;
+  const { count } = await sb.from("sales_returns").select("id", { count: "exact", head: true }).eq("invoice_id", invoiceId);
+  if (count) throw new Error("This bill has sales returns, so it can't be edited");
+  const { data: items } = await sb.from("invoice_items").select("*").eq("invoice_id", invoiceId);
+  for (const it of items ?? []) {
+    if (!it.product_id) continue;
+    const qty = Number(it.quantity) + Number(it.free_qty);
+    const { data: cur } = await sb.from("products").select("quantity").eq("id", it.product_id).maybeSingle();
+    if (!cur) continue;
+    await sb.from("products").update({ quantity: Number(cur.quantity ?? 0) + (inv.kind === "sale" ? qty : -qty) }).eq("id", it.product_id);
+    await sb.from("stock_movements").insert({ product_id: it.product_id, type: inv.kind === "sale" ? "in" : "out", quantity: qty, note: `Edit reversal ${inv.bill_no}` });
+  }
+  const { error: delErr } = await sb.from("invoices").delete().eq("id", invoiceId);
+  if (delErr) throw delErr;
+  if (inv.journal_entry_id) await sb.from("journal_entries").delete().eq("id", inv.journal_entry_id);
+}
+
 /** Live account balances = opening balance + ledger activity. */
 export async function fetchBalances(sb: SupabaseClient) {
   const [{ data: accounts, error }, { data: lines }] = await Promise.all([
