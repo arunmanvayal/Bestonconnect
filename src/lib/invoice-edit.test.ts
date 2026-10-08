@@ -1,4 +1,5 @@
-import { describe, expect, test } from "bun:test";
+import { describe, it as test } from "node:test";
+import assert from "node:assert/strict";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { updateSalesInvoice, type Header, type Line } from "./books";
 
@@ -9,11 +10,11 @@ describe("saved sales bill updates", () => {
   test("updates the existing bill through one atomic call without deleting it", async () => {
     const calls: unknown[] = [];
     const sb = { rpc: async (name: string, params: unknown) => { calls.push({ name, params }); return { data: "original-bill-id", error: null }; }, from: () => { throw new Error("Must not delete or re-create bill"); } } as unknown as SupabaseClient;
-    expect(await updateSalesInvoice(sb, "original-bill-id", header, [line])).toBe("original-bill-id");
-    expect(calls).toEqual([{ name: "update_sales_invoice", params: { _invoice_id: "original-bill-id", _header: header, _lines: [line] } }]);
+    assert.equal(await updateSalesInvoice(sb, "original-bill-id", header, [line]), "original-bill-id");
+    assert.deepEqual(calls, [{ name: "update_sales_invoice", params: { _invoice_id: "original-bill-id", _header: header, _lines: [line] } }]);
   });
   test("missing setup stops the update instead of falling back to destructive writes", async () => {
     const sb = { rpc: async () => ({ data: null, error: { code: "PGRST202" } }), from: () => { throw new Error("Must not delete bill"); } } as unknown as SupabaseClient;
-    await expect(updateSalesInvoice(sb, "original-bill-id", header, [line])).rejects.toThrow("original bill is unchanged");
+    await assert.rejects(updateSalesInvoice(sb, "original-bill-id", header, [line]), /original bill is unchanged/);
   });
 });
