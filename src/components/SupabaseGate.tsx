@@ -16,13 +16,14 @@ function Loading({ text }: { text: string }) {
 /** Waits for the database, then requires login and an active company before showing the page. */
 export { USERNAME_RE };
 
-export function SupabaseGate({ children }: { children: ReactNode }) {
+export function SupabaseGate({ children, requireCompany = true }: { children: ReactNode; requireCompany?: boolean }) {
   const supabase = useSupabase();
   const session = useSession();
   const company = useActiveCompany();
 
   if (!supabase || session === undefined) return <Loading text="Connecting to your database…" />;
   if (!session) return <AuthForm />;
+  if (!requireCompany) return <>{children}</>;
   if (company.isLoading) return <Loading text="Loading your company…" />;
   if (company.error) {
     return (
