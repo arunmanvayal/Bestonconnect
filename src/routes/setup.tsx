@@ -4,7 +4,8 @@ import { Check, Copy } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { SETUP_SQL as BASE_SQL, INVOICE_SQL, COMPANY_SQL, USERNAME_SQL, IMPORT_SQL } from "@/lib/schema-sql";
 import { INVOICE_EDIT_SQL } from "@/lib/invoice-edit-sql";
-const SETUP_SQL = BASE_SQL + INVOICE_SQL + COMPANY_SQL + USERNAME_SQL + IMPORT_SQL + INVOICE_EDIT_SQL;
+import { ONLINE_SHOP_SQL } from "@/lib/online-shop-sql";
+const SETUP_SQL = BASE_SQL + INVOICE_SQL + COMPANY_SQL + USERNAME_SQL + IMPORT_SQL + INVOICE_EDIT_SQL + ONLINE_SHOP_SQL;
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -37,6 +38,12 @@ function SetupPage() {
         <div>
           <h1 className="text-2xl font-bold text-foreground">Database Setup</h1>
           <p className="text-sm text-muted-foreground">One-time step to create the tables in your Supabase project</p>
+        </div>
+
+        <div className="space-y-3 border-y border-border py-5">
+          <h2 className="font-semibold">Online shop setup</h2>
+          <p className="text-sm text-muted-foreground">Run the latest script below to enable online products and orders. In your connected database's Storage area, create a public bucket named <strong>online-products</strong>, with a 5 MB file limit and JPG, PNG and WebP images allowed. Product photos are public; orders and business records stay private.</p>
+          <Button variant="outline" onClick={async () => { await navigator.clipboard.writeText(ONLINE_SHOP_SQL); setCopied(true); setTimeout(() => setCopied(false), 2000); }}><Copy className="h-4 w-4" />Copy online shop update only</Button>
         </div>
 
         <Card>

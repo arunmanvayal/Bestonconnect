@@ -73,7 +73,7 @@ grant execute on function public.online_catalog() to anon, authenticated;
 -- Guest order intake; totals, visibility, quantities and company are validated here.
 create or replace function public.place_online_order(_company uuid, _customer jsonb, _items jsonb, _request_key uuid) returns jsonb
 language plpgsql security definer set search_path = public as $fn$
-declare oid uuid; ono text; p record; item jsonb; qty integer; price numeric; total numeric := 0; old_order record;
+declare oid uuid; ono text; p record; item jsonb; qty integer; price numeric; order_total numeric := 0; old_order record;
 begin
   if _request_key is null then raise exception 'Missing request key'; end if;
   perform pg_advisory_xact_lock(hashtext(_request_key::text));
@@ -98,10 +98,10 @@ begin
     price := round(p.unit_price * case when p.sale_tax_incl then 1 else 1 + coalesce(p.gst_rate,0)/100 end,2);
     if price < 0 then raise exception 'Invalid product price'; end if;
     insert into online_order_items(order_id,product_id,item_name,quantity,price,amount) values(oid,p.id,p.name,qty,price,round(price*qty,2));
-    total := total + round(price*qty,2);
+    order_total := order_total + round(price*qty,2);
   end loop;
-  update online_orders set total = total where id = oid;
-  return jsonb_build_object('order_no',ono,'total',total);
+  update online_orders set total = order_total where id = oid;
+  return jsonb_build_object('order_no',ono,'total',order_total);
 end $fn$;
 revoke all on function public.place_online_order(uuid,jsonb,jsonb,uuid) from public;
 grant execute on function public.place_online_order(uuid,jsonb,jsonb,uuid) to anon, authenticated;
