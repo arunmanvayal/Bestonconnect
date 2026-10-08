@@ -14,6 +14,8 @@ import { Route as AccountsRouteImport } from './routes/accounts'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as CustomersRouteImport } from './routes/customers'
 import { Route as LedgerRouteImport } from './routes/ledger'
+import { Route as OnlineOrdersRouteImport } from './routes/online-orders'
+import { Route as OnlineProductsRouteImport } from './routes/online-products'
 import { Route as PaymentsRouteImport } from './routes/payments'
 import { Route as ProfileRouteImport } from './routes/profile'
 import { Route as PurchaseRouteImport } from './routes/purchase'
@@ -49,6 +51,16 @@ const CustomersRoute = CustomersRouteImport.update({
 const LedgerRoute = LedgerRouteImport.update({
   id: '/ledger',
   path: '/ledger',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnlineOrdersRoute = OnlineOrdersRouteImport.update({
+  id: '/online-orders',
+  path: '/online-orders',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const OnlineProductsRoute = OnlineProductsRouteImport.update({
+  id: '/online-products',
+  path: '/online-products',
   getParentRoute: () => rootRouteImport,
 } as any)
 const PaymentsRoute = PaymentsRouteImport.update({
@@ -113,6 +125,8 @@ export interface FileRoutesByFullPath {
   '/admin': typeof AdminRoute
   '/customers': typeof CustomersRoute
   '/ledger': typeof LedgerRoute
+  '/online-orders': typeof OnlineOrdersRoute
+  '/online-products': typeof OnlineProductsRoute
   '/payments': typeof PaymentsRoute
   '/profile': typeof ProfileRoute
   '/purchase': typeof PurchaseRoute
@@ -131,6 +145,8 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminRoute
   '/customers': typeof CustomersRoute
   '/ledger': typeof LedgerRoute
+  '/online-orders': typeof OnlineOrdersRoute
+  '/online-products': typeof OnlineProductsRoute
   '/payments': typeof PaymentsRoute
   '/profile': typeof ProfileRoute
   '/purchase': typeof PurchaseRoute
@@ -150,6 +166,8 @@ export interface FileRoutesById {
   '/admin': typeof AdminRoute
   '/customers': typeof CustomersRoute
   '/ledger': typeof LedgerRoute
+  '/online-orders': typeof OnlineOrdersRoute
+  '/online-products': typeof OnlineProductsRoute
   '/payments': typeof PaymentsRoute
   '/profile': typeof ProfileRoute
   '/purchase': typeof PurchaseRoute
@@ -170,6 +188,8 @@ export interface FileRouteTypes {
     | '/admin'
     | '/customers'
     | '/ledger'
+    | '/online-orders'
+    | '/online-products'
     | '/payments'
     | '/profile'
     | '/purchase'
@@ -188,6 +208,8 @@ export interface FileRouteTypes {
     | '/admin'
     | '/customers'
     | '/ledger'
+    | '/online-orders'
+    | '/online-products'
     | '/payments'
     | '/profile'
     | '/purchase'
@@ -206,6 +228,8 @@ export interface FileRouteTypes {
     | '/admin'
     | '/customers'
     | '/ledger'
+    | '/online-orders'
+    | '/online-products'
     | '/payments'
     | '/profile'
     | '/purchase'
@@ -225,6 +249,8 @@ export interface RootRouteChildren {
   AdminRoute: typeof AdminRoute
   CustomersRoute: typeof CustomersRoute
   LedgerRoute: typeof LedgerRoute
+  OnlineOrdersRoute: typeof OnlineOrdersRoute
+  OnlineProductsRoute: typeof OnlineProductsRoute
   PaymentsRoute: typeof PaymentsRoute
   ProfileRoute: typeof ProfileRoute
   PurchaseRoute: typeof PurchaseRoute
@@ -273,6 +299,20 @@ declare module '@tanstack/react-router' {
       path: '/ledger'
       fullPath: '/ledger'
       preLoaderRoute: typeof LedgerRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/online-orders': {
+      id: '/online-orders'
+      path: '/online-orders'
+      fullPath: '/online-orders'
+      preLoaderRoute: typeof OnlineOrdersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/online-products': {
+      id: '/online-products'
+      path: '/online-products'
+      fullPath: '/online-products'
+      preLoaderRoute: typeof OnlineProductsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/payments': {
@@ -361,6 +401,8 @@ const rootRouteChildren: RootRouteChildren = {
   AdminRoute: AdminRoute,
   CustomersRoute: CustomersRoute,
   LedgerRoute: LedgerRoute,
+  OnlineOrdersRoute: OnlineOrdersRoute,
+  OnlineProductsRoute: OnlineProductsRoute,
   PaymentsRoute: PaymentsRoute,
   ProfileRoute: ProfileRoute,
   PurchaseRoute: PurchaseRoute,
