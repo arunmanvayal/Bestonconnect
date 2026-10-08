@@ -1,5 +1,6 @@
 import { fetchAll } from "@/lib/data-transfer";
 import { fetchNextInvoiceNumber } from "@/lib/invoice-number";
+import { matchesSearch } from "@/lib/search";
 import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trash2, RefreshCw, Save, Printer, Plus, FileText, Columns3, Search, Eye, X } from "lucide-react";
@@ -60,7 +61,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
   });
   const { data: parties = [] } = useQuery({
     queryKey: ["customers"],
-    queryFn: async () => sb ? (await sb.from("customers").select("*").order("name")).data ?? [] : [],
+    queryFn: async () => sb ? fetchAll(sb, "customers") : [],
   });
   const { data: invoices = [], error: invError } = useQuery({
     queryKey: ["invoices", kind],
@@ -127,7 +128,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
   };
   const query = suggest ? (lines[suggest.row]?.item_name ?? "").toLowerCase().trim() : "";
   const matches = suggest
-    ? products.filter((p) => !query || p.name.toLowerCase().includes(query) || String(p.barcode ?? "").toLowerCase().includes(query) || String(p.sku ?? "").toLowerCase().includes(query)).slice(0, 8)
+    ? products.filter((p) => matchesSearch(query, p.name, p.barcode, p.sku)).slice(0, 8)
     : [];
   const choose = (i: number, p: any) => {
     fillFromProduct(i, p);
