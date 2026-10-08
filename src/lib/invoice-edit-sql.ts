@@ -3,6 +3,7 @@ export const INVOICE_EDIT_SQL = `
 -- Atomic sales bill updates: preserve bill ID and roll back every change on error.
 create or replace function public.update_sales_invoice(_invoice_id uuid, _header jsonb, _lines jsonb)
 returns uuid language plpgsql security invoker set search_path = public as $fn$
+#variable_conflict use_variable
 declare
   inv invoices%rowtype; h jsonb := _header; l jsonb; pid uuid; party uuid;
   pay uuid; main uuid; tax_account uuid; je uuid; code_value text; name_value text;
@@ -30,10 +31,6 @@ begin
     if qty is null or qty <= 0 or price is null or price < 0 or disc < 0 or gst < 0 or gst > 100 or coalesce((l->>'free_qty')::numeric,0) < 0 or nullif(trim(l->>'item_name'),'') is null then raise exception 'Invalid item quantity or amount'; end if;
     pid := nullif(l->>'product_id','')::uuid;
     if pid is null then
-      insert into products(name,sku,barcode,unit,quantity,unit_price,cost_price,gst_rate)
-      values(l->>'item_name',coalesce(l->>'barcode',''),coalesce(l->>'barcode',''),coalesce(l->>'unit','pcs'),0,price,0,gst)
-      returning id into pid;
-      -- New sale products have no stock, so cannot be sold until stocked.
       raise exception 'Select an existing stocked product before updating this bill';
     end if;
     gross := gross + qty * price; line_discount := line_discount + disc;
