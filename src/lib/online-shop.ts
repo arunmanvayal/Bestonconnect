@@ -17,13 +17,10 @@ export function canAddToCart(lines: CartLine[], product: ShopProduct) {
 export const ORDER_TRANSITIONS: Record<string, string[]> = { new: ["confirmed", "cancelled"], confirmed: ["ready", "cancelled"], ready: ["completed", "cancelled"], completed: [], cancelled: [] };
 
 export async function fetchShopProducts(sb: SupabaseClient): Promise<ShopProduct[]> {
-  const products: ShopProduct[] = [];
-  for (let from = 0; ; from += 500) {
-    const { data, error } = await sb.rpc("online_catalog").order("id").range(from, from + 499);
-    if (error) throw new Error("The online catalogue is not available yet. Please check back shortly.");
-    products.push(...(data ?? []) as ShopProduct[]);
-    if (!data || data.length < 500) return products;
-  }
+  // The RPC returns one JSON array, not a paginated table result.
+  const { data, error } = await sb.rpc("online_catalog");
+  if (error) throw new Error("The online catalogue is not available yet. Please check back shortly.");
+  return (data ?? []) as ShopProduct[];
 }
 export async function uploadShopPhoto(sb: SupabaseClient, companyId: string, file: File) {
   if (!["image/jpeg", "image/png", "image/webp"].includes(file.type)) throw new Error("Choose a JPG, PNG or WebP photo");
