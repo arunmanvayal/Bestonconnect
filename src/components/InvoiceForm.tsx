@@ -33,7 +33,7 @@ function Field({ label, children }: { label: string; children: React.ReactNode }
 }
 
 export function InvoiceForm({ kind }: { kind: Kind }) {
-  const sb = useSupabase()!;
+  const sb = useSupabase();
   const qc = useQueryClient();
   const [h, setH] = useState<Header>(emptyHeader(kind));
   const [lines, setLines] = useState<Line[]>([emptyLine()]);
@@ -50,6 +50,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
   const { data: products = [] } = useQuery({
     queryKey: ["products"],
     queryFn: async () => {
+      if (!sb) throw new Error("Database connection unavailable");
       const data = await fetchAll(sb, "products"); const error = null;
       if (error) throw error;
       return data as any[];
@@ -57,11 +58,12 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
   });
   const { data: parties = [] } = useQuery({
     queryKey: ["customers"],
-    queryFn: async () => (await sb.from("customers").select("*").order("name")).data ?? [],
+    queryFn: async () => sb ? (await sb.from("customers").select("*").order("name")).data ?? [] : [],
   });
   const { data: invoices = [], error: invError } = useQuery({
     queryKey: ["invoices", kind],
     queryFn: async () => {
+      if (!sb) throw new Error("Database connection unavailable");
       const { data, error } = await sb.from("invoices").select("*").eq("kind", kind).order("created_at", { ascending: false }).limit(20);
       if (error) throw error;
       return data as any[];
@@ -158,14 +160,16 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
 
   const reset = () => { setH(emptyHeader(kind)); setLines([emptyLine()]); setSelected(null); setEditingId(null); };
 
-  const loadBill = async (no?: string) => {
+  const loadBill = async (no?: string, invoiceId?: string) => {
+    if (!sb) return;
     const q = (no ?? lookup).trim();
     if (!q) { toast.info("Type a bill number"); return; }
     if (loadingBill || save.isPending) return;
     if ((editingId || lines.some((l) => l.item_name.trim())) && !window.confirm("Replace the bill currently on screen? Unsaved changes will be lost.")) return;
     setLoadingBill(true);
     try {
-    const { data: inv, error } = await sb.from("invoices").select("*").eq("kind", kind).ilike("bill_no", q.replace(/[\\%_]/g, "\\$&")).limit(2);
+    const search = sb.from("invoices").select("*").eq("kind", kind);
+    const { data: inv, error } = await (invoiceId ? search.eq("id", invoiceId) : search.ilike("bill_no", q.replace(/[\\%_]/g, "\\$&"))).limit(2);
     if (error) throw error;
     if (inv && inv.length > 1) throw new Error("More than one bill has this number. Choose a bill from recent sales.");
     const bill = inv?.[0];
@@ -192,6 +196,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
 
   const save = useMutation({
     mutationFn: async () => {
+      if (!sb) throw new Error("Database connection unavailable");
       if (editingId) {
         if (!confirm(`Update bill ${billNo}? Stock and ledger will be recalculated.`)) throw new Error("Update cancelled");
         return updateSalesInvoice(sb, editingId, { ...h, bill_no: billNo }, lines);
@@ -454,7 +459,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
             <tbody>
               {invoices.map((inv) => (
                 <tr key={inv.id} className="border-t border-border">
-                  <td className="px-4 py-2 font-mono">{isSale ? <Button variant="link" className="h-auto p-0" disabled={loadingBill || save.isPending} onClick={() => void loadBill(inv.bill_no)}>{inv.bill_no}</Button> : inv.bill_no}</td><td>{inv.bill_date}</td><td>{inv.party_name || "Walk-in"}</td>
+                  <td className="px-4 py-2 font-mono">{isSale ? <Button variant="link" className="h-auto p-0" disabled={loadingBill || save.isPending} onClick={() => void loadBill(inv.bill_no, inv.id)}>{inv.bill_no}</Button> : inv.bill_no}</td><td>{inv.bill_date}</td><td>{inv.party_name || "Walk-in"}</td>
                   <td className="capitalize">{inv.payment_mode}</td><td className="text-right">{money(inv.total_tax)}</td>
                   <td className="px-4 text-right font-semibold">{money(inv.net_total)}</td>
                 </tr>
