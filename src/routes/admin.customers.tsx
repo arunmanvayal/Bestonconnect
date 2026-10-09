@@ -6,6 +6,8 @@ import { money } from "@/components/SupabaseGate";
 import { AppLayout } from "@/components/AppLayout";
 import { SupabaseGate } from "@/components/SupabaseGate";
 import { useSupabase } from "@/lib/supabase";
+import { matchesSearch } from "@/lib/search";
+import { fetchSearchRecords } from "@/lib/search-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -54,9 +56,7 @@ function CustomersInner() {
   const { data: customers = [], isLoading } = useQuery({
     queryKey: ["customers"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("customers").select("*").order("created_at", { ascending: false });
-      if (error) throw error;
-      return data;
+      return fetchSearchRecords(supabase, "customers", "name");
     },
   });
 
@@ -81,7 +81,7 @@ function CustomersInner() {
   });
 
   const term = q.toLowerCase().trim();
-  const shown = customers.filter((c: any) => !term || [c.name, c.company, c.email, c.phone, c.address].some((v) => String(v ?? "").toLowerCase().includes(term)));
+  const shown = customers.filter((c: any) => matchesSearch(q, c.name, c.code, c.company, c.email, c.phone, c.address, c.gstin));
 
   const set = (k: keyof typeof EMPTY) => (e: React.ChangeEvent<HTMLInputElement>) =>
     setForm((f) => ({ ...f, [k]: e.target.value }));
