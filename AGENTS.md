@@ -12,6 +12,7 @@
 - Use the Ocean Deep semantic token system with Sora headings and Manrope body text so every business module shares one responsive visual language.
 - Keep device-specific layout density, sidebar, invoice column widths, and shortcut assignments in the shared workspace preferences context so every module stays synchronized.
 - Publish page actions through the shared workspace command event so configurable shortcuts never depend on page-specific keyboard listeners.
+- Define shortcut labels, defaults and typed navigation destinations in one browser-safe command registry; settings and dispatch use it so new options cannot have nonfunctional assignments.
 - Update saved sales invoices through one company-scoped, security-invoker SQL transaction that preserves invoice IDs; this prevents partial stock or ledger changes on failure.
 - Derive new invoice numbers from the highest matching series number across all visible company bills and recheck before saving; recent-list counts and component defaults are not sequence sources.
 - Keep the customer storefront at / and every management page under the shared /admin parent, which gates its Outlet before any dashboard shell mounts; this shows only login to signed-out visitors and retains old URLs as redirects.
