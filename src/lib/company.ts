@@ -35,10 +35,14 @@ export function useSession(): Session | null | undefined {
   const [session, setSession] = useState<Session | null | undefined>(undefined);
   const identity = useRef<string | null | undefined>(undefined);
   useEffect(() => {
-    if (!sb) return;
-    let alive = true;
-    const receive = (s: Session | null) => {
-      if (!alive) return;
+    const { data } = sb.auth.onAuthStateChange((event, s) => {
+      const prevId = session?.user?.id;
+      setSession(s);
+      const nextId = s?.user?.id;
+      if (event === "SIGNED_OUT" || (event === "SIGNED_IN" && prevId !== nextId) || (event === "USER_UPDATED" && prevId !== nextId)) {
+        qc.clear();
+      }
+    });
       const next = s?.user.id ?? null;
       const changed = sessionIdentityChanged(identity.current, next);
       identity.current = next;
