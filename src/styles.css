@@ -223,8 +223,9 @@
 .invoice-entry-footer:has([aria-label="Agent"]) textarea { height: 28px; }
 .invoice-entry-footer:has([aria-label="Agent"]) > div { grid-row: span 2; }
 .invoice-entry-footer .space-y-2 > :not(:last-child) { margin-bottom: 2px; }
-.invoice-bill-panel [data-slot="tabs-list"] { height: 28px; flex-shrink: 0; }
-.invoice-bill-panel [data-slot="tabs-trigger"] { font-size: 10px; padding: 2px 5px; }
+.invoice-bill-panel [role="tablist"] { height: 28px; flex-shrink: 0; }
+.invoice-bill-panel [role="tab"] { font-size: 10px; padding: 2px 5px; }
+.invoice-bill-panel [role="tabpanel"] { margin-top: 0; }
 .invoice-bill-fields { padding: 4px 6px; overflow-y: auto; min-height: 0; }
 .invoice-bill-fields > * { grid-template-columns: minmax(0,1fr) 115px; gap: 4px; }
 .invoice-bill-fields.space-y-2 > :not(:last-child) { margin-bottom: 3px; }
