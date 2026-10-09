@@ -5,6 +5,8 @@ import { Plus, Trash2 } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { SupabaseGate, money } from "@/components/SupabaseGate";
 import { useSupabase } from "@/lib/supabase";
+import { matchesSearch } from "@/lib/search";
+import { fetchSearchRecords } from "@/lib/search-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -50,27 +52,29 @@ function LedgerInner() {
   const supabase = useSupabase()!;
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
   const [entry, setEntry] = useState({ entry_date: new Date().toISOString().slice(0, 10), reference: "", description: "" });
   const [lines, setLines] = useState<Line[]>([{ ...EMPTY_LINE }, { ...EMPTY_LINE }]);
 
   const { data: accounts = [] } = useQuery({
     queryKey: ["accounts"],
     queryFn: async () => {
-      const { data, error } = await supabase.from("accounts").select("id, code, name, type").order("code");
-      if (error) throw error;
-      return data;
+      return fetchSearchRecords(supabase, "accounts", "code");
     },
   });
 
   const { data: entries = [], isLoading } = useQuery({
     queryKey: ["journal_entries"],
     queryFn: async () => {
-      const { data, error } = await supabase
-        .from("journal_entries")
-        .select("*, journal_lines(*, accounts(code, name))")
-        .order("entry_date", { ascending: false });
-      if (error) throw error;
-      return data;
+      const rows: any[] = [];
+      for (let from = 0; ; from += 500) {
+        const { data, error } = await supabase.from("journal_entries")
+          .select("*, journal_lines(*, accounts(code, name))")
+          .order("entry_date", { ascending: false }).order("id").range(from, from + 499);
+        if (error) throw error;
+        rows.push(...(data ?? []));
+        if (!data || data.length < 500) return rows;
+      }
     },
   });
 
@@ -115,6 +119,7 @@ function LedgerInner() {
 
   const setLine = (i: number, patch: Partial<Line>) =>
     setLines((ls) => ls.map((l, idx) => (idx === i ? { ...l, ...patch } : l)));
+  const shown = entries.filter(e => matchesSearch(search, e.reference, e.description, e.entry_date, ...(e.journal_lines ?? []).flatMap((l: any) => [l.accounts?.code, l.accounts?.name])));
 
   return (
     <div className="space-y-6">
@@ -188,6 +193,7 @@ function LedgerInner() {
         </Dialog>
       </div>
 
+      <Input aria-label="Search ledger" placeholder="Search reference, description or account" value={search} onChange={e => setSearch(e.target.value)} />
       <Card>
         <CardContent className="p-0">
           <Table>
@@ -204,10 +210,10 @@ function LedgerInner() {
             <TableBody>
               {isLoading ? (
                 <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Loading…</TableCell></TableRow>
-              ) : entries.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">No journal entries yet.</TableCell></TableRow>
+              ) : shown.length === 0 ? (
+                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">{search.trim() ? "No matching journal entries." : "No journal entries yet."}</TableCell></TableRow>
               ) : (
-                entries.map((e: any) => {
+                shown.map((e: any) => {
                   const total = (e.journal_lines ?? []).reduce((s: number, l: any) => s + Number(l.debit ?? 0), 0);
                   const accts = (e.journal_lines ?? [])
                     .map((l: any) => l.accounts?.name)

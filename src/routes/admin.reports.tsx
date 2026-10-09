@@ -1,4 +1,6 @@
 import { fetchAll } from "@/lib/data-transfer";
+import { fetchSearchRecords } from "@/lib/search-data";
+import { matchesSearch } from "@/lib/search";
 import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
@@ -46,15 +48,16 @@ function ReportsInner() {
   const [tab, setTab] = useState<Tab>("sales");
   const [from, setFrom] = useState(monthStart());
   const [to, setTo] = useState(today());
+  const [search, setSearch] = useState("");
 
   const { data, isLoading } = useQuery({
     queryKey: ["reports"],
     queryFn: async () => {
       const [inv, rets, prods, parties, balances, outstanding] = await Promise.all([
-        sb.from("invoices").select("*").order("bill_date", { ascending: false }),
-        sb.from("sales_returns").select("*").order("return_date", { ascending: false }),
+        fetchSearchRecords(sb, "invoices", "bill_date").then(data => ({ data })),
+        fetchSearchRecords(sb, "sales_returns", "return_date").then(data => ({ data })),
         fetchAll(sb, "products").then((data) => ({ data, error: null })),
-        sb.from("customers").select("*"),
+        fetchSearchRecords(sb, "customers", "name").then(data => ({ data })),
         fetchBalances(sb),
         fetchOutstanding(sb),
       ]);
@@ -132,9 +135,11 @@ function ReportsInner() {
     }
   }, [data, tab, from, to]);
 
+  const filteredRows = report.rows.filter(row => matchesSearch(search, ...report.cols.map(col => row[col.key])));
+  const filteredTotals = report.totals ? Object.fromEntries(Object.keys(report.totals).map(key => [key, filteredRows.reduce((sum, row) => sum + Number(row[key] || 0), 0)])) : undefined;
   const csv = () => {
     const esc = (v: any) => `"${String(v ?? "").replace(/"/g, '""')}"`;
-    const lines = [report.cols.map((c) => esc(c.label)).join(","), ...report.rows.map((r) => report.cols.map((c) => esc(c.money ? Number(r[c.key] || 0).toFixed(2) : r[c.key])).join(","))];
+    const lines = [report.cols.map((c) => esc(c.label)).join(","), ...filteredRows.map((r) => report.cols.map((c) => esc(c.money ? Number(r[c.key] || 0).toFixed(2) : r[c.key])).join(","))];
     const a = document.createElement("a");
     a.href = URL.createObjectURL(new Blob([lines.join("\n")], { type: "text/csv" }));
     a.download = `${tab}-report-${from}-to-${to}.csv`; a.click();
@@ -168,19 +173,20 @@ function ReportsInner() {
         </div>
       )}
 
+      <Input className="print:hidden" aria-label="Search report" placeholder="Search this report" value={search} onChange={e => setSearch(e.target.value)} />
       <div className="overflow-hidden rounded-2xl border border-border/70 bg-card/90 shadow-sm">
         <div className="border-b border-border px-4 py-3 font-semibold">{TABS.find((t) => t[0] === tab)?.[1]} report {dated && <span className="text-sm font-normal text-muted-foreground">· {from} to {to}</span>}</div>
         <div className="overflow-x-auto">
-          {isLoading ? <p className="p-4 text-sm text-muted-foreground">Loading…</p> : report.rows.length === 0 ? <p className="p-4 text-sm text-muted-foreground">No data for this period.</p> : (
+          {isLoading ? <p className="p-4 text-sm text-muted-foreground">Loading…</p> : filteredRows.length === 0 ? <p className="p-4 text-sm text-muted-foreground">{search.trim() ? "No matching records." : "No data for this period."}</p> : (
             <table className="w-full min-w-[640px] text-sm">
               <thead className="bg-muted/60 text-left text-muted-foreground"><tr>{report.cols.map((c) => <th key={c.key} className={`px-4 py-2 font-medium ${c.money || c.num ? "text-right" : ""}`}>{c.label}</th>)}</tr></thead>
-              <tbody>{report.rows.map((r, i) => (
+              <tbody>{filteredRows.map((r, i) => (
                 <tr key={r.id ?? r.key ?? i} className="border-t border-border">
                   {report.cols.map((c) => <td key={c.key} className={`px-4 py-2 ${c.money || c.num ? "text-right tabular-nums" : ""} ${c.key === "payment_mode" || c.key === "refund_mode" ? "capitalize" : ""}`}>{c.money ? money(Number(r[c.key] || 0)) : c.num ? Number(r[c.key] || 0) : r[c.key] || "—"}</td>)}
                 </tr>
               ))}</tbody>
-              {report.totals && (
-                <tfoot className="border-t-2 border-border bg-muted/40 font-semibold"><tr>{report.cols.map((c, i) => <td key={c.key} className={`px-4 py-2 ${c.money || c.num ? "text-right tabular-nums" : ""}`}>{i === 0 ? "Total" : c.key in report.totals! ? (c.money ? money(report.totals![c.key]!) : report.totals![c.key]) : ""}</td>)}</tr></tfoot>
+              {filteredTotals && (
+                <tfoot className="border-t-2 border-border bg-muted/40 font-semibold"><tr>{report.cols.map((c, i) => <td key={c.key} className={`px-4 py-2 ${c.money || c.num ? "text-right tabular-nums" : ""}`}>{i === 0 ? "Total" : c.key in filteredTotals ? (c.money ? money(filteredTotals[c.key] ?? 0) : filteredTotals[c.key]) : ""}</td>)}</tr></tfoot>
               )}
             </table>
           )}
