@@ -311,8 +311,8 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
           {/* Items grid */}
           <div className="invoice-entry-left min-w-0 border-r border-border">
             <div className="invoice-items-scroll overflow-auto">
-              <table className="invoice-grid w-full table-fixed text-sm" style={{ minWidth: widths.reduce((sum, width) => sum + width, 0) }}>
-                <colgroup>{widths.map((width, index) => <col key={index} style={{ width }} />)}</colgroup>
+              <table className="invoice-grid w-full table-fixed text-sm" style={{ minWidth: columnWidths[widthKey] ? widths.reduce((sum, width) => sum + width, 0) : 1000 }}>
+                <colgroup>{widths.map((width, index) => <col key={index} style={{ width: columnWidths[widthKey] ? width : `${width / widths.reduce((sum, value) => sum + value, 0) * 100}%` }} />)}</colgroup>
                 <thead className="bg-primary text-primary-foreground">
                   <tr>{cols.map((c, index) => <th key={c} className="relative px-2 py-2 text-left font-medium"><span className="block truncate">{c}</span><span role="separator" aria-orientation="vertical" aria-label={`Resize ${c} column`} onPointerDown={(event) => startResize(index, event)} className="absolute inset-y-0 right-0 w-2 cursor-col-resize touch-none border-r border-primary-foreground/25 hover:bg-primary-foreground/15" /></th>)}</tr>
                 </thead>
