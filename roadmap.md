@@ -18,3 +18,6 @@
 - [x] Add stock filters, protected zero-stock cleanup, duplicate filtering by matching item code or barcode, product editing and previewed all-stock barcode assignment from 1.
 - [ ] Confirm duplicate definition and barcode assignment scope with the owner before using destructive stock maintenance.
 - [ ] Verify signed-in entry screens and stock maintenance against the updated external database; public routes and login gates passed browser checks.
+- [ ] Match reference product creation and editing, including all reference fields.
+- [ ] Add linked Masters options and use shared details across products, invoices and parties/accounts.
+- [ ] Verify product/master validation, login gates and layouts; live writes require the external database owner session and Setup update.
