@@ -15,6 +15,6 @@ export function barcodeSeries(products: StockRecord[]) {
   return [...products].sort((a, b) => a.name.localeCompare(b.name, "en", { sensitivity: "base" }) || a.id.localeCompare(b.id))
     .map((p, index) => ({ id: p.id, name: p.name, old_barcode: p.barcode ?? "", barcode: String(index + 1) }));
 }
-export function filterStock(products: StockRecord[], filter: string, duplicates = duplicateStockIds(products)) {
+export function filterStock<T extends StockRecord>(products: T[], filter: string, duplicates = duplicateStockIds(products)): T[] {
   return products.filter(p => filter === "zero" ? Number(p.quantity) === 0 : filter === "positive" ? Number(p.quantity) > 0 : filter === "negative" ? Number(p.quantity) < 0 : filter === "duplicates" ? duplicates.has(p.id) : true);
 }

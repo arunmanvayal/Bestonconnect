@@ -103,8 +103,8 @@ export async function postInvoice(sb: SupabaseClient, kind: Kind, h: Header, raw
   if (lines.length === 0) throw new Error("Add at least one item with quantity");
   // Check the required extension before any party, stock or ledger writes.
   if (h.entry_details) {
-    const { error } = await sb.from("invoices").select("entry_details").limit(0);
-    if (error) throw new Error("Run the latest Setup script once to save the additional invoice fields. Nothing has been saved.");
+    const checks = await Promise.all([sb.from("invoices").select("entry_details").limit(0), sb.from("invoice_items").select("entry_details").limit(0)]);
+    if (checks.some(result => result.error)) throw new Error("Run the latest Setup script once to save the additional invoice fields. Nothing has been saved.");
   }
   const { data: duplicate, error: duplicateError } = await sb.from("invoices").select("id").eq("kind", kind).eq("bill_no", h.bill_no).limit(1);
   if (duplicateError) throw duplicateError;
