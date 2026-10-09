@@ -1,4 +1,5 @@
 import { fetchAll } from "@/lib/data-transfer";
+import { ProductEditor } from "@/components/ProductEditor";
 import { matchesSearch } from "@/lib/search";
 import { barcodeSeries, duplicateStockIds, filterStock } from "@/lib/stock-maintenance";
 import { createFileRoute } from "@tanstack/react-router";
@@ -58,13 +59,11 @@ function StockInner() {
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
   const [maintenance, setMaintenance] = useState<"delete" | "barcodes" | null>(null);
   const [edit, setEdit] = useState<any | null>(null);
-  const [details, setDetails] = useState({ name: "", sku: "", barcode: "", unit: "" });
   const [busy, setBusy] = useState(false);
   const [moveProduct, setMoveProduct] = useState<any | null>(null);
   const [moveType, setMoveType] = useState<"in" | "out">("in");
   const [moveQty, setMoveQty] = useState("1");
   const [moveNote, setMoveNote] = useState("");
-  const [form, setForm] = useState(EMPTY_PRODUCT);
   const [adj, setAdj] = useState<any | null>(null);
   const [adjForm, setAdjForm] = useState({ quantity: "", cost_price: "", unit_price: "", reason: "" });
   const activeFormRef = useRef<HTMLFormElement>(null);
@@ -78,26 +77,6 @@ function StockInner() {
       const data = await fetchAll(supabase, "products"); const error = null;
       if (error) throw error;
       return data;
-    },
-  });
-
-  const addProduct = useMutation({
-    mutationFn: async () => {
-      if (!supabase) throw new Error("Connection unavailable");
-      const { error } = await supabase.from("products").insert({
-        sku: form.sku,
-        name: form.name,
-        unit: form.unit,
-        quantity: Number(form.quantity) || 0,
-        reorder_level: Number(form.reorder_level) || 0,
-        unit_price: Number(form.unit_price) || 0,
-      });
-      if (error) throw error;
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["products"] });
-      setForm(EMPTY_PRODUCT);
-      setAddOpen(false);
     },
   });
 
@@ -131,9 +110,9 @@ function StockInner() {
   const chosen = products.filter(p => selectedIds.has(p.id));
   const series = barcodeSeries(products);
   const snapshot = (p: any) => ({ id: p.id, quantity: p.quantity, old_barcode: p.barcode ?? "", old_sku: p.sku ?? "", old_name: p.name });
-  const maintain = async (action: "delete" | "barcodes" | "edit") => {
+  const maintain = async (action: "delete" | "barcodes") => {
     if (!supabase) return;
-    const rows = action === "edit" ? edit ? [{ ...snapshot(edit), ...details }] : [] : action === "delete" ? chosen.map(snapshot) : series.map(row => ({ ...snapshot(products.find(p => p.id === row.id)), barcode: row.barcode }));
+    const rows = action === "delete" ? chosen.map(snapshot) : series.map(row => ({ ...snapshot(products.find(p => p.id === row.id)), barcode: row.barcode }));
     if (!rows.length) return;
     setBusy(true);
     try {
@@ -155,42 +134,9 @@ function StockInner() {
           <DialogTrigger asChild>
             <Button><Plus className="h-4 w-4" /><span className="hidden sm:inline">Add Product</span><span className="sm:hidden">Add</span></Button>
           </DialogTrigger>
-          <DialogContent>
-            <DialogHeader><DialogTitle>New Product</DialogTitle></DialogHeader>
-            <form ref={activeFormRef} className="space-y-4" onSubmit={(e) => { e.preventDefault(); addProduct.mutate(); }}>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label>SKU</Label>
-                  <Input value={form.sku} onChange={(e) => setForm({ ...form, sku: e.target.value })} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Unit</Label>
-                  <Input value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })} />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label>Product Name *</Label>
-                <Input required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-              </div>
-               <div className="grid gap-4 sm:grid-cols-3">
-                <div className="space-y-2">
-                  <Label>Opening Qty</Label>
-                  <Input type="number" step="0.01" value={form.quantity} onChange={(e) => setForm({ ...form, quantity: e.target.value })} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Reorder Level</Label>
-                  <Input type="number" step="0.01" value={form.reorder_level} onChange={(e) => setForm({ ...form, reorder_level: e.target.value })} />
-                </div>
-                <div className="space-y-2">
-                  <Label>Unit Price</Label>
-                  <Input type="number" step="0.01" value={form.unit_price} onChange={(e) => setForm({ ...form, unit_price: e.target.value })} />
-                </div>
-              </div>
-              <Button type="submit" title={`Save · ${shortcuts.save}`} className="w-full" disabled={addProduct.isPending}>
-                {addProduct.isPending ? "Saving…" : "Save Product"}
-              </Button>
-              {addProduct.isError && <p className="text-sm text-destructive">{String(addProduct.error)}</p>}
-            </form>
+          <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
+            <DialogHeader><DialogTitle>Product</DialogTitle></DialogHeader>
+            <ProductEditor onClose={() => setAddOpen(false)}/>
           </DialogContent>
         </Dialog>
       </div>
@@ -246,7 +192,7 @@ function StockInner() {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
-                          <Button variant="ghost" size="icon" title="Edit product details" onClick={() => { setEdit(p); setDetails({ name: p.name, sku: p.sku ?? "", barcode: p.barcode ?? "", unit: p.unit ?? "pcs" }); }}><Pencil className="h-4 w-4"/></Button>
+                          <Button variant="ghost" size="icon" title="Edit product details" onClick={() => setEdit(p)}><Pencil className="h-4 w-4"/></Button>
                           <Button variant="ghost" size="icon" title="Stock in" onClick={() => { setMoveProduct(p); setMoveType("in"); }}>
                             <ArrowDownToLine className="h-4 w-4 text-emerald-600" />
                           </Button>
@@ -275,7 +221,7 @@ function StockInner() {
         <div className="max-h-72 overflow-auto"><table className="w-full text-sm"><thead><tr className="text-left"><th className="p-2">Product</th><th className="p-2">Current barcode</th>{maintenance === "barcodes" && <th className="p-2">New barcode</th>}</tr></thead><tbody>{(maintenance === "barcodes" ? series : chosen.map(p => ({ id: p.id, name: p.name, old_barcode: p.barcode ?? "", barcode: "" }))).map(p => <tr key={p.id} className="border-t border-border"><td className="p-2">{p.name}</td><td className="p-2">{p.old_barcode || "—"}</td>{maintenance === "barcodes" && <td className="p-2 font-semibold">{p.barcode}</td>}</tr>)}</tbody></table></div>
         <div className="flex justify-end gap-2"><Button variant="outline" disabled={busy} onClick={() => setMaintenance(null)}>Cancel</Button><Button variant={maintenance === "delete" ? "destructive" : "default"} disabled={busy} onClick={() => { if (maintenance) void maintain(maintenance); }}>{busy ? "Please wait…" : maintenance === "barcodes" ? `Replace ${series.length} barcodes` : `Delete ${chosen.length} products`}</Button></div>
       </DialogContent></Dialog>
-      <Dialog open={!!edit} onOpenChange={o => { if (!o && !busy) setEdit(null); }}><DialogContent><DialogHeader><DialogTitle>Edit product details</DialogTitle></DialogHeader><form className="space-y-3" onSubmit={e => { e.preventDefault(); void maintain("edit"); }}>{([ ["Name", "name"], ["Item code", "sku"], ["Barcode", "barcode"], ["Unit", "unit"] ] as const).map(([label,key]) => <label key={key} className="block space-y-1 text-sm"><span>{label}</span><Input required={key === "name" || key === "unit"} maxLength={key === "name" ? 300 : 100} value={details[key]} onChange={e => setDetails(d => ({ ...d, [key]: e.target.value }))}/></label>)}<Button type="submit" disabled={busy}>Save details</Button></form></DialogContent></Dialog>
+      <Dialog open={!!edit} onOpenChange={o => { if (!o) setEdit(null); }}><DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl"><DialogHeader><DialogTitle>Edit Product</DialogTitle></DialogHeader><ProductEditor product={edit} onClose={()=>setEdit(null)}/></DialogContent></Dialog>
 
       <Dialog open={!!adj} onOpenChange={(o) => !o && setAdj(null)}>
         <DialogContent>
