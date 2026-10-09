@@ -65,7 +65,7 @@ language sql stable security definer set search_path = public as $fn$
   ) order by p.name), '[]'::jsonb)
   from public.online_products op join public.products p on p.id = op.product_id and p.company_id = op.company_id
   join public.companies c on c.id = p.company_id
-  where op.enabled;
+  where op.enabled and not p.deactivated;
 $fn$;
 revoke all on function public.online_catalog() from public;
 grant execute on function public.online_catalog() to anon, authenticated;
@@ -93,7 +93,7 @@ begin
     if coalesce(item->>'quantity','') !~ '^[0-9]{1,6}$' then raise exception 'Invalid quantity'; end if;
     qty := (item->>'quantity')::integer;
     select pr.* into p from products pr join online_products op on op.product_id = pr.id and op.company_id = pr.company_id
-      where pr.id = (item->>'product_id')::uuid and pr.company_id = _company and op.enabled for update of pr;
+      where pr.id = (item->>'product_id')::uuid and pr.company_id = _company and op.enabled and not pr.deactivated for update of pr;
     if not found or qty < 1 or qty > p.quantity then raise exception 'An item is unavailable or has insufficient stock'; end if;
     price := round(p.unit_price * case when p.sale_tax_incl then 1 else 1 + coalesce(p.gst_rate,0)/100 end,2);
     if price < 0 then raise exception 'Invalid product price'; end if;

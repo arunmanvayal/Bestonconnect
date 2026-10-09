@@ -7,6 +7,7 @@ import { SupabaseGate, money } from "@/components/SupabaseGate";
 import { useSupabase } from "@/lib/supabase";
 import { matchesSearch } from "@/lib/search";
 import { fetchBalances } from "@/lib/books";
+import { masterNames, useMasters } from "@/lib/masters";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -58,38 +59,43 @@ function AccountsPage() {
 }
 
 function AccountsInner() {
-  const supabase = useSupabase()!;
+  const supabase = useSupabase();
+  const { data: masters = [] } = useMasters();
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState("");
-  const [form, setForm] = useState({ code: "", name: "", type: "asset" as AccountType, opening_balance: "0" });
+  const [form, setForm] = useState({ code: "", name: "", type: "asset" as AccountType, opening_balance: "0", account_group: "" });
 
   const { data: accounts = [], isLoading } = useQuery({
     queryKey: ["accounts"],
     queryFn: async () => {
+      if (!supabase) throw new Error("Connection unavailable");
       return fetchBalances(supabase);
     },
   });
 
   const addAccount = useMutation({
     mutationFn: async () => {
+      if (!supabase) throw new Error("Connection unavailable");
       const { error } = await supabase.from("accounts").insert({
         code: form.code,
         name: form.name,
         type: form.type,
         opening_balance: Number(form.opening_balance) || 0,
+        account_group: form.account_group,
       });
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["accounts"] });
-      setForm({ code: "", name: "", type: "asset", opening_balance: "0" });
+      qc.invalidateQueries();
+      setForm({ code: "", name: "", type: "asset", opening_balance: "0", account_group: "" });
       setOpen(false);
     },
   });
 
   const removeAccount = useMutation({
     mutationFn: async (id: string) => {
+      if (!supabase) throw new Error("Connection unavailable");
       const { error } = await supabase.from("accounts").delete().eq("id", id);
       if (error) throw error;
     },
@@ -130,6 +136,7 @@ function AccountsInner() {
                 <Label>Account Name *</Label>
                 <Input required placeholder="Cash in Hand" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
               </div>
+              <label className="block space-y-2"><span className="text-sm">Account Group</span><Input aria-label="Account Group" list="account-groups" value={form.account_group} onChange={e => { const group = masters.find(m=>m.kind==="account_group"&&m.name===e.target.value); const type = group?.details.type; setForm({...form,account_group:e.target.value,type:TYPES.some(t=>t===type)?type as AccountType:form.type}); }}/><datalist id="account-groups">{masterNames(masters,"account_group",form.account_group).map(n=><option key={n} value={n}/>)}</datalist></label>
               <div className="space-y-2">
                 <Label>Opening Balance</Label>
                 <Input type="number" step="0.01" value={form.opening_balance} onChange={(e) => setForm({ ...form, opening_balance: e.target.value })} />
