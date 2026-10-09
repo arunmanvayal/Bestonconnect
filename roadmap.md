@@ -14,7 +14,7 @@
 - [x] Audit and correct searches across the public shop and admin pages; matching and full-record coverage tests pass.
 - [ ] Verify search results against live published products and signed-in admin records (shop currently has no listings; external owner session unavailable).
 - [x] Add reference-style sales and purchase entry fields, columns, totals tabs and actions; snapshot extra fields on invoices.
-- [ ] Fit sales and purchase entry controls into a single reference-proportioned window with an independently scrolling item grid.
+- [x] Fit sales and purchase entry controls into a single reference-proportioned window; isolated visual checks passed at 1280×646 and 889×537 with all totals and actions visible.
 - [x] Add stock filters, protected zero-stock cleanup, duplicate filtering by matching item code or barcode, product editing and previewed all-stock barcode assignment from 1.
 - [ ] Confirm duplicate definition and barcode assignment scope with the owner before using destructive stock maintenance.
 - [ ] Verify signed-in entry screens and stock maintenance against the updated external database; public routes and login gates passed browser checks.
