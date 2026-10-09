@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchSearchRecords } from "./search-data";
+import type { EntryDetails } from "./invoice-entry";
 
 export type Kind = "sale" | "purchase";
 
@@ -14,6 +15,10 @@ export type Line = {
   discount: number;
   gst_rate: number;
   profit_pct: number;
+  sku?: string;
+  serial_no?: string;
+  mrp?: number;
+  sale_price?: number;
 };
 
 export type Header = {
@@ -33,6 +38,7 @@ export type Header = {
   remarks: string;
   shipping_address: string;
   billing_address: string;
+  entry_details?: EntryDetails;
 };
 
 const r2 = (n: number) => Math.round(n * 100) / 100;
@@ -95,6 +101,11 @@ async function ensureParty(sb: SupabaseClient, name: string, contact: string, ki
 export async function postInvoice(sb: SupabaseClient, kind: Kind, h: Header, rawLines: Line[]) {
   const lines = rawLines.filter((l) => l.item_name.trim() && l.quantity > 0);
   if (lines.length === 0) throw new Error("Add at least one item with quantity");
+  // Check the required extension before any party, stock or ledger writes.
+  if (h.entry_details) {
+    const checks = await Promise.all([sb.from("invoices").select("entry_details").limit(0), sb.from("invoice_items").select("entry_details").limit(0)]);
+    if (checks.some(result => result.error)) throw new Error("Run the latest Setup script once to save the additional invoice fields. Nothing has been saved.");
+  }
   const { data: duplicate, error: duplicateError } = await sb.from("invoices").select("id").eq("kind", kind).eq("bill_no", h.bill_no).limit(1);
   if (duplicateError) throw duplicateError;
   if (duplicate?.length) throw new Error(`Bill ${h.bill_no} already exists. Clear Bill No to use the next automatic number.`);
@@ -143,6 +154,7 @@ export async function postInvoice(sb: SupabaseClient, kind: Kind, h: Header, raw
     total_tax: t.total_tax, other_exp: h.other_exp, freight: h.freight, cash_disc: h.cash_disc,
     round_off: t.round_off, net_total: t.net_total, remarks: h.remarks,
     shipping_address: h.shipping_address, billing_address: h.billing_address, journal_entry_id: je.id,
+    entry_details: h.entry_details ?? {},
   }).select("id").single();
   if (invErr) throw invErr;
 
@@ -152,9 +164,10 @@ export async function postInvoice(sb: SupabaseClient, kind: Kind, h: Header, raw
     if (!productId) {
       // New item on purchase/sale — create it in stock
       const { data: p, error } = await sb.from("products").insert({
-        name: l.item_name, sku: l.barcode, barcode: l.barcode, unit: l.unit || "pcs", quantity: 0,
-        unit_price: kind === "sale" ? l.rate : r2(l.rate * (1 + l.profit_pct / 100)),
+        name: l.item_name, sku: l.sku || l.barcode, barcode: l.barcode, unit: l.unit || "pcs", quantity: 0,
+        unit_price: kind === "sale" ? l.rate : l.sale_price ?? r2(l.rate * (1 + l.profit_pct / 100)),
         cost_price: kind === "purchase" ? l.rate : 0, gst_rate: l.gst_rate,
+        mrp: l.mrp ?? 0,
       }).select("id").single();
       if (error) throw error;
       productId = p.id;
@@ -163,6 +176,7 @@ export async function postInvoice(sb: SupabaseClient, kind: Kind, h: Header, raw
       invoice_id: inv.id, product_id: productId, item_name: l.item_name, unit: l.unit,
       quantity: l.quantity, free_qty: l.free_qty, rate: l.rate, discount: l.discount, gst_rate: l.gst_rate,
       taxable: r2(c.taxable), tax: r2(c.tax), amount: r2(c.amount),
+      entry_details: { sku: l.sku ?? "", barcode: l.barcode, serial_no: l.serial_no ?? "", mrp: l.mrp ?? 0, sale_price: l.sale_price ?? 0, profit_pct: l.profit_pct },
     });
     const qty = l.quantity + l.free_qty;
     await sb.from("stock_movements").insert({
@@ -175,8 +189,11 @@ export async function postInvoice(sb: SupabaseClient, kind: Kind, h: Header, raw
     };
     if (kind === "purchase") {
       update["cost_price"] = l.rate;
-      if (l.barcode) { update["barcode"] = l.barcode; update["sku"] = l.barcode; }
-      if (l.profit_pct > 0) update["unit_price"] = r2(l.rate * (1 + l.profit_pct / 100));
+      if (l.barcode) update["barcode"] = l.barcode;
+      if (l.sku) update["sku"] = l.sku;
+      update["mrp"] = l.mrp ?? 0;
+      if (l.sale_price != null) update["unit_price"] = l.sale_price;
+      else if (l.profit_pct > 0) update["unit_price"] = r2(l.rate * (1 + l.profit_pct / 100));
     }
     await sb.from("products").update(update).eq("id", productId);
   }

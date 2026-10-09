@@ -93,13 +93,14 @@ begin
     igst = case when h->>'tax_type' = 'igst' then tax else 0 end,
     other_exp = extra, freight = freight_value, cash_disc = cash_discount,
     round_off = round(net-before_round,2), net_total = net, remarks = h->>'remarks',
-    shipping_address = h->>'shipping_address', billing_address = h->>'billing_address', journal_entry_id = je where id = inv.id;
+    shipping_address = h->>'shipping_address', billing_address = h->>'billing_address', entry_details = coalesce(h->'entry_details','{}'::jsonb), journal_entry_id = je where id = inv.id;
   delete from invoice_items where invoice_id = inv.id;
   for l in select value from jsonb_array_elements(_lines) loop
     taxable := round(greatest(0,(l->>'quantity')::numeric*(l->>'rate')::numeric-coalesce((l->>'discount')::numeric,0))*ratio,2);
     tax := case when h->>'tax_type' = 'none' then 0 else round(taxable*(l->>'gst_rate')::numeric/100,2) end;
-    insert into invoice_items(invoice_id,product_id,item_name,unit,quantity,free_qty,rate,discount,gst_rate,taxable,tax,amount)
-    values(inv.id,(l->>'product_id')::uuid,l->>'item_name',l->>'unit',(l->>'quantity')::numeric,coalesce((l->>'free_qty')::numeric,0),(l->>'rate')::numeric,coalesce((l->>'discount')::numeric,0),(l->>'gst_rate')::numeric,taxable,tax,taxable+tax);
+    insert into invoice_items(invoice_id,product_id,item_name,unit,quantity,free_qty,rate,discount,gst_rate,taxable,tax,amount,entry_details)
+    values(inv.id,(l->>'product_id')::uuid,l->>'item_name',l->>'unit',(l->>'quantity')::numeric,coalesce((l->>'free_qty')::numeric,0),(l->>'rate')::numeric,coalesce((l->>'discount')::numeric,0),(l->>'gst_rate')::numeric,taxable,tax,taxable+tax,
+      jsonb_build_object('sku',l->>'sku','barcode',l->>'barcode','serial_no',l->>'serial_no','mrp',l->'mrp','sale_price',l->'sale_price','profit_pct',l->'profit_pct'));
   end loop;
   return inv.id;
 end $fn$;

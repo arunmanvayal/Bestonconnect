@@ -1,9 +1,10 @@
 import { fetchAll } from "@/lib/data-transfer";
 import { matchesSearch } from "@/lib/search";
+import { barcodeSeries, duplicateStockIds, filterStock } from "@/lib/stock-maintenance";
 import { createFileRoute } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, ArrowDownToLine, ArrowUpFromLine, SlidersHorizontal } from "lucide-react";
+import { Plus, Trash2, ArrowDownToLine, ArrowUpFromLine, SlidersHorizontal, Pencil, ListOrdered } from "lucide-react";
 import { toast } from "sonner";
 import { adjustStock } from "@/lib/books";
 import { AppLayout } from "@/components/AppLayout";
@@ -49,10 +50,16 @@ function StockPage() {
 }
 
 function StockInner() {
-  const supabase = useSupabase()!;
+  const supabase = useSupabase();
   const qc = useQueryClient();
   const [addOpen, setAddOpen] = useState(false);
   const [search, setSearch] = useState("");
+  const [filter, setFilter] = useState("all");
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [maintenance, setMaintenance] = useState<"delete" | "barcodes" | null>(null);
+  const [edit, setEdit] = useState<any | null>(null);
+  const [details, setDetails] = useState({ name: "", sku: "", barcode: "", unit: "" });
+  const [busy, setBusy] = useState(false);
   const [moveProduct, setMoveProduct] = useState<any | null>(null);
   const [moveType, setMoveType] = useState<"in" | "out">("in");
   const [moveQty, setMoveQty] = useState("1");
@@ -67,6 +74,7 @@ function StockInner() {
   const { data: products = [], isLoading } = useQuery({
     queryKey: ["products"],
     queryFn: async () => {
+      if (!supabase) throw new Error("Connection unavailable");
       const data = await fetchAll(supabase, "products"); const error = null;
       if (error) throw error;
       return data;
@@ -75,6 +83,7 @@ function StockInner() {
 
   const addProduct = useMutation({
     mutationFn: async () => {
+      if (!supabase) throw new Error("Connection unavailable");
       const { error } = await supabase.from("products").insert({
         sku: form.sku,
         name: form.name,
@@ -94,6 +103,7 @@ function StockInner() {
 
   const recordMovement = useMutation({
     mutationFn: async () => {
+      if (!supabase) throw new Error("Connection unavailable");
       const qty = Number(moveQty) || 0;
       if (qty <= 0) throw new Error("Quantity must be greater than zero");
       const { error } = await supabase.from("stock_movements").insert({
@@ -115,15 +125,24 @@ function StockInner() {
     },
   });
 
-  const removeProduct = useMutation({
-    mutationFn: async (id: string) => {
-      const { error } = await supabase.from("products").delete().eq("id", id);
-      if (error) throw error;
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["products"] }),
-  });
   useWorkspaceCommands({ save: () => activeFormRef.current?.requestSubmit(), addRow: () => setAddOpen(true), refresh: () => qc.invalidateQueries({ queryKey: ["products"] }) });
-  const shown = products.filter(p => matchesSearch(search, p.name, p.sku, p.barcode, p.category, p.hsn));
+  const duplicates = duplicateStockIds(products);
+  const shown = filterStock<any>(products, filter, duplicates).filter(p => matchesSearch(search, p.name, p.sku, p.barcode, p.category, p.hsn));
+  const chosen = products.filter(p => selectedIds.has(p.id));
+  const series = barcodeSeries(products);
+  const snapshot = (p: any) => ({ id: p.id, quantity: p.quantity, old_barcode: p.barcode ?? "", old_sku: p.sku ?? "", old_name: p.name });
+  const maintain = async (action: "delete" | "barcodes" | "edit") => {
+    if (!supabase) return;
+    const rows = action === "edit" ? edit ? [{ ...snapshot(edit), ...details }] : [] : action === "delete" ? chosen.map(snapshot) : series.map(row => ({ ...snapshot(products.find(p => p.id === row.id)), barcode: row.barcode }));
+    if (!rows.length) return;
+    setBusy(true);
+    try {
+      const { data, error } = await supabase.rpc("maintain_stock", { _action: action, _rows: rows });
+      if (error) throw new Error(error.code === "PGRST202" ? "Run the latest Setup script once to enable safe stock cleanup." : error.message);
+      toast.success(`${data} product${data === 1 ? "" : "s"} updated`);
+      setMaintenance(null); setEdit(null); setSelectedIds(new Set()); await qc.invalidateQueries();
+    } catch (e) { toast.error(e instanceof Error ? e.message : "Stock was not changed"); } finally { setBusy(false); }
+  };
 
   return (
     <div className="entry-workspace space-y-6">
@@ -177,12 +196,22 @@ function StockInner() {
       </div>
 
       <Input aria-label="Search stock" placeholder="Search product, item code, barcode or HSN" value={search} onChange={e => setSearch(e.target.value)} />
+      <div className="flex flex-wrap items-center gap-3">
+        <select aria-label="Stock filter" className="h-10 rounded-md border border-input bg-card px-3 text-sm" value={filter} onChange={e => { setFilter(e.target.value); setSelectedIds(new Set()); }}><option value="all">All stock</option><option value="zero">Zero stock</option><option value="positive">In stock</option><option value="negative">Negative stock</option><option value="duplicates">Duplicate item code / barcode</option></select>
+        <span className="text-sm text-muted-foreground">{shown.length} products · {selectedIds.size} selected</span>
+        <Button variant="outline" disabled={!shown.length} onClick={() => setSelectedIds(new Set(shown.map(p => p.id)))}>Select filtered</Button>
+        <Button variant="ghost" disabled={!selectedIds.size} onClick={() => setSelectedIds(new Set())}>Clear selection</Button>
+        <Button variant="destructive" disabled={!chosen.length || chosen.some(p => Number(p.quantity) !== 0)} onClick={() => setMaintenance("delete")}><Trash2 className="h-4 w-4"/>Delete selected</Button>
+        <Button variant="outline" disabled={!products.length} onClick={() => setMaintenance("barcodes")}><ListOrdered className="h-4 w-4"/>Barcode series</Button>
+      </div>
       <Card>
         <CardContent className="p-0">
           <Table>
             <TableHeader>
               <TableRow>
+                <TableHead className="w-10">Select</TableHead>
                 <TableHead>SKU</TableHead>
+                <TableHead>Barcode</TableHead>
                 <TableHead>Product</TableHead>
                 <TableHead className="text-right">In Stock</TableHead>
                 <TableHead className="text-right">Unit Price</TableHead>
@@ -193,15 +222,17 @@ function StockInner() {
             </TableHeader>
             <TableBody>
               {isLoading ? (
-                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Loading…</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">Loading…</TableCell></TableRow>
               ) : shown.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">{search.trim() ? "No matching products." : "No products yet — add your first item."}</TableCell></TableRow>
+                <TableRow><TableCell colSpan={9} className="text-center text-muted-foreground">{search.trim() || filter !== "all" ? "No matching products." : "No products yet — add your first item."}</TableCell></TableRow>
               ) : (
                 shown.map((p) => {
                   const low = Number(p.quantity) <= Number(p.reorder_level);
                   return (
                     <TableRow key={p.id}>
+                      <TableCell><input type="checkbox" aria-label={`Select ${p.name}`} checked={selectedIds.has(p.id)} onChange={e => setSelectedIds(previous => { const next = new Set(previous); if (e.target.checked) next.add(p.id); else next.delete(p.id); return next; })}/></TableCell>
                       <TableCell className="font-mono text-xs">{p.sku}</TableCell>
+                      <TableCell className="font-mono text-xs">{p.barcode || "—"}</TableCell>
                       <TableCell className="font-medium">{p.name}</TableCell>
                       <TableCell className="text-right">{Number(p.quantity)} {p.unit}</TableCell>
                       <TableCell className="text-right">{money(p.unit_price)}</TableCell>
@@ -215,6 +246,7 @@ function StockInner() {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
+                          <Button variant="ghost" size="icon" title="Edit product details" onClick={() => { setEdit(p); setDetails({ name: p.name, sku: p.sku ?? "", barcode: p.barcode ?? "", unit: p.unit ?? "pcs" }); }}><Pencil className="h-4 w-4"/></Button>
                           <Button variant="ghost" size="icon" title="Stock in" onClick={() => { setMoveProduct(p); setMoveType("in"); }}>
                             <ArrowDownToLine className="h-4 w-4 text-emerald-600" />
                           </Button>
@@ -224,7 +256,7 @@ function StockInner() {
                           <Button variant="ghost" size="icon" title="Adjust stock / price" onClick={() => openAdjust(p)}>
                             <SlidersHorizontal className="h-4 w-4 text-primary" />
                           </Button>
-                          <Button variant="ghost" size="icon" onClick={() => { if (confirm(`Delete ${p.name}?`)) removeProduct.mutate(p.id); }}>
+                          <Button variant="ghost" size="icon" title="Delete zero-stock product" disabled={Number(p.quantity) !== 0} onClick={() => { setSelectedIds(new Set([p.id])); setMaintenance("delete"); }}>
                             <Trash2 className="h-4 w-4 text-destructive" />
                           </Button>
                         </div>
@@ -238,12 +270,20 @@ function StockInner() {
         </CardContent>
       </Card>
 
+      <Dialog open={!!maintenance} onOpenChange={o => { if (!o && !busy) setMaintenance(null); }}><DialogContent className="max-h-[85vh] overflow-y-auto"><DialogHeader><DialogTitle>{maintenance === "barcodes" ? "Replace all stock barcodes" : "Delete selected stock"}</DialogTitle></DialogHeader>
+        <p className="text-sm text-muted-foreground">{maintenance === "barcodes" ? "Every product receives a new barcode from 1 in product-name order. Existing printed barcode labels will need replacing. Item codes and bill numbers stay unchanged." : "Only zero-stock products with no business history and no active online listing can be deleted. If any selected product is protected, nothing is deleted."}</p>
+        <div className="max-h-72 overflow-auto"><table className="w-full text-sm"><thead><tr className="text-left"><th className="p-2">Product</th><th className="p-2">Current barcode</th>{maintenance === "barcodes" && <th className="p-2">New barcode</th>}</tr></thead><tbody>{(maintenance === "barcodes" ? series : chosen.map(p => ({ id: p.id, name: p.name, old_barcode: p.barcode ?? "", barcode: "" }))).map(p => <tr key={p.id} className="border-t border-border"><td className="p-2">{p.name}</td><td className="p-2">{p.old_barcode || "—"}</td>{maintenance === "barcodes" && <td className="p-2 font-semibold">{p.barcode}</td>}</tr>)}</tbody></table></div>
+        <div className="flex justify-end gap-2"><Button variant="outline" disabled={busy} onClick={() => setMaintenance(null)}>Cancel</Button><Button variant={maintenance === "delete" ? "destructive" : "default"} disabled={busy} onClick={() => { if (maintenance) void maintain(maintenance); }}>{busy ? "Please wait…" : maintenance === "barcodes" ? `Replace ${series.length} barcodes` : `Delete ${chosen.length} products`}</Button></div>
+      </DialogContent></Dialog>
+      <Dialog open={!!edit} onOpenChange={o => { if (!o && !busy) setEdit(null); }}><DialogContent><DialogHeader><DialogTitle>Edit product details</DialogTitle></DialogHeader><form className="space-y-3" onSubmit={e => { e.preventDefault(); void maintain("edit"); }}>{([ ["Name", "name"], ["Item code", "sku"], ["Barcode", "barcode"], ["Unit", "unit"] ] as const).map(([label,key]) => <label key={key} className="block space-y-1 text-sm"><span>{label}</span><Input required={key === "name" || key === "unit"} maxLength={key === "name" ? 300 : 100} value={details[key]} onChange={e => setDetails(d => ({ ...d, [key]: e.target.value }))}/></label>)}<Button type="submit" disabled={busy}>Save details</Button></form></DialogContent></Dialog>
+
       <Dialog open={!!adj} onOpenChange={(o) => !o && setAdj(null)}>
         <DialogContent>
           <DialogHeader><DialogTitle>Adjust — {adj?.name}</DialogTitle></DialogHeader>
           <form ref={activeFormRef} className="space-y-4" onSubmit={async (e) => {
             e.preventDefault();
             try {
+              if (!supabase) throw new Error("Connection unavailable");
               await adjustStock(supabase, adj, { quantity: Number(adjForm.quantity) || 0, cost_price: Number(adjForm.cost_price) || 0, unit_price: Number(adjForm.unit_price) || 0, reason: adjForm.reason });
               toast.success("Stock adjusted"); qc.invalidateQueries(); setAdj(null);
             } catch (err: any) { toast.error(err.message ?? "Could not adjust"); }
