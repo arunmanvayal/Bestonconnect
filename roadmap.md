@@ -21,3 +21,4 @@
 - [ ] Match reference product creation and editing, including all reference fields.
 - [ ] Add linked Masters options and use shared details across products, invoices and parties/accounts.
 - [ ] Verify product/master validation, login gates and layouts; live writes require the external database owner session and Setup update.
+- [ ] Preserve unsaved inputs across app/tab switching throughout the app; stop automatic refresh from clearing active forms.
