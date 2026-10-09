@@ -127,7 +127,7 @@ function StockInner() {
 
   useWorkspaceCommands({ save: () => activeFormRef.current?.requestSubmit(), addRow: () => setAddOpen(true), refresh: () => qc.invalidateQueries({ queryKey: ["products"] }) });
   const duplicates = duplicateStockIds(products);
-  const shown = filterStock(products, filter, duplicates).filter(p => matchesSearch(search, p.name, p.sku, p.barcode, (p as any).category, (p as any).hsn));
+  const shown = filterStock<any>(products, filter, duplicates).filter(p => matchesSearch(search, p.name, p.sku, p.barcode, p.category, p.hsn));
   const chosen = products.filter(p => selectedIds.has(p.id));
   const series = barcodeSeries(products);
   const snapshot = (p: any) => ({ id: p.id, quantity: p.quantity, old_barcode: p.barcode ?? "", old_sku: p.sku ?? "", old_name: p.name });
