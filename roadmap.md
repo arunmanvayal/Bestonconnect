@@ -24,4 +24,4 @@
 - [ ] Apply Product and Masters update and verify live saves/link propagation (external database owner session and Setup update required).
 - [x] Preserve unsaved inputs across app/tab switching throughout the app; same-user sign-in, focus and reconnect regression checks passed without clearing input or company cache.
 - [x] Replace the admin sidebar with reference-style categorized dropdown navigation; all existing destinations, dropdown interactions and signed-out login boundary checked.
-- [ ] Include every current admin and Masters option in shared shortcut settings; verify assignment, persistence and destination handling.
+- [x] Include every current admin and Masters option in shared shortcut settings; 73 tests pass, isolated browser checks verify assignment, duplicate prevention, persistence, clearing and destination handling. Real signed-in page checks remain blocked by the unavailable external owner session.
