@@ -1,0 +1,16 @@
+import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
+import { Plus, Pencil } from "lucide-react";
+import { AppLayout } from "@/components/AppLayout";
+import { ProductEditor } from "@/components/ProductEditor";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { useSupabase } from "@/lib/supabase";
+import { fetchAll } from "@/lib/data-transfer";
+import { matchesSearch } from "@/lib/search";
+import { money } from "@/components/SupabaseGate";
+export const Route=createFileRoute("/admin/products")({head:()=>({meta:[{title:"Product Masters — BusinessDesk"},{name:"description",content:"Manage linked product details, tax, rates, units and store locations."},{property:"og:title",content:"Product Masters — BusinessDesk"},{property:"og:description",content:"Manage linked product details, tax, rates, units and store locations."},{property:"og:type",content:"website"},{name:"twitter:card",content:"summary"}]}),component:ProductsPage});
+function ProductsPage(){const sb=useSupabase();const [q,setQ]=useState("");const [edit,setEdit]=useState<Record<string,any>|null>(null);const [open,setOpen]=useState(true);const {data:products=[],error}=useQuery({queryKey:["products"],enabled:!!sb,queryFn:async()=>{if(!sb)throw new Error("Connection unavailable");return fetchAll(sb,"products");}});const shown=products.filter(p=>matchesSearch(q,p.name,p.sku,p.barcode,p.category,p.manufacturer,p.hsn));
+ return <AppLayout><section className="space-y-4"><div className="flex items-center justify-between"><h1 className="text-xl font-bold">Product</h1><Button size="sm" onClick={()=>{setEdit(null);setOpen(true);}}><Plus className="h-4 w-4"/>New Product</Button></div>{open&&<div className="max-w-4xl"><ProductEditor product={edit} onClose={()=>{setEdit(null);setOpen(false);}}/></div>}<div className="border-t border-border pt-3"><h2 className="mb-2 text-xs font-semibold">EDIT</h2><Input aria-label="Search product masters" placeholder="Product code, name, barcode, category or manufacturer" value={q} onChange={e=>setQ(e.target.value)}/>{error&&<p className="py-3 text-sm text-destructive">Products could not be loaded. Refresh and check your connection.</p>}<div className="mt-3 max-h-80 overflow-auto border border-border"><table className="w-full min-w-[640px] text-xs"><thead className="sticky top-0 bg-primary text-primary-foreground"><tr>{["Product Code","Product Name","Barcode","Category","Purchase","Sales","Stock",""] .map((s,i)=><th className="px-3 py-2 text-left" key={i}>{s}</th>)}</tr></thead><tbody>{shown.map(p=><tr key={p.id} className="border-b border-border"><td className="p-3">{p.sku}</td><td>{p.name}{p.deactivated&&<span className="ml-2 text-muted-foreground">Inactive</span>}</td><td>{p.barcode}</td><td>{p.category}</td><td>{money(p.cost_price)}</td><td>{money(p.unit_price)}</td><td>{p.quantity} {p.unit}</td><td><Button size="icon" variant="ghost" aria-label={`Edit ${p.name}`} onClick={()=>{setEdit(p);setOpen(true);window.scrollTo({top:0});}}><Pencil className="h-3 w-3"/></Button></td></tr>)}</tbody></table></div></div></section></AppLayout>;
+}

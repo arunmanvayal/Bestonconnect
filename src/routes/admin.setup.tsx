@@ -7,7 +7,8 @@ import { INVOICE_EDIT_SQL } from "@/lib/invoice-edit-sql";
 import { ONLINE_SHOP_SQL } from "@/lib/online-shop-sql";
 import { INVOICE_ENTRY_SQL } from "@/lib/invoice-entry-sql";
 import { STOCK_MAINTENANCE_SQL } from "@/lib/stock-maintenance-sql";
-const SETUP_SQL = BASE_SQL + INVOICE_SQL + COMPANY_SQL + USERNAME_SQL + IMPORT_SQL + INVOICE_ENTRY_SQL + INVOICE_EDIT_SQL + ONLINE_SHOP_SQL + STOCK_MAINTENANCE_SQL;
+import { MASTERS_SQL } from "@/lib/masters-sql";
+const SETUP_SQL = BASE_SQL + INVOICE_SQL + COMPANY_SQL + USERNAME_SQL + IMPORT_SQL + INVOICE_ENTRY_SQL + INVOICE_EDIT_SQL + MASTERS_SQL + ONLINE_SHOP_SQL + STOCK_MAINTENANCE_SQL;
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -42,6 +43,11 @@ function SetupPage() {
           <p className="text-sm text-muted-foreground">One-time step to create the tables in your Supabase project</p>
         </div>
 
+        <div className="space-y-3 border-y border-border py-5">
+          <h2 className="font-semibold">Product and Masters update</h2>
+          <p className="text-sm text-muted-foreground">Run this update after the existing setup to enable the full Product form and linked Masters options.</p>
+          <Button variant="outline" onClick={async () => { await navigator.clipboard.writeText(MASTERS_SQL + ONLINE_SHOP_SQL); setCopied(true); setTimeout(() => setCopied(false), 2000); }}><Copy className="h-4 w-4"/>Copy Product and Masters update</Button>
+        </div>
         <div className="space-y-3 border-y border-border py-5">
           <h2 className="font-semibold">Online shop setup</h2>
           <p className="text-sm text-muted-foreground">Run the latest script below to enable online products and orders. In your connected database's Storage area, create a public bucket named <strong>online-products</strong>, with a 5 MB file limit and JPG, PNG and WebP images allowed. Product photos are public; orders and business records stay private.</p>

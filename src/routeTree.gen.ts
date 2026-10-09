@@ -30,10 +30,12 @@ import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminAccountsRouteImport } from './routes/admin.accounts'
 import { Route as AdminCustomersRouteImport } from './routes/admin.customers'
 import { Route as AdminLedgerRouteImport } from './routes/admin.ledger'
+import { Route as AdminMastersRouteImport } from './routes/admin.masters'
 import { Route as AdminOnlineOrdersRouteImport } from './routes/admin.online-orders'
 import { Route as AdminOnlineProductsRouteImport } from './routes/admin.online-products'
 import { Route as AdminOnlineShopRouteImport } from './routes/admin.online-shop'
 import { Route as AdminPaymentsRouteImport } from './routes/admin.payments'
+import { Route as AdminProductsRouteImport } from './routes/admin.products'
 import { Route as AdminProfileRouteImport } from './routes/admin.profile'
 import { Route as AdminPurchaseRouteImport } from './routes/admin.purchase'
 import { Route as AdminReportsRouteImport } from './routes/admin.reports'
@@ -150,6 +152,11 @@ const AdminLedgerRoute = AdminLedgerRouteImport.update({
   path: '/ledger',
   getParentRoute: () => AdminRoute,
 } as any)
+const AdminMastersRoute = AdminMastersRouteImport.update({
+  id: '/masters',
+  path: '/masters',
+  getParentRoute: () => AdminRoute,
+} as any)
 const AdminOnlineOrdersRoute = AdminOnlineOrdersRouteImport.update({
   id: '/online-orders',
   path: '/online-orders',
@@ -168,6 +175,11 @@ const AdminOnlineShopRoute = AdminOnlineShopRouteImport.update({
 const AdminPaymentsRoute = AdminPaymentsRouteImport.update({
   id: '/payments',
   path: '/payments',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminProductsRoute = AdminProductsRouteImport.update({
+  id: '/products',
+  path: '/products',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminProfileRoute = AdminProfileRouteImport.update({
@@ -242,10 +254,12 @@ export interface FileRoutesByFullPath {
   '/admin/accounts': typeof AdminAccountsRoute
   '/admin/customers': typeof AdminCustomersRoute
   '/admin/ledger': typeof AdminLedgerRoute
+  '/admin/masters': typeof AdminMastersRoute
   '/admin/online-orders': typeof AdminOnlineOrdersRoute
   '/admin/online-products': typeof AdminOnlineProductsRoute
   '/admin/online-shop': typeof AdminOnlineShopRoute
   '/admin/payments': typeof AdminPaymentsRoute
+  '/admin/products': typeof AdminProductsRoute
   '/admin/profile': typeof AdminProfileRoute
   '/admin/purchase': typeof AdminPurchaseRoute
   '/admin/reports': typeof AdminReportsRoute
@@ -278,10 +292,12 @@ export interface FileRoutesByTo {
   '/admin/accounts': typeof AdminAccountsRoute
   '/admin/customers': typeof AdminCustomersRoute
   '/admin/ledger': typeof AdminLedgerRoute
+  '/admin/masters': typeof AdminMastersRoute
   '/admin/online-orders': typeof AdminOnlineOrdersRoute
   '/admin/online-products': typeof AdminOnlineProductsRoute
   '/admin/online-shop': typeof AdminOnlineShopRoute
   '/admin/payments': typeof AdminPaymentsRoute
+  '/admin/products': typeof AdminProductsRoute
   '/admin/profile': typeof AdminProfileRoute
   '/admin/purchase': typeof AdminPurchaseRoute
   '/admin/reports': typeof AdminReportsRoute
@@ -316,10 +332,12 @@ export interface FileRoutesById {
   '/admin/accounts': typeof AdminAccountsRoute
   '/admin/customers': typeof AdminCustomersRoute
   '/admin/ledger': typeof AdminLedgerRoute
+  '/admin/masters': typeof AdminMastersRoute
   '/admin/online-orders': typeof AdminOnlineOrdersRoute
   '/admin/online-products': typeof AdminOnlineProductsRoute
   '/admin/online-shop': typeof AdminOnlineShopRoute
   '/admin/payments': typeof AdminPaymentsRoute
+  '/admin/products': typeof AdminProductsRoute
   '/admin/profile': typeof AdminProfileRoute
   '/admin/purchase': typeof AdminPurchaseRoute
   '/admin/reports': typeof AdminReportsRoute
@@ -355,10 +373,12 @@ export interface FileRouteTypes {
     | '/admin/accounts'
     | '/admin/customers'
     | '/admin/ledger'
+    | '/admin/masters'
     | '/admin/online-orders'
     | '/admin/online-products'
     | '/admin/online-shop'
     | '/admin/payments'
+    | '/admin/products'
     | '/admin/profile'
     | '/admin/purchase'
     | '/admin/reports'
@@ -391,10 +411,12 @@ export interface FileRouteTypes {
     | '/admin/accounts'
     | '/admin/customers'
     | '/admin/ledger'
+    | '/admin/masters'
     | '/admin/online-orders'
     | '/admin/online-products'
     | '/admin/online-shop'
     | '/admin/payments'
+    | '/admin/products'
     | '/admin/profile'
     | '/admin/purchase'
     | '/admin/reports'
@@ -428,10 +450,12 @@ export interface FileRouteTypes {
     | '/admin/accounts'
     | '/admin/customers'
     | '/admin/ledger'
+    | '/admin/masters'
     | '/admin/online-orders'
     | '/admin/online-products'
     | '/admin/online-shop'
     | '/admin/payments'
+    | '/admin/products'
     | '/admin/profile'
     | '/admin/purchase'
     | '/admin/reports'
@@ -615,6 +639,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminLedgerRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/masters': {
+      id: '/admin/masters'
+      path: '/masters'
+      fullPath: '/admin/masters'
+      preLoaderRoute: typeof AdminMastersRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/online-orders': {
       id: '/admin/online-orders'
       path: '/online-orders'
@@ -641,6 +672,13 @@ declare module '@tanstack/react-router' {
       path: '/payments'
       fullPath: '/admin/payments'
       preLoaderRoute: typeof AdminPaymentsRouteImport
+      parentRoute: typeof AdminRoute
+    }
+    '/admin/products': {
+      id: '/admin/products'
+      path: '/products'
+      fullPath: '/admin/products'
+      preLoaderRoute: typeof AdminProductsRouteImport
       parentRoute: typeof AdminRoute
     }
     '/admin/profile': {
@@ -720,10 +758,12 @@ interface AdminRouteChildren {
   AdminAccountsRoute: typeof AdminAccountsRoute
   AdminCustomersRoute: typeof AdminCustomersRoute
   AdminLedgerRoute: typeof AdminLedgerRoute
+  AdminMastersRoute: typeof AdminMastersRoute
   AdminOnlineOrdersRoute: typeof AdminOnlineOrdersRoute
   AdminOnlineProductsRoute: typeof AdminOnlineProductsRoute
   AdminOnlineShopRoute: typeof AdminOnlineShopRoute
   AdminPaymentsRoute: typeof AdminPaymentsRoute
+  AdminProductsRoute: typeof AdminProductsRoute
   AdminProfileRoute: typeof AdminProfileRoute
   AdminPurchaseRoute: typeof AdminPurchaseRoute
   AdminReportsRoute: typeof AdminReportsRoute
@@ -740,10 +780,12 @@ const AdminRouteChildren: AdminRouteChildren = {
   AdminAccountsRoute: AdminAccountsRoute,
   AdminCustomersRoute: AdminCustomersRoute,
   AdminLedgerRoute: AdminLedgerRoute,
+  AdminMastersRoute: AdminMastersRoute,
   AdminOnlineOrdersRoute: AdminOnlineOrdersRoute,
   AdminOnlineProductsRoute: AdminOnlineProductsRoute,
   AdminOnlineShopRoute: AdminOnlineShopRoute,
   AdminPaymentsRoute: AdminPaymentsRoute,
+  AdminProductsRoute: AdminProductsRoute,
   AdminProfileRoute: AdminProfileRoute,
   AdminPurchaseRoute: AdminPurchaseRoute,
   AdminReportsRoute: AdminReportsRoute,

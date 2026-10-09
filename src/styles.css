@@ -180,6 +180,13 @@
 .entry-workspace table th, .entry-workspace table td { padding-top: var(--entry-pad-y); padding-bottom: var(--entry-pad-y); }
 .invoice-grid th, .invoice-grid td { overflow: hidden; }
 
+.product-master-form input:not([type="checkbox"]), .product-master-form select { height: 28px; min-height: 28px; border-radius: 2px; font-size: 12px; padding-inline: 6px; }
+.product-master-form button { border-radius: 4px; }
+.product-master-form { container-type: inline-size; }
+@container (max-width: 600px) {
+  .product-master-form > .grid { grid-template-columns: minmax(0, 1fr); }
+}
+
 /* Reference-proportioned entry window: only the item area scrolls. */
 .invoice-app-navigation { height: 38px; }
 .invoice-app-shell > aside,

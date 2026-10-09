@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useRef } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import { useSupabase } from "./supabase";
+import { sessionIdentityChanged } from "./session-refresh";
 
 export type Company = {
   id: string; owner_id: string; name: string; logo: string; tagline: string; address: string; state: string;
@@ -32,15 +33,36 @@ export function useSession(): Session | null | undefined {
   const sb = useSupabase();
   const qc = useQueryClient();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
+  const identity = useRef<string | null | undefined>(undefined);
+
   useEffect(() => {
     if (!sb) return;
-    sb.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data } = sb.auth.onAuthStateChange((event, s) => {
+    let alive = true;
+
+    const receive = (s: Session | null) => {
+      if (!alive) return;
+      const nextId = s?.user.id ?? null;
+      if (sessionIdentityChanged(identity.current, nextId)) {
+        qc.clear();
+      }
+      identity.current = nextId;
       setSession(s);
-      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") qc.clear();
+    };
+
+    sb.auth.getSession().then(({ data }) => {
+      if (identity.current === undefined) receive(data.session);
     });
-    return () => data.subscription.unsubscribe();
+
+    const { data } = sb.auth.onAuthStateChange((_event, s) => {
+      receive(s);
+    });
+
+    return () => {
+      alive = false;
+      data.subscription.unsubscribe();
+    };
   }, [sb, qc]);
+
   return session;
 }
 
@@ -62,9 +84,12 @@ export function useActiveCompany() {
   const session = useSession();
   return useQuery({
     queryKey: ["active-company", session?.user.id],
-    queryFn: () => fetchActiveCompany(sb!),
+    queryFn: () => {
+      if (!sb) throw new Error("Database connection is unavailable");
+      return fetchActiveCompany(sb);
+    },
     enabled: !!sb && !!session,
-    staleTime: 60_000,
+    staleTime: Infinity, // Keep company data stable
   });
 }
 

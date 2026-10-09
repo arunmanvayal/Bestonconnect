@@ -18,6 +18,7 @@ import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { WorkspacePreferencesDialog } from "@/components/WorkspacePreferencesDialog";
 import { WorkspaceSearch } from "@/components/WorkspaceSearch";
+import { MastersMenu } from "@/components/MastersMenu";
 import { useActiveCompany } from "@/lib/company";
 import { emitWorkspaceCommand, normalizeShortcut, useWorkspacePreferences, type CommandId } from "@/lib/workspace-preferences";
 
@@ -31,6 +32,8 @@ const NAV = [
   { to: "/admin/returns", label: "Sales Returns", icon: Undo2 },
   { to: "/admin/ledger", label: "Ledger", icon: BookOpen },
   { to: "/admin/stock", label: "Stock", icon: Package },
+  { to: "/admin/products", label: "Products", icon: Package },
+  { to: "/admin/masters", label: "Masters", icon: Settings2 },
   { to: "/admin/online-products", label: "Online Products", icon: Package },
   { to: "/admin/online-orders", label: "Online Orders", icon: ShoppingCart },
   { to: "/admin/online-shop", label: "Online Shop", icon: ShoppingCart },
@@ -112,7 +115,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
     <TooltipProvider>
     <div className={`min-h-screen bg-background/70 ${invoiceEntry ? "invoice-app-shell" : ""}`}>
       {invoiceEntry && <header className="invoice-app-navigation grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-border bg-card px-3">
-        <nav className="flex min-w-0 items-center gap-1 overflow-x-auto"><Link to="/admin" className="shrink-0 px-2 font-display text-xs font-bold">{brand}</Link>{NAV.slice(0, 9).map(({to,label}) => <Button key={to} variant={pathname === to ? "secondary" : "ghost"} size="sm" asChild><Link to={to}>{label}</Link></Button>)}</nav>
+        <nav className="flex min-w-0 items-center gap-1 overflow-x-auto"><Link to="/admin" className="shrink-0 px-2 font-display text-xs font-bold">{brand}</Link><MastersMenu/>{NAV.slice(0, 9).map(({to,label}) => <Button key={to} variant={pathname === to ? "secondary" : "ghost"} size="sm" asChild><Link to={to}>{label}</Link></Button>)}</nav>
         <div className="flex shrink-0 items-center"><WorkspaceSearch compact /><WorkspacePreferencesDialog /><Button variant="ghost" size="sm" asChild><Link to="/admin/profile">Admin</Link></Button></div>
       </header>}
       <aside data-app-navigation className={`fixed inset-y-4 left-4 z-30 hidden flex-col overflow-hidden rounded-3xl border border-sidebar-border/70 bg-sidebar text-sidebar-foreground shadow-[0_24px_60px_-36px_color-mix(in_oklab,var(--foreground)_45%,transparent)] backdrop-blur-xl transition-[width] duration-300 lg:flex ${collapsed ? "w-20" : "w-60"}`}>
@@ -129,12 +132,12 @@ export function AppLayout({ children }: { children: ReactNode }) {
       <header data-mobile-header className="sticky top-0 z-20 grid grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-3 border-b border-border/60 bg-background/80 px-4 py-3 backdrop-blur-xl lg:hidden">
         <Button variant="outline" size="icon" aria-label="Open navigation" className="shrink-0 rounded-full bg-card/80" onClick={() => setMenuOpen(true)}><Menu /></Button>
         <div className="min-w-0"><p className="truncate font-display text-sm font-bold">{current?.label}</p><p className="truncate text-[10px] text-muted-foreground">{brand}</p></div>
-        <div className="flex shrink-0 items-center gap-1"><WorkspaceSearch compact /><WorkspacePreferencesDialog /><Button variant="outline" size="icon" aria-label="Notifications" className="shrink-0 rounded-full bg-card/80"><Bell /></Button></div>
+        <div className="flex shrink-0 items-center gap-1"><MastersMenu/><WorkspaceSearch compact /><WorkspacePreferencesDialog /><Button variant="outline" size="icon" aria-label="Notifications" className="shrink-0 rounded-full bg-card/80"><Bell /></Button></div>
       </header>
 
       <header className={`fixed right-6 top-4 z-20 hidden h-16 grid-cols-[minmax(0,1fr)_auto] items-center gap-5 rounded-2xl border border-border/60 bg-card/80 px-5 shadow-sm backdrop-blur-xl transition-[left] duration-300 lg:grid ${collapsed ? "left-28" : "left-72"}`}>
         <WorkspaceSearch />
-        <div className="flex shrink-0 items-center gap-2"><WorkspacePreferencesDialog /><Button variant="ghost" size="icon" aria-label="Notifications" className="rounded-full"><Bell /></Button><Link to="/admin/profile" title="Profile & Companies" className="grid h-9 w-9 place-items-center rounded-full bg-accent/25 font-display text-xs font-bold text-accent-foreground">{initials}</Link></div>
+        <div className="flex shrink-0 items-center gap-2"><MastersMenu/><WorkspacePreferencesDialog /><Button variant="ghost" size="icon" aria-label="Notifications" className="rounded-full"><Bell /></Button><Link to="/admin/profile" title="Profile & Companies" className="grid h-9 w-9 place-items-center rounded-full bg-accent/25 font-display text-xs font-bold text-accent-foreground">{initials}</Link></div>
       </header>
 
       <main data-app-main className={`min-w-0 px-4 pb-24 pt-5 transition-[margin] duration-300 sm:px-6 lg:px-6 lg:pb-10 lg:pt-24 ${collapsed ? "lg:ml-24" : "lg:ml-68"}`}>

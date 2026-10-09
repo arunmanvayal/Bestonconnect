@@ -87,7 +87,7 @@ async function ensureAccount(sb: SupabaseClient, code: string, name: string, typ
 
 async function ensureParty(sb: SupabaseClient, name: string, contact: string, kind: Kind, address: string) {
   if (!name.trim()) return null;
-  const { data } = await sb.from("customers").select("id").ilike("name", name.trim()).limit(1);
+  const { data } = await sb.from("customers").select("id").eq("party_type", kind === "sale" ? "customer" : "supplier").ilike("name", name.trim().replace(/[\\%_]/g, "\\$&")).limit(1);
   if (data && data[0]) return data[0].id as string;
   const { data: ins, error } = await sb
     .from("customers")
