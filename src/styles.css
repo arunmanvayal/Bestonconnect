@@ -189,6 +189,12 @@
 
 /* Reference-proportioned entry window: only the item area scrolls. */
 .invoice-app-navigation { height: 38px; }
+.admin-workspace-navigation { width: 100%; }
+.admin-category-menu > button, .admin-category-menu > a { height: 38px; border-radius: 0; border: 0; background: transparent; color: var(--primary-foreground); padding-inline: 12px; font-size: 11px; text-transform: uppercase; }
+.admin-category-menu > button:hover, .admin-category-menu > a:hover,
+.admin-category-menu > button[data-state="open"], .admin-category-menu > button[data-active="true"] { background: var(--accent); color: var(--accent-foreground); }
+.admin-workspace-navigation > div button { color: var(--primary-foreground); }
+.admin-workspace-navigation > div button:hover { background: var(--accent); color: var(--accent-foreground); }
 .invoice-app-shell > aside,
 .invoice-app-shell > header:not(.invoice-app-navigation),
 .invoice-app-shell > nav { display: none; }
