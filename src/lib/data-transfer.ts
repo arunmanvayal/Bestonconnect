@@ -21,7 +21,7 @@ const pct = (n: number) => Number(n || 0).toFixed(1);
 export async function fetchAll(sb: SupabaseClient, table: string, filter?: (q: any) => any) {
   const out: any[] = [];
   for (let from = 0; ; from += 1000) {
-    let q = sb.from(table).select("*").order("name").range(from, from + 999);
+    let q = sb.from(table).select("*").order("name").order("id").range(from, from + 999);
     if (filter) q = filter(q);
     const { data, error } = await q;
     if (error) throw error;

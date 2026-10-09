@@ -1,4 +1,5 @@
 import { fetchAll } from "@/lib/data-transfer";
+import { matchesSearch } from "@/lib/search";
 import { createFileRoute } from "@tanstack/react-router";
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -51,6 +52,7 @@ function StockInner() {
   const supabase = useSupabase()!;
   const qc = useQueryClient();
   const [addOpen, setAddOpen] = useState(false);
+  const [search, setSearch] = useState("");
   const [moveProduct, setMoveProduct] = useState<any | null>(null);
   const [moveType, setMoveType] = useState<"in" | "out">("in");
   const [moveQty, setMoveQty] = useState("1");
@@ -121,6 +123,7 @@ function StockInner() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["products"] }),
   });
   useWorkspaceCommands({ save: () => activeFormRef.current?.requestSubmit(), addRow: () => setAddOpen(true), refresh: () => qc.invalidateQueries({ queryKey: ["products"] }) });
+  const shown = products.filter(p => matchesSearch(search, p.name, p.sku, p.barcode, p.category, p.hsn));
 
   return (
     <div className="entry-workspace space-y-6">
@@ -173,6 +176,7 @@ function StockInner() {
         </Dialog>
       </div>
 
+      <Input aria-label="Search stock" placeholder="Search product, item code, barcode or HSN" value={search} onChange={e => setSearch(e.target.value)} />
       <Card>
         <CardContent className="p-0">
           <Table>
@@ -190,10 +194,10 @@ function StockInner() {
             <TableBody>
               {isLoading ? (
                 <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">Loading…</TableCell></TableRow>
-              ) : products.length === 0 ? (
-                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">No products yet — add your first item.</TableCell></TableRow>
+              ) : shown.length === 0 ? (
+                <TableRow><TableCell colSpan={7} className="text-center text-muted-foreground">{search.trim() ? "No matching products." : "No products yet — add your first item."}</TableCell></TableRow>
               ) : (
-                products.map((p) => {
+                shown.map((p) => {
                   const low = Number(p.quantity) <= Number(p.reorder_level);
                   return (
                     <TableRow key={p.id}>

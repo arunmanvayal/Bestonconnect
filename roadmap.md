@@ -11,4 +11,5 @@
 - [ ] Verify live publishing, checkout, image uploads, order processing and A4 output (external owner session and schema update required).
 - [x] Show only login before admin access and move management pages under /admin/ while preserving old links with redirects.
 - [ ] Verify login-to-dashboard with a real owner session (external authentication session unavailable).
-- [ ] Audit and correct searches across the public shop and admin pages; test matching and full-record coverage.
+- [x] Audit and correct searches across the public shop and admin pages; matching and full-record coverage tests pass.
+- [ ] Verify search results against live published products and signed-in admin records (shop currently has no listings; external owner session unavailable).

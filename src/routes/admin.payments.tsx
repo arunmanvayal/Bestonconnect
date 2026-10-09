@@ -4,6 +4,8 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/AppLayout";
 import { SupabaseGate, money } from "@/components/SupabaseGate";
 import { useSupabase } from "@/lib/supabase";
+import { matchesSearch } from "@/lib/search";
+import { fetchSearchRecords } from "@/lib/search-data";
 import { fetchOutstanding, postPayment, INVOICE_QUERY_KEYS, type PayKind } from "@/lib/books";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,12 +45,13 @@ function PaymentsInner() {
   const [kind, setKind] = useState<PayKind>("receipt");
   const [form, setForm] = useState({ partyKey: "", party_name: "", amount: "", mode: "cash", pay_date: today(), reference: "", notes: "" });
   const [historyParty, setHistoryParty] = useState<string>("all");
+  const [search, setSearch] = useState("");
   const { shortcuts } = useWorkspacePreferences();
 
   const { data, isLoading } = useQuery({ queryKey: ["outstanding"], queryFn: () => fetchOutstanding(sb) });
   const { data: parties = [] } = useQuery({
     queryKey: ["customers"],
-    queryFn: async () => (await sb.from("customers").select("id, name, party_type").order("name")).data ?? [],
+    queryFn: () => fetchSearchRecords(sb, "customers", "name"),
   });
 
   const side = kind === "receipt" ? "customer" : "supplier";
@@ -82,8 +85,9 @@ function PaymentsInner() {
   useWorkspaceCommands({ save: () => save.mutate(), refresh: () => setForm({ partyKey: "", party_name: "", amount: "", mode: "cash", pay_date: today(), reference: "", notes: "" }) });
 
   const history = (data?.payments ?? []).filter((p: any) => {
+    if (!matchesSearch(search, p.voucher_no, p.party_name, p.reference, p.notes, p.pay_date, p.mode)) return false;
     if (historyParty === "all") return true;
-    const r = data!.rows.find((x) => x.key === historyParty);
+    const r = data?.rows.find((x) => x.key === historyParty);
     return r && (p.party_id ? p.party_id === r.party_id : p.party_name === r.party_name) && (p.kind === "receipt") === (r.side === "customer");
   });
   const allRows = data?.rows ?? [];
@@ -97,6 +101,7 @@ function PaymentsInner() {
         <p className="text-sm text-muted-foreground">Collect from customers, pay suppliers, track balances</p>
       </div>
 
+      <Input aria-label="Search receipts and payments" placeholder="Search party, voucher, reference or notes" value={search} onChange={e => setSearch(e.target.value)} />
       <div className="grid gap-4 md:grid-cols-2">
         <Card><CardContent className="p-5"><p className="text-sm text-muted-foreground">To receive from customers</p><p className="text-2xl font-bold">{money(totRecv)}</p></CardContent></Card>
         <Card><CardContent className="p-5"><p className="text-sm text-muted-foreground">To pay suppliers</p><p className="text-2xl font-bold">{money(totPay)}</p></CardContent></Card>
@@ -160,7 +165,7 @@ function PaymentsInner() {
             <TableBody>
               {isLoading ? <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Loading…</TableCell></TableRow>
                 : allRows.length === 0 ? <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">No credit bills yet.</TableCell></TableRow>
-                : allRows.sort((a, b) => b.balance - a.balance).map((r) => (
+                : allRows.filter(r => matchesSearch(search, r.party_name)).sort((a, b) => b.balance - a.balance).map((r) => (
                   <TableRow key={r.key}>
                     <TableCell className="font-medium">{r.party_name}</TableCell>
                     <TableCell><Badge variant="secondary">{r.side === "customer" ? "Customer" : "Supplier"}</Badge></TableCell>

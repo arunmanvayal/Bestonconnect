@@ -6,6 +6,8 @@ import { Search, Undo2 } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { SupabaseGate, money } from "@/components/SupabaseGate";
 import { useSupabase } from "@/lib/supabase";
+import { matchesSearch } from "@/lib/search";
+import { fetchSearchRecords } from "@/lib/search-data";
 import { loadReturnable, postSalesReturn, type ReturnLine } from "@/lib/books";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -48,7 +50,7 @@ function ReturnsInner() {
 
   const { data: invoices = [] } = useQuery({
     queryKey: ["invoices", "sale", "all"],
-    queryFn: async () => (await sb.from("invoices").select("*").eq("kind", "sale").order("created_at", { ascending: false }).limit(200)).data ?? [],
+    queryFn: () => fetchSearchRecords(sb, "invoices", "created_at", q => q.eq("kind", "sale")).then(rows => rows.reverse()),
   });
   const { data: returns = [], error: retErr } = useQuery({
     queryKey: ["returns"],
@@ -60,7 +62,7 @@ function ReturnsInner() {
   });
 
   const term = q.toLowerCase().trim();
-  const found = invoices.filter((i: any) => !term || String(i.bill_no).toLowerCase().includes(term) || String(i.party_name).toLowerCase().includes(term)).slice(0, 12);
+  const found = invoices.filter((i: any) => matchesSearch(q, i.bill_no, i.party_name)).slice(0, 12);
 
   const openInvoice = async (i: any) => {
     setInv(i);

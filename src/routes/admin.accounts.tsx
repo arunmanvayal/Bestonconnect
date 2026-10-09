@@ -5,6 +5,7 @@ import { Plus, Trash2 } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { SupabaseGate, money } from "@/components/SupabaseGate";
 import { useSupabase } from "@/lib/supabase";
+import { matchesSearch } from "@/lib/search";
 import { fetchBalances } from "@/lib/books";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -60,6 +61,7 @@ function AccountsInner() {
   const supabase = useSupabase()!;
   const qc = useQueryClient();
   const [open, setOpen] = useState(false);
+  const [search, setSearch] = useState("");
   const [form, setForm] = useState({ code: "", name: "", type: "asset" as AccountType, opening_balance: "0" });
 
   const { data: accounts = [], isLoading } = useQuery({
@@ -94,6 +96,7 @@ function AccountsInner() {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["accounts"] }),
   });
 
+  const shown = accounts.filter(a => matchesSearch(search, a.code, a.name, a.type));
   return (
     <div className="space-y-6">
       <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
@@ -140,6 +143,7 @@ function AccountsInner() {
         </Dialog>
       </div>
 
+      <Input aria-label="Search accounts" placeholder="Search account name, code or type" value={search} onChange={e => setSearch(e.target.value)} />
       <Card>
         <CardContent className="p-0">
           <Table>
@@ -156,10 +160,10 @@ function AccountsInner() {
             <TableBody>
               {isLoading ? (
                 <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">Loading…</TableCell></TableRow>
-              ) : accounts.length === 0 ? (
-                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">No accounts yet — create cash, bank, sales and expense accounts.</TableCell></TableRow>
+              ) : shown.length === 0 ? (
+                <TableRow><TableCell colSpan={6} className="text-center text-muted-foreground">{search.trim() ? "No matching accounts." : "No accounts yet — create cash, bank, sales and expense accounts."}</TableCell></TableRow>
               ) : (
-                accounts.map((a) => (
+                shown.map((a) => (
                   <TableRow key={a.id}>
                     <TableCell className="font-mono text-sm">{a.code}</TableCell>
                     <TableCell className="font-medium">{a.name}</TableCell>
