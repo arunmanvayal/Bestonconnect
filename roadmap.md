@@ -14,4 +14,4 @@
 - [x] Audit and correct searches across the public shop and admin pages; matching and full-record coverage tests pass.
 - [ ] Verify search results against live published products and signed-in admin records (shop currently has no listings; external owner session unavailable).
 - [ ] Match sales and purchase entry fields, columns, totals and actions to the supplied Anchor Bolt references.
-- [ ] Add stock filters, zero-stock cleanup, duplicate cleanup, product editing and sequential barcode assignment (duplicate criteria and barcode scope need clarification before destructive changes).
+- [ ] Add stock filters, zero-stock cleanup, duplicate cleanup by matching item code or barcode, product editing and previewed all-stock barcode assignment from 1.
