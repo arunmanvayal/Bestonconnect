@@ -3,13 +3,14 @@ import { InvoiceEntryCells, invoiceColumns, invoiceWidths } from "@/components/I
 import { InvoiceEntryHeader, InvoiceEntryFooter } from "@/components/InvoiceEntryDetails";
 import { emptyEntryDetails } from "@/lib/invoice-entry";
 import { exportInvoiceLines, importInvoiceLines } from "@/lib/invoice-transfer";
+import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { fetchAll } from "@/lib/data-transfer";
 import { fetchNextInvoiceNumber } from "@/lib/invoice-number";
 import { matchesSearch } from "@/lib/search";
 import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Trash2, RefreshCw, Save, Printer, Plus, FileText, Columns3, Search, Eye, X, Upload, Download } from "lucide-react";
+import { Trash2, RefreshCw, Save, Printer, Plus, FileText, Columns3, Search, Eye, X, Upload, Download, History } from "lucide-react";
 import { toast } from "sonner";
 import { useSupabase } from "@/lib/supabase";
 import { money } from "@/components/SupabaseGate";
@@ -49,6 +50,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
   const [lookup, setLookup] = useState("");
   const [loadingBill, setLoadingBill] = useState(false);
   const [matchingBills, setMatchingBills] = useState<any[]>([]);
+  const [historyOpen, setHistoryOpen] = useState(false);
   const isSale = kind === "sale";
   const { shortcuts, columnWidths, setColumnWidths, resetColumnWidths } = useWorkspacePreferences();
   const partyRef = useRef<HTMLInputElement>(null);
@@ -286,25 +288,15 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
   const cols = invoiceColumns(kind);
   const mrpValue = lines.reduce((sum, l) => sum + (l.mrp ?? 0) * l.quantity, 0);
   return (
-    <div className="entry-workspace space-y-6">
-      <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-        <div className="flex min-w-0 items-center gap-3"><div className="grid h-11 w-11 shrink-0 place-items-center rounded-2xl bg-primary text-primary-foreground shadow-sm"><FileText className="h-5 w-5" /></div><div className="min-w-0"><h1 className="truncate text-xl font-bold text-foreground sm:text-2xl">{isSale ? "Retail Invoice" : "Purchase Invoice"}</h1><p className="text-xs text-muted-foreground">Stock and ledger update automatically</p></div></div>
-        <span className="hidden shrink-0 rounded-full bg-card px-3 py-2 text-xs font-medium text-muted-foreground shadow-sm sm:block">{new Date().toLocaleDateString("en-IN", { dateStyle: "medium" })}</span>
-      </div>
-
-      {isSale && <div className="flex flex-wrap items-center gap-2 rounded-2xl border border-border/70 bg-card/90 p-3 shadow-sm">
-        <div className="relative min-w-[12rem] flex-1">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-          <Input className="pl-9" placeholder="Enter bill number to open (e.g. RT1001)" value={lookup} onChange={(e) => setLookup(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); void loadBill(); } }} />
+    <div className="entry-workspace invoice-entry-window">
+      <div className="invoice-entry-title grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-border px-3">
+        <div className="flex min-w-0 items-center gap-2"><FileText className="h-4 w-4 shrink-0 text-primary"/><h1 className="truncate text-sm font-semibold">{isSale ? "Retail Invoice" : "Purchase Invoice"}</h1></div>
+        <div className="flex shrink-0 items-center gap-1">
+          {isSale && <><Input aria-label="Open bill number" className="invoice-lookup" placeholder="Bill number" value={lookup} onChange={e => setLookup(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); void loadBill(); } }}/><Button size="sm" variant="secondary" disabled={loadingBill || save.isPending} onClick={() => void loadBill()}><Search className="h-3 w-3"/>Open</Button></>}
+          {editingId && <><Button size="sm" variant="outline" onClick={() => window.open(`/admin/invoice/${editingId}`, "_blank")}><Eye className="h-3 w-3"/>Preview</Button><Button size="sm" variant="ghost" onClick={reset}>New bill</Button></>}
+          <Button size="sm" variant="ghost" title="Recent invoices" aria-label="Recent invoices" onClick={() => setHistoryOpen(true)}><History className="h-4 w-4"/></Button>
         </div>
-        <Button variant="secondary" disabled={loadingBill || save.isPending} onClick={() => void loadBill()}>{loadingBill ? "Loading…" : "Open bill"}</Button>
-        {editingId && <>
-          <span className="rounded-full bg-accent/30 px-3 py-1.5 text-xs font-semibold text-accent-foreground">Editing {billNo}</span>
-          <Button variant="outline" size="sm" onClick={() => window.open(`/admin/invoice/${editingId}`, "_blank")}><Eye className="mr-1.5 h-4 w-4" />Preview</Button>
-          <Button variant="outline" size="sm" onClick={() => window.open(`/admin/invoice/${editingId}?print=1`, "_blank")}><Printer className="mr-1.5 h-4 w-4" />Reprint</Button>
-          <Button variant="ghost" size="sm" onClick={reset}><X className="mr-1.5 h-4 w-4" />New bill</Button>
-        </>}
-      </div>}
+      </div>
 
       {matchingBills.length > 0 && <div className="overflow-x-auto rounded-lg border border-border bg-card">
         <table className="w-full text-sm"><thead><tr className="border-b border-border text-left"><th className="p-3">Bill No</th><th>Date</th><th>Customer</th><th>Total</th><th /></tr></thead>
@@ -312,13 +304,13 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
         </table>
       </div>}
 
-      <div className="overflow-hidden rounded-lg border border-border bg-card">
+      <div className="invoice-entry-frame overflow-hidden border border-border bg-card">
         <InvoiceEntryHeader kind={kind} header={h} set={set} pickParty={pickParty} partyRef={partyRef} parties={parties} billNo={billNo} />
 
-        <div className="grid xl:grid-cols-[minmax(0,1fr)_250px]">
+        <div className="invoice-entry-body grid">
           {/* Items grid */}
-          <div className="min-w-0 border-b border-border xl:border-b-0 xl:border-r">
-            <div className="min-h-72 overflow-x-auto">
+          <div className="invoice-entry-left min-w-0 border-r border-border">
+            <div className="invoice-items-scroll overflow-auto">
               <table className="invoice-grid w-full table-fixed text-sm" style={{ minWidth: widths.reduce((sum, width) => sum + width, 0) }}>
                 <colgroup>{widths.map((width, index) => <col key={index} style={{ width }} />)}</colgroup>
                 <thead className="bg-primary text-primary-foreground">
@@ -342,9 +334,9 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
               </table>
               <datalist id="product-list-unused">{products.map((p) => <option key={p.id} value={p.name}>{`Stock ${Number(p.quantity)} · ₹${p.unit_price}`}</option>)}</datalist>
             </div>
-            <div className="flex items-center gap-3 border-t border-border px-3 py-2">
+            <div className="invoice-grid-toolbar grid grid-cols-[minmax(0,1fr)_auto_auto] items-center gap-2 border-t border-border px-2">
               <Button size="sm" variant="ghost" title={`Add row · ${shortcuts.addRow}`} onClick={addRow}><Plus className="mr-1 h-4 w-4" />Add row</Button>
-              <Button size="sm" variant="ghost" title="Reset column widths" onClick={() => resetColumnWidths(widthKey)}><Columns3 className="mr-1 h-4 w-4" />Reset columns</Button>
+              
               <span className="ml-auto text-sm text-muted-foreground">Total Qty</span>
               <span className="rounded bg-primary px-3 py-0.5 text-sm font-semibold text-primary-foreground">{t.total_qty}</span>
             </div>
@@ -353,10 +345,10 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
           </div>
 
           {/* Bill details */}
-          <div className="flex flex-col">
+          <div className="invoice-bill-panel flex min-h-0 flex-col">
             <Tabs defaultValue="details" className="flex h-full flex-col gap-0">
               <TabsList className={`grid h-10 w-full rounded-none ${isSale ? "grid-cols-3" : "grid-cols-2"}`}><TabsTrigger value="details">Bill Details</TabsTrigger>{isSale && <TabsTrigger value="misc">Misc</TabsTrigger>}<TabsTrigger value="settings">Settings</TabsTrigger></TabsList>
-              <TabsContent value="details" className="space-y-2 p-3 text-xs">
+              <TabsContent value="details" className="invoice-bill-fields space-y-2 p-3 text-xs">
                 {([["Gross Total", t.gross], ["Taxable", t.taxable], ["Total Tax", t.total_tax], ...(isSale ? [["MRP Value", mrpValue]] : []), ["CGST Amt", t.cgst], ["SGST Amt", t.sgst], ["IGST Amt", t.igst]] as Array<[string, number]>).map(([label,value]) => <div key={label} className="grid grid-cols-[minmax(0,1fr)_7rem] items-center gap-2"><span>{label}</span><Input aria-label={label} readOnly className="h-8 text-right text-xs" value={value.toFixed(2)}/></div>)}
                 {([["Discount", "bill_discount"], ["Oth.Exp", "other_exp"], ["Freight", "freight"], ["Cash Disc", "cash_disc"]] as const).map(([label,key]) => <label key={key} className="grid grid-cols-[minmax(0,1fr)_7rem] items-center gap-2"><span>{label}</span><Input aria-label={label} className="h-8 text-right text-xs" type="number" min={0} value={h[key] || ""} onChange={e => set(key, num(e.target.value))}/></label>)}
                 <div className="grid grid-cols-[minmax(0,1fr)_7rem] items-center gap-2"><span>Round Off</span><Input aria-label="Round Off" readOnly className="h-8 text-right text-xs" value={t.round_off.toFixed(2)}/></div>
@@ -364,13 +356,13 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
               </TabsContent>
               {isSale && <TabsContent value="misc" className="space-y-3 p-3 text-xs"><Field label="Ref No"><Input value={h.ref_no} onChange={e => set("ref_no", e.target.value)}/></Field><Field label="Total Value"><Input readOnly value={t.total_value.toFixed(2)}/></Field><Field label="Total Discount"><Input readOnly value={t.discount.toFixed(2)}/></Field></TabsContent>}
               <TabsContent value="settings" className="space-y-3 p-3"><Button variant="outline" onClick={() => resetColumnWidths(widthKey)}><Columns3 className="h-4 w-4"/>Reset columns</Button><p className="text-xs text-muted-foreground">Round Off: AUTO</p></TabsContent>
-              <div className="mt-auto bg-primary px-4 py-4 text-right font-display text-3xl font-bold tabular-nums text-primary-foreground">{money(t.net_total)}</div>
+              <div className="invoice-bill-amount mt-auto bg-primary px-4 py-4 text-right font-display text-3xl font-bold tabular-nums text-primary-foreground">{money(t.net_total)}</div>
             </Tabs>
           </div>
         </div>
 
         {/* Actions */}
-        <div className="grid grid-cols-2 gap-2 border-t border-border bg-muted/40 p-3 sm:flex sm:flex-wrap sm:justify-end">
+        <div className="invoice-entry-actions grid grid-cols-2 gap-2 border-t border-border bg-muted/40 p-3 sm:flex sm:justify-end">
           <input ref={importRef} type="file" className="hidden" accept=".xlsx,.xls,.csv" onChange={async e => {
             const file = e.target.files?.[0]; if (!file) return;
             try { const imported = await importInvoiceLines(file); const resolved = imported.map(l => { const product = products.find(p => (l.sku && p.sku === l.sku) || (l.barcode && p.barcode === l.barcode)); return { ...l, product_id: product?.id ?? null }; });
@@ -403,16 +395,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
         </div>
       )}
 
-      {/* Always-visible total */}
-      <div className="sticky bottom-20 z-20 flex items-center gap-3 rounded-2xl border border-border/70 bg-card/95 px-4 py-3 shadow-xl backdrop-blur-xl lg:bottom-4">
-        <div className="min-w-0">
-          <p className="text-xs text-muted-foreground">Qty {t.total_qty} · Tax {money(t.total_tax)}</p>
-          <p className="font-display text-xl font-bold tabular-nums text-foreground sm:text-2xl">{money(t.net_total)}</p>
-        </div>
-        <Button className="ml-auto" title={`Save · ${shortcuts.save}`} onClick={() => save.mutate()} disabled={save.isPending}><Save className="mr-2 h-4 w-4" />{save.isPending ? "Saving…" : editingId ? "Update" : "Save"}</Button>
-      </div>
-
-      {/* Recent invoices */}
+      <Dialog open={historyOpen} onOpenChange={setHistoryOpen}><DialogContent className="max-h-[80dvh] overflow-auto sm:max-w-4xl"><DialogTitle>Recent {isSale ? "sales" : "purchase"} invoices</DialogTitle>
       <div className="overflow-hidden rounded-2xl border border-border/70 bg-card/90 shadow-sm">
         <div className="border-b border-border px-4 py-3 font-semibold text-foreground">Recent {isSale ? "sales" : "purchase"} invoices</div>
         {invoices.length === 0 ? (
@@ -432,6 +415,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
           </table>
         )}
       </div>
+      </DialogContent></Dialog>
     </div>
   );
 }
