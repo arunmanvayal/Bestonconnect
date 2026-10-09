@@ -136,7 +136,7 @@ function AccountsInner() {
                 <Label>Account Name *</Label>
                 <Input required placeholder="Cash in Hand" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
               </div>
-              <label className="block space-y-2"><span className="text-sm">Account Group</span><Input aria-label="Account Group" list="account-groups" value={form.account_group} onChange={e => { const group = masters.find(m=>m.kind==="account_group"&&m.name===e.target.value); const type = group?.details.type; setForm({...form,account_group:e.target.value,type:TYPES.some(t=>t===type)?type as AccountType:form.type}); }}/><datalist id="account-groups">{masterNames(masters,"account_group",form.account_group).map(n=><option key={n} value={n}/>)}</datalist></label>
+              <label className="block space-y-2"><span className="text-sm">Account Group</span><Input aria-label="Account Group" list="account-groups" value={form.account_group} onChange={e => { const group = masters.find(m=>m.kind==="account_group"&&m.name===e.target.value); const type = group?.details['type']; setForm({...form,account_group:e.target.value,type:TYPES.some(t=>t===type)?type as AccountType:form.type}); }}/><datalist id="account-groups">{masterNames(masters,"account_group",form.account_group).map(n=><option key={n} value={n}/>)}</datalist></label>
               <div className="space-y-2">
                 <Label>Opening Balance</Label>
                 <Input type="number" step="0.01" value={form.opening_balance} onChange={(e) => setForm({ ...form, opening_balance: e.target.value })} />

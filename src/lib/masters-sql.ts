@@ -25,6 +25,16 @@ alter table products add column if not exists store_location text not null defau
 alter table products add column if not exists deactivated boolean not null default false;
 alter table accounts add column if not exists account_group text not null default '';
 
+-- Populate references from existing visible company data; never duplicate stock or parties.
+insert into master_records(company_id,kind,name)
+select distinct p.company_id, v.kind, trim(v.name) from products p
+cross join lateral (values ('category',p.category),('manufacturer',p.manufacturer),('product_group',p.product_group),('store_location',p.store_location)) v(kind,name)
+where p.company_id is not null and nullif(trim(v.name),'') is not null and upper(trim(v.name)) <> 'NONE'
+on conflict do nothing;
+insert into master_records(company_id,kind,name)
+select distinct company_id,'area',trim(area) from customers where company_id is not null and nullif(trim(area),'') is not null and upper(trim(area)) <> 'NONE'
+on conflict do nothing;
+
 -- Register every reference from product edits, invoice-created stock and Excel imports.
 create or replace function public.link_master_details() returns trigger
 language plpgsql security invoker set search_path = public as $fn$
@@ -80,7 +90,8 @@ begin
  if auth.uid() is null or cid is null then raise exception 'Sign in and select a company'; end if;
  perform pg_advisory_xact_lock(hashtext(cid::text));
  p := jsonb_populate_record(null::products,_data);
- if nullif(trim(p.name),'') is null or nullif(trim(p.unit),'') is null or p.conv_factor <= 0
+ if nullif(trim(p.name),'') is null or nullif(trim(p.unit),'') is null or p.conv_factor is null or p.conv_factor <= 0
+  or p.cost_price is null or p.unit_price is null or p.mrp is null or p.reorder_level is null or p.cgst_rate is null or p.sgst_rate is null or p.igst_rate is null
   or least(p.cost_price,p.unit_price,p.mrp,p.reorder_level,p.cgst_rate,p.sgst_rate,p.igst_rate) < 0
   or p.cgst_rate > 100 or p.sgst_rate > 100 or p.igst_rate > 100 then raise exception 'Invalid product details'; end if;
  if exists(select 1 from products where company_id = cid and (_id is null or id <> _id) and

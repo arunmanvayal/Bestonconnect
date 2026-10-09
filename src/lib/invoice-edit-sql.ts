@@ -61,7 +61,7 @@ begin
   end loop;
   party := null;
   if nullif(trim(h->>'party_name'),'') is not null then
-    select id into party from customers where lower(name) = lower(trim(h->>'party_name')) limit 1;
+    select id into party from customers where party_type = 'customer' and lower(name) = lower(trim(h->>'party_name')) limit 1;
     if party is null then
       insert into customers(name,phone,address,party_type) values(trim(h->>'party_name'),h->>'contact',h->>'billing_address','customer') returning id into party;
     end if;

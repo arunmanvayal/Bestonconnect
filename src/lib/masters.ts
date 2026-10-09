@@ -44,7 +44,7 @@ export function productPayload(form: ProductForm) {
   const output: Record<string, string | number | boolean> = { ...form, name: form.name.trim(), sku: form.sku.trim(), barcode: form.barcode.trim() };
   for (const key of ["cgst_rate", "sgst_rate", "igst_rate", "reorder_level", "cost_price", "unit_price", "mrp", "conv_factor", "quantity"] as const) {
     const n = Number(form[key]);
-    if (!Number.isFinite(n) || (key !== "quantity" && n < 0) || (key === "conv_factor" && n <= 0)) throw new Error(`Invalid ${key.replaceAll("_", " ")}`);
+    if (!Number.isFinite(n) || (key !== "quantity" && n < 0) || (key === "conv_factor" && n <= 0) || (key.endsWith("gst_rate") && n > 100)) throw new Error(`Invalid ${key.replaceAll("_", " ")}`);
     output[key] = n;
   }
   output['gst_rate'] = Number(form.cgst_rate) + Number(form.sgst_rate);
