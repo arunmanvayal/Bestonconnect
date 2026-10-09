@@ -24,7 +24,7 @@ const emptyLine = (): Line => ({
 });
 const emptyHeader = (kind: Kind): Header => ({
   bill_no: "", bill_date: today(), party_name: "", contact: "", payment_mode: "cash", tax_type: "gst",
-  bill_type: kind === "sale" ? "B2C" : "Cash", salesman: "", ref_no: "", bill_discount: 0, other_exp: 0,
+  bill_type: kind === "sale" ? "B2CS" : "Cash", salesman: "", ref_no: "", bill_discount: 0, other_exp: 0,
   freight: 0, cash_disc: 0, remarks: "", shipping_address: "", billing_address: "", entry_details: emptyEntryDetails(today()),
 });
 
@@ -360,6 +360,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
                 {([["Gross Total", t.gross], ["Taxable", t.taxable], ["Total Tax", t.total_tax], ...(isSale ? [["MRP Value", mrpValue]] : []), ["CGST Amt", t.cgst], ["SGST Amt", t.sgst], ["IGST Amt", t.igst]] as Array<[string, number]>).map(([label,value]) => <div key={label} className="grid grid-cols-[minmax(0,1fr)_7rem] items-center gap-2"><span>{label}</span><Input aria-label={label} readOnly className="h-8 text-right text-xs" value={value.toFixed(2)}/></div>)}
                 {([["Discount", "bill_discount"], ["Oth.Exp", "other_exp"], ["Freight", "freight"], ["Cash Disc", "cash_disc"]] as const).map(([label,key]) => <label key={key} className="grid grid-cols-[minmax(0,1fr)_7rem] items-center gap-2"><span>{label}</span><Input aria-label={label} className="h-8 text-right text-xs" type="number" min={0} value={h[key] || ""} onChange={e => set(key, num(e.target.value))}/></label>)}
                 <div className="grid grid-cols-[minmax(0,1fr)_7rem] items-center gap-2"><span>Round Off</span><Input aria-label="Round Off" readOnly className="h-8 text-right text-xs" value={t.round_off.toFixed(2)}/></div>
+                <div className="grid grid-cols-[minmax(0,1fr)_7rem] items-center gap-2"><span>Total Value</span><Input aria-label="Total Value" readOnly className="h-8 text-right text-xs" value={t.total_value.toFixed(2)}/></div>
               </TabsContent>
               {isSale && <TabsContent value="misc" className="space-y-3 p-3 text-xs"><Field label="Ref No"><Input value={h.ref_no} onChange={e => set("ref_no", e.target.value)}/></Field><Field label="Total Value"><Input readOnly value={t.total_value.toFixed(2)}/></Field><Field label="Total Discount"><Input readOnly value={t.discount.toFixed(2)}/></Field></TabsContent>}
               <TabsContent value="settings" className="space-y-3 p-3"><Button variant="outline" onClick={() => resetColumnWidths(widthKey)}><Columns3 className="h-4 w-4"/>Reset columns</Button><p className="text-xs text-muted-foreground">Round Off: AUTO</p></TabsContent>

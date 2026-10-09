@@ -13,5 +13,7 @@
 - [ ] Verify login-to-dashboard with a real owner session (external authentication session unavailable).
 - [x] Audit and correct searches across the public shop and admin pages; matching and full-record coverage tests pass.
 - [ ] Verify search results against live published products and signed-in admin records (shop currently has no listings; external owner session unavailable).
-- [ ] Match sales and purchase entry fields, columns, totals and actions to the supplied Anchor Bolt references.
-- [ ] Add stock filters, zero-stock cleanup, duplicate cleanup by matching item code or barcode, product editing and previewed all-stock barcode assignment from 1.
+- [x] Add reference-style sales and purchase entry fields, columns, totals tabs and actions; snapshot extra fields on invoices.
+- [x] Add stock filters, protected zero-stock cleanup, duplicate filtering by matching item code or barcode, product editing and previewed all-stock barcode assignment from 1.
+- [ ] Confirm duplicate definition and barcode assignment scope with the owner before using destructive stock maintenance.
+- [ ] Verify signed-in entry screens and stock maintenance against the updated external database; public routes and login gates passed browser checks.
