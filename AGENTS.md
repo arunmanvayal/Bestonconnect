@@ -24,3 +24,4 @@
 - Execute stock cleanup, product-detail edits and full barcode resequencing through one company-scoped security-invoker transaction with reviewed old-value checks; block deletion of nonzero stock or products with business history to prevent cascading data loss.
 - Keep shared reference masters company-scoped and use existing products, customers and accounts as the only product/party/ledger records; transactional product saves and reference-rename triggers synchronize live links while preserving invoice snapshots.
 - Preserve mounted entry state on focus, reconnect and same-user auth notifications: clear cached private data only on identity changes, and initialize editable forms only when their record identity changes.
+- Use one shared horizontal category-dropdown navigation in every admin workspace instead of parallel sidebar and invoice menus; this keeps management destinations consistent without changing page state or permissions.
