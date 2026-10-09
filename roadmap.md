@@ -22,4 +22,4 @@
 - [x] Add linked Masters options and use shared details across products, invoices and parties/accounts.
 - [x] Verify product/master validation, login gates and isolated product layouts.
 - [ ] Apply Product and Masters update and verify live saves/link propagation (external database owner session and Setup update required).
-- [ ] Preserve unsaved inputs across app/tab switching throughout the app; stop automatic refresh from clearing active forms.
+- [x] Preserve unsaved inputs across app/tab switching throughout the app; same-user sign-in, focus and reconnect regression checks passed without clearing input or company cache.

@@ -84,7 +84,10 @@ export function useActiveCompany() {
   const session = useSession();
   return useQuery({
     queryKey: ["active-company", session?.user.id],
-    queryFn: () => fetchActiveCompany(sb!),
+    queryFn: () => {
+      if (!sb) throw new Error("Database connection is unavailable");
+      return fetchActiveCompany(sb);
+    },
     enabled: !!sb && !!session,
     staleTime: Infinity, // Keep company data stable
   });
