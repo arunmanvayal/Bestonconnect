@@ -203,7 +203,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
       entry_details: { ...emptyEntryDetails(invData.bill_date), ...(invData.entry_details ?? {}) },
       cash_disc: Number(invData.cash_disc) || 0, remarks: invData.remarks ?? "", shipping_address: invData.shipping_address ?? "", billing_address: invData.billing_address ?? "",
     });
-    setLines((items ?? []).map((i: any) => {
+    setLines((items ?? []).map((i: any): Line => {
       const p = products.find((x: any) => x.id === i.product_id);
       return { product_id: i.product_id, item_name: i.item_name, barcode: i.entry_details?.barcode ?? p?.barcode ?? "", sku: i.entry_details?.sku ?? p?.sku ?? "", serial_no: i.entry_details?.serial_no ?? "", mrp: Number(i.entry_details?.mrp ?? p?.mrp) || 0, sale_price: Number(i.entry_details?.sale_price ?? p?.unit_price) || 0, unit: i.unit || "pcs", quantity: Number(i.quantity), free_qty: Number(i.free_qty) || 0,
         rate: Number(i.rate), discount: Number(i.discount) || 0, gst_rate: Number(i.gst_rate), profit_pct: Number(i.entry_details?.profit_pct) || 0 };
