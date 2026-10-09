@@ -50,6 +50,7 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const brand = company?.name ?? "BusinessDesk";
   const initials = brand.slice(0, 2).toUpperCase();
   const current = NAV.find((item) => item.to === pathname) ?? NAV[0];
+  const invoiceEntry = pathname === "/admin/sales" || pathname === "/admin/purchase";
 
   useEffect(() => {
     const routes: Partial<Record<CommandId, string>> = {
@@ -109,7 +110,11 @@ export function AppLayout({ children }: { children: ReactNode }) {
 
   return (
     <TooltipProvider>
-    <div className="min-h-screen bg-background/70">
+    <div className={`min-h-screen bg-background/70 ${invoiceEntry ? "invoice-app-shell" : ""}`}>
+      {invoiceEntry && <header className="invoice-app-navigation grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-border bg-card px-3">
+        <nav className="flex min-w-0 items-center gap-1 overflow-x-auto"><Link to="/admin" className="shrink-0 px-2 font-display text-xs font-bold">{brand}</Link>{NAV.slice(0, 9).map(({to,label}) => <Button key={to} variant={pathname === to ? "secondary" : "ghost"} size="sm" asChild><Link to={to}>{label}</Link></Button>)}</nav>
+        <div className="flex shrink-0 items-center"><WorkspaceSearch compact /><WorkspacePreferencesDialog /><Button variant="ghost" size="sm" asChild><Link to="/admin/profile">Admin</Link></Button></div>
+      </header>}
       <aside data-app-navigation className={`fixed inset-y-4 left-4 z-30 hidden flex-col overflow-hidden rounded-3xl border border-sidebar-border/70 bg-sidebar text-sidebar-foreground shadow-[0_24px_60px_-36px_color-mix(in_oklab,var(--foreground)_45%,transparent)] backdrop-blur-xl transition-[width] duration-300 lg:flex ${collapsed ? "w-20" : "w-60"}`}>
         {navigation(collapsed)}
         <Button variant="outline" size="icon" aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"} title={collapsed ? "Expand sidebar" : "Collapse sidebar"} className="absolute right-[-1px] top-16 rounded-r-none border-r-0" onClick={() => setCollapsed(!collapsed)}>{collapsed ? <PanelLeftOpen /> : <PanelLeftClose />}</Button>
