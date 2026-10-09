@@ -16,9 +16,10 @@
 - [x] Add reference-style sales and purchase entry fields, columns, totals tabs and actions; snapshot extra fields on invoices.
 - [x] Fit sales and purchase entry controls into a single reference-proportioned window; isolated visual checks passed at 1280×646 and 889×537 with all totals and actions visible.
 - [x] Add stock filters, protected zero-stock cleanup, duplicate filtering by matching item code or barcode, product editing and previewed all-stock barcode assignment from 1.
-- [ ] Confirm duplicate definition and barcode assignment scope with the owner before using destructive stock maintenance.
+- [x] Duplicate definition and all-stock barcode assignment scope recorded in project requirements; destructive actions retain preview and confirmation.
 - [ ] Verify signed-in entry screens and stock maintenance against the updated external database; public routes and login gates passed browser checks.
-- [ ] Match reference product creation and editing, including all reference fields.
-- [ ] Add linked Masters options and use shared details across products, invoices and parties/accounts.
-- [ ] Verify product/master validation, login gates and layouts; live writes require the external database owner session and Setup update.
+- [x] Match reference product creation and editing, including all reference fields.
+- [x] Add linked Masters options and use shared details across products, invoices and parties/accounts.
+- [x] Verify product/master validation, login gates and isolated product layouts.
+- [ ] Apply Product and Masters update and verify live saves/link propagation (external database owner session and Setup update required).
 - [ ] Preserve unsaved inputs across app/tab switching throughout the app; stop automatic refresh from clearing active forms.
