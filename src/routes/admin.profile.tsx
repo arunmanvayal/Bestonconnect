@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useRef, useState, type FormEvent } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Building2, Check, ImagePlus, LogOut, Plus, Trash2 } from "lucide-react";
@@ -50,7 +50,8 @@ function ProfilePage() {
   });
   const [form, setForm] = useState<Partial<Company>>({});
   const [newName, setNewName] = useState("");
-  useEffect(() => { if (active) setForm(active); }, [active]);
+  const initializedCompany = useRef<string | null>(null);
+  useEffect(() => { if (active && initializedCompany.current !== active.id) { initializedCompany.current = active.id; setForm(active); } }, [active]);
 
   const save = useMutation({
     mutationFn: async () => {

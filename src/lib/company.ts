@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import type { Session, SupabaseClient } from "@supabase/supabase-js";
 import { useSupabase } from "./supabase";
+import { sessionIdentityChanged } from "./session-refresh";
 
 export type Company = {
   id: string; owner_id: string; name: string; logo: string; tagline: string; address: string; state: string;
@@ -32,14 +33,23 @@ export function useSession(): Session | null | undefined {
   const sb = useSupabase();
   const qc = useQueryClient();
   const [session, setSession] = useState<Session | null | undefined>(undefined);
+  const identity = useRef<string | null | undefined>(undefined);
   useEffect(() => {
     if (!sb) return;
-    sb.auth.getSession().then(({ data }) => setSession(data.session));
-    const { data } = sb.auth.onAuthStateChange((event, s) => {
+    let alive = true;
+    const receive = (s: Session | null) => {
+      if (!alive) return;
+      const next = s?.user.id ?? null;
+      const changed = sessionIdentityChanged(identity.current, next);
+      identity.current = next;
       setSession(s);
-      if (event === "SIGNED_IN" || event === "SIGNED_OUT" || event === "USER_UPDATED") qc.clear();
+      if (changed) qc.clear();
+    };
+    sb.auth.getSession().then(({ data }) => { if (identity.current === undefined) receive(data.session); });
+    const { data } = sb.auth.onAuthStateChange((event, s) => {
+      receive(s);
     });
-    return () => data.subscription.unsubscribe();
+    return () => { alive = false; data.subscription.unsubscribe(); };
   }, [sb, qc]);
   return session;
 }
@@ -62,7 +72,7 @@ export function useActiveCompany() {
   const session = useSession();
   return useQuery({
     queryKey: ["active-company", session?.user.id],
-    queryFn: () => fetchActiveCompany(sb!),
+    queryFn: () => { if (!sb) throw new Error("Connection unavailable"); return fetchActiveCompany(sb); },
     enabled: !!sb && !!session,
     staleTime: 60_000,
   });

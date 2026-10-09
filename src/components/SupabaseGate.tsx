@@ -25,7 +25,7 @@ export function SupabaseGate({ children, requireCompany = true }: { children: Re
   if (!session) return <div className="grid min-h-screen place-items-center bg-background px-4 py-8"><AuthForm /></div>;
   if (!requireCompany) return <>{children}</>;
   if (company.isLoading) return <Loading text="Loading your company…" />;
-  if (company.error) {
+  if (company.error && !company.data) {
     return (
       <Card className="mx-auto mt-10 max-w-lg">
         <CardHeader><CardTitle className="text-base">One more setup step</CardTitle></CardHeader>

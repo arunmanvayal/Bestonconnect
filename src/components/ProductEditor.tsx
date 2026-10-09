@@ -12,7 +12,9 @@ import { useWorkspaceCommands } from "@/lib/workspace-preferences";
 export function ProductEditor({ product, onClose }: { product?: Record<string, any> | null; onClose: () => void }) {
  const sb = useSupabase(); const qc = useQueryClient(); const { data: masters = [], error: masterError } = useMasters();
  const [form,setForm] = useState(() => productForm(product)); const [busy,setBusy] = useState(false); const ref=useRef<HTMLFormElement>(null);
- useEffect(() => setForm(productForm(product)),[product]);
+ const productId = product?.['id'];
+ const initializedId = useRef(productId);
+ useEffect(() => { if (initializedId.current !== productId) { initializedId.current = productId; setForm(productForm(product)); } },[productId,product]);
  const set = <K extends keyof ProductForm>(key: K, value: ProductForm[K]) => setForm(f=>({...f,[key]:value}));
  const field = (label: string, key: keyof ProductForm, type="text", kind?: MasterKind) => <label className="grid min-w-0 grid-cols-[105px_minmax(0,1fr)] items-center gap-2 text-xs"><span>{label}</span>{kind ? <><Input aria-label={label} list={`product-${key}`} value={String(form[key])} onChange={e=>set(key,e.target.value as never)}/><datalist id={`product-${key}`}>{masterNames(masters,kind,String(form[key])).map(n=><option key={n} value={n}/>)}</datalist></> : <Input aria-label={label} required={key==="name" || key==="unit"} type={type} step={type==="number"?"any":undefined} disabled={key==="quantity" && !!product} value={String(form[key])} onChange={e=>set(key,e.target.value as never)}/>}</label>;
  const check=(label:string,key:"sale_tax_incl"|"purchase_tax_incl"|"deactivated")=><label className="flex items-center gap-2 text-xs"><input type="checkbox" checked={form[key]} onChange={e=>set(key,e.target.checked)}/>{label}</label>;

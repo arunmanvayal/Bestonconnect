@@ -1,9 +1,10 @@
 import { QueryClient } from "@tanstack/react-query";
 import { createRouter } from "@tanstack/react-router";
 import { routeTree } from "./routeTree.gen";
+import { ENTRY_QUERY_DEFAULTS } from "./lib/session-refresh";
 
 export const getRouter = () => {
-  const queryClient = new QueryClient();
+  const queryClient = new QueryClient({ defaultOptions: { queries: ENTRY_QUERY_DEFAULTS } });
 
   const router = createRouter({
     routeTree,
