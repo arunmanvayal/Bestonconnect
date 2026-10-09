@@ -5,7 +5,9 @@ import { AppLayout } from "@/components/AppLayout";
 import { SETUP_SQL as BASE_SQL, INVOICE_SQL, COMPANY_SQL, USERNAME_SQL, IMPORT_SQL } from "@/lib/schema-sql";
 import { INVOICE_EDIT_SQL } from "@/lib/invoice-edit-sql";
 import { ONLINE_SHOP_SQL } from "@/lib/online-shop-sql";
-const SETUP_SQL = BASE_SQL + INVOICE_SQL + COMPANY_SQL + USERNAME_SQL + IMPORT_SQL + INVOICE_EDIT_SQL + ONLINE_SHOP_SQL;
+import { INVOICE_ENTRY_SQL } from "@/lib/invoice-entry-sql";
+import { STOCK_MAINTENANCE_SQL } from "@/lib/stock-maintenance-sql";
+const SETUP_SQL = BASE_SQL + INVOICE_SQL + COMPANY_SQL + USERNAME_SQL + IMPORT_SQL + INVOICE_ENTRY_SQL + INVOICE_EDIT_SQL + ONLINE_SHOP_SQL + STOCK_MAINTENANCE_SQL;
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
