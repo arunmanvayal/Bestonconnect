@@ -8,6 +8,7 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { fetchAll } from "@/lib/data-transfer";
 import { fetchNextInvoiceNumber } from "@/lib/invoice-number";
 import { matchesSearch } from "@/lib/search";
+import { productInvoiceDefaults } from "@/lib/masters";
 import { useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trash2, RefreshCw, Save, Printer, Plus, FileText, Columns3, Search, Eye, X, Upload, Download, History } from "lucide-react";
@@ -106,14 +107,13 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
   const fillFromProduct = (i: number, p: any, code?: string) =>
     updateLine(i, {
       product_id: p.id, item_name: p.name, barcode: code ?? (isSale ? p.barcode || p.sku || "" : genBarcode()), unit: p.unit || "pcs",
-      rate: Number(isSale ? p.unit_price : p.cost_price || p.unit_price) || 0,
-      gst_rate: Number(p.gst_rate ?? 18), quantity: lines[i]?.quantity || 1, sku: p.sku ?? "", mrp: Number(p.mrp) || 0, sale_price: Number(p.unit_price) || 0,
+      ...productInvoiceDefaults(p, kind, h.tax_type), quantity: lines[i]?.quantity || 1,
     });
 
   const findByCode = (code: string) => {
     const c = code.trim().toLowerCase();
     if (!c) return undefined;
-    return products.find((x) => (x.barcode && String(x.barcode).toLowerCase() === c) || (x.sku && String(x.sku).toLowerCase() === c));
+    return products.find((x) => !x.deactivated && ((x.barcode && String(x.barcode).toLowerCase() === c) || (x.sku && String(x.sku).toLowerCase() === c)));
   };
 
   const onBarcode = (i: number, code: string) => {
@@ -137,7 +137,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
   };
   const query = suggest ? (lines[suggest.row]?.item_name ?? "").toLowerCase().trim() : "";
   const matches = suggest
-    ? products.filter((p) => matchesSearch(query, p.name, p.barcode, p.sku)).slice(0, 8)
+    ? products.filter((p) => !p.deactivated && matchesSearch(query, p.name, p.barcode, p.sku, p.category, p.manufacturer, p.hsn)).slice(0, 8)
     : [];
   const choose = (i: number, p: any) => {
     fillFromProduct(i, p);
@@ -173,8 +173,8 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
   };
 
   const pickParty = (name: string) => {
-    const p: any = parties.find((x: any) => x.name.toLowerCase() === name.toLowerCase());
-    setH((prev) => ({ ...prev, party_name: name, contact: p?.phone ?? prev.contact, billing_address: p?.address ?? prev.billing_address }));
+    const p: any = parties.find((x: any) => (x.party_type ?? "customer") === (isSale ? "customer" : "supplier") && x.name.toLowerCase() === name.toLowerCase());
+    setH((prev) => ({ ...prev, party_name: name, contact: p?.phone || p?.contact_no || "", billing_address: p?.address ?? "" }));
   };
 
   const reset = () => { setH(emptyHeader(kind)); setLines([emptyLine()]); setSelected(null); setEditingId(null); setMatchingBills([]); };
@@ -305,7 +305,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
       </div>}
 
       <div className="invoice-entry-frame overflow-hidden border border-border bg-card">
-        <InvoiceEntryHeader kind={kind} header={h} set={set} pickParty={pickParty} partyRef={partyRef} parties={parties} billNo={billNo} />
+        <InvoiceEntryHeader kind={kind} header={h} set={set} pickParty={pickParty} partyRef={partyRef} parties={parties.filter(p => (p.party_type ?? "customer") === (isSale ? "customer" : "supplier"))} billNo={billNo} />
 
         <div className="invoice-entry-body grid">
           {/* Items grid */}

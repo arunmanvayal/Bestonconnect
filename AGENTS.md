@@ -22,3 +22,4 @@
 - Persist reference invoice header and item extras as invoice-owned snapshots, including inside the existing sales-update transaction; this keeps reopened entries independent of later stock edits.
 - Keep invoice entry in a viewport-sized workspace with compact navigation and independent item scrolling; this keeps header, totals, details and actions visible together without changing other admin pages.
 - Execute stock cleanup, product-detail edits and full barcode resequencing through one company-scoped security-invoker transaction with reviewed old-value checks; block deletion of nonzero stock or products with business history to prevent cascading data loss.
+- Keep shared reference masters company-scoped and use existing products, customers and accounts as the only product/party/ledger records; transactional product saves and reference-rename triggers synchronize live links while preserving invoice snapshots.
