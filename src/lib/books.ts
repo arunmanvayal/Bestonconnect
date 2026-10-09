@@ -1,4 +1,5 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
+import { fetchSearchRecords } from "./search-data";
 
 export type Kind = "sale" | "purchase";
 
@@ -196,11 +197,10 @@ export async function updateSalesInvoice(sb: SupabaseClient, invoiceId: string, 
 
 /** Live account balances = opening balance + ledger activity. */
 export async function fetchBalances(sb: SupabaseClient) {
-  const [{ data: accounts, error }, { data: lines }] = await Promise.all([
-    sb.from("accounts").select("*").order("code"),
-    sb.from("journal_lines").select("account_id, debit, credit"),
+  const [accounts, lines] = await Promise.all([
+    fetchSearchRecords(sb, "accounts", "code"),
+    fetchSearchRecords(sb, "journal_lines", "id"),
   ]);
-  if (error) throw error;
   return (accounts ?? []).map((a: any) => {
     let dr = 0, cr = 0;
     for (const l of lines ?? []) if (l.account_id === a.id) { dr += Number(l.debit); cr += Number(l.credit); }
@@ -246,11 +246,11 @@ export async function postPayment(sb: SupabaseClient, p: {
 
 /** Outstanding per party: credit bills minus receipts/payments. */
 export async function fetchOutstanding(sb: SupabaseClient) {
-  const [{ data: inv }, { data: pays }, { data: rets }, { data: parties }] = await Promise.all([
-    sb.from("invoices").select("kind, party_id, party_name, net_total, payment_mode, bill_no, bill_date"),
-    sb.from("payments").select("*").order("pay_date", { ascending: false }),
-    sb.from("sales_returns").select("party_id, party_name, amount, refund_mode"),
-    sb.from("customers").select("*"),
+  const [inv, pays, rets, parties] = await Promise.all([
+    fetchSearchRecords(sb, "invoices", "bill_date"),
+    fetchSearchRecords(sb, "payments", "pay_date").then(rows => rows.reverse()),
+    fetchSearchRecords(sb, "sales_returns", "id"),
+    fetchSearchRecords(sb, "customers", "name"),
   ]);
   const map = new Map<string, { key: string; party_id: string | null; party_name: string; side: "customer" | "supplier"; billed: number; settled: number; balance: number }>();
   const key = (side: string, id: string | null, name: string) => `${side}:${id ?? name.toLowerCase()}`;
