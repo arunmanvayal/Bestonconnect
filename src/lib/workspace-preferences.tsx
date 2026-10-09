@@ -2,7 +2,7 @@ import { createContext, useContext, useEffect, useMemo, useState, type KeyboardE
 
 export type Density = "compact" | "standard" | "spacious";
 export type CommandId =
-  | "save" | "addRow" | "removeRow" | "print" | "refresh" | "focusProduct"
+  | "save" | "addRow" | "removeRow" | "print" | "refresh" | "focusProduct" | "focusParty"
   | "navDashboard" | "navSales" | "navPurchase" | "navCustomers" | "navAccounts"
   | "navPayments" | "navReturns" | "navLedger" | "navStock" | "navReports";
 
@@ -13,6 +13,7 @@ export const COMMANDS: Array<{ id: CommandId; label: string; group: "Actions" | 
   { id: "print", label: "Print", group: "Actions" },
   { id: "refresh", label: "Refresh", group: "Actions" },
   { id: "focusProduct", label: "Focus product search", group: "Actions" },
+  { id: "focusParty", label: "Focus party", group: "Actions" },
   { id: "navDashboard", label: "Open Dashboard", group: "Navigation" },
   { id: "navSales", label: "Open Sales", group: "Navigation" },
   { id: "navPurchase", label: "Open Purchase", group: "Navigation" },
@@ -27,7 +28,7 @@ export const COMMANDS: Array<{ id: CommandId; label: string; group: "Actions" | 
 
 export const DEFAULT_SHORTCUTS: Record<CommandId, string> = {
   save: "F12", addRow: "Ctrl+Enter", removeRow: "Ctrl+Backspace", print: "Ctrl+Shift+P",
-  refresh: "Ctrl+Shift+R", focusProduct: "Alt+F",
+  refresh: "Ctrl+Shift+R", focusProduct: "Alt+F", focusParty: "F11",
   navDashboard: "Alt+1", navSales: "Alt+2", navPurchase: "Alt+3", navCustomers: "Alt+4",
   navAccounts: "Alt+5", navPayments: "Alt+6", navReturns: "Alt+7", navLedger: "Alt+8",
   navStock: "Alt+9", navReports: "Alt+0",

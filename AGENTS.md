@@ -19,3 +19,5 @@
 - Validate guest orders and owner status changes in transactional SQL RPCs; confirmation reserves stock and cancellation restores it without treating an unbilled order as a paid sales invoice.
 - Upload online product photos through the connected database Storage API with company-prefixed object paths; this preserves company ownership without embedding images in database rows.
 - Use shared normalized, all-word matching on explicit searchable fields and paginate complete searchable datasets with stable ordering; this prevents inconsistent matching and missing older records.
+- Persist reference invoice header and item extras as invoice-owned snapshots, including inside the existing sales-update transaction; this keeps reopened entries independent of later stock edits.
+- Execute stock cleanup, product-detail edits and full barcode resequencing through one company-scoped security-invoker transaction with reviewed old-value checks; block deletion of nonzero stock or products with business history to prevent cascading data loss.
