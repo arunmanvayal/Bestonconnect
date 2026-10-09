@@ -7,6 +7,7 @@ import { WorkspaceSearch } from "@/components/WorkspaceSearch";
 import { AdminNavigation } from "@/components/AdminNavigation";
 import { useActiveCompany } from "@/lib/company";
 import { emitWorkspaceCommand, normalizeShortcut, useWorkspacePreferences, type CommandId } from "@/lib/workspace-preferences";
+import { commandDestination } from "@/lib/workspace-commands";
 
 const NAV = [
   { to: "/admin", label: "Admin Dashboard", icon: LayoutDashboard },
@@ -39,12 +40,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
   const invoiceEntry = pathname === "/admin/sales" || pathname === "/admin/purchase";
 
   useEffect(() => {
-    const routes: Partial<Record<CommandId, string>> = {
-      navDashboard: "/admin", navSales: "/admin/sales", navPurchase: "/admin/purchase", navCustomers: "/admin/customers",
-      navAccounts: "/admin/accounts", navPayments: "/admin/payments", navReturns: "/admin/returns", navLedger: "/admin/ledger",
-      navStock: "/admin/stock", navReports: "/admin/reports",
-    };
     const onKeyDown = (event: KeyboardEvent) => {
+      if (event.defaultPrevented || event.isComposing || event.repeat) return;
       const shortcut = normalizeShortcut(event);
       const id = (Object.entries(shortcuts) as Array<[CommandId, string]>).find(([, value]) => value && value === shortcut)?.[0];
       if (!id) return;
@@ -52,8 +49,8 @@ export function AppLayout({ children }: { children: ReactNode }) {
       const editable = target?.matches("input, textarea, select, [contenteditable=true]") ?? false;
       if (editable && !/^F\d{1,2}$/.test(event.key)) return;
       event.preventDefault();
-      const route = routes[id];
-      if (route) navigate({ to: route });
+      const destination = commandDestination(id);
+      if (destination) void navigate(destination);
       else emitWorkspaceCommand(id);
     };
     window.addEventListener("keydown", onKeyDown);

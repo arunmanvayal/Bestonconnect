@@ -45,22 +45,25 @@ export function WorkspacePreferencesDialog() {
             <div><h3 className="font-display text-sm font-semibold">Keyboard shortcuts</h3><p className="text-xs text-muted-foreground">Select a field, then press the key combination you want.</p></div>
             <Button variant="outline" size="sm" onClick={resetShortcuts}><RotateCcw />Reset</Button>
           </div>
-          {(["Actions", "Navigation"] as const).map((group) => (
+          {(["Actions", "Navigation", "Masters"] as const).map((group) => (
             <div key={group} className="space-y-2">
               <p className="text-xs font-semibold uppercase text-muted-foreground">{group}</p>
               <div className="grid gap-2 sm:grid-cols-2">
                 {COMMANDS.filter((command) => command.group === group).map((command) => (
                   <label key={command.id} className="grid grid-cols-[minmax(0,1fr)_7.5rem] items-center gap-3 rounded-lg border border-border/70 px-3 py-2 text-sm">
-                    <span className="min-w-0 truncate">{command.label}</span>
+                    <span className="min-w-0 text-xs">{command.label}</span>
                     <span className="relative">
                       <Keyboard className="pointer-events-none absolute left-2 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-muted-foreground" />
                       <input
                         aria-label={`${command.label} shortcut`}
                         className="h-8 w-full rounded-md border border-input bg-background pl-7 pr-2 text-center text-xs font-semibold outline-none focus:ring-2 focus:ring-ring"
                         value={shortcuts[command.id]}
+                        placeholder="Not assigned"
                         readOnly
                         onKeyDown={(event) => {
+                          if (event.key === "Tab" || event.key === "Escape") return;
                           event.preventDefault();
+                          event.stopPropagation();
                           if (event.key === "Backspace" || event.key === "Delete") setShortcut(command.id, "");
                           else assign(command.id, normalizeShortcut(event));
                         }}
