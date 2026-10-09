@@ -106,7 +106,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
   const genBarcode = () => `BD${Date.now().toString().slice(-8)}${Math.floor(Math.random() * 90 + 10)}`;
   const fillFromProduct = (i: number, p: any, code?: string) =>
     updateLine(i, {
-      product_id: p.id, item_name: p.name, barcode: code ?? (isSale ? p.barcode || p.sku || "" : genBarcode()), unit: p.unit || "pcs",
+      product_id: p.id, item_name: p.name, barcode: code ?? (isSale ? p.barcode || p.sku || "" : genBarcode()),
       ...productInvoiceDefaults(p, kind, h.tax_type), quantity: lines[i]?.quantity || 1,
     });
 

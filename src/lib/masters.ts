@@ -34,9 +34,9 @@ export function productForm(record?: Record<string, any> | null): ProductForm {
     if (typeof result[key] === "boolean") (result as Record<string, unknown>)[key] = !!record[key];
     else (result as Record<string, unknown>)[key] = String(record[key] ?? result[key]);
   }
-  result.cgst_rate = String(record.cgst_rate ?? Number(record.gst_rate ?? 18)/2);
-  result.sgst_rate = String(record.sgst_rate ?? Number(record.gst_rate ?? 18)/2);
-  result.igst_rate = String(record.igst_rate ?? record.gst_rate ?? 18);
+  result.cgst_rate = String(record['cgst_rate'] ?? Number(record['gst_rate'] ?? 18)/2);
+  result.sgst_rate = String(record['sgst_rate'] ?? Number(record['gst_rate'] ?? 18)/2);
+  result.igst_rate = String(record['igst_rate'] ?? record['gst_rate'] ?? 18);
   return result;
 }
 export function productPayload(form: ProductForm) {
@@ -47,13 +47,13 @@ export function productPayload(form: ProductForm) {
     if (!Number.isFinite(n) || (key !== "quantity" && n < 0) || (key === "conv_factor" && n <= 0)) throw new Error(`Invalid ${key.replaceAll("_", " ")}`);
     output[key] = n;
   }
-  output.gst_rate = Number(form.cgst_rate) + Number(form.sgst_rate);
+  output['gst_rate'] = Number(form.cgst_rate) + Number(form.sgst_rate);
   return output;
 }
 export function productInvoiceDefaults(p: Record<string, any>, kind: "sale" | "purchase", taxType: string) {
-  if (p.deactivated) throw new Error("This product is deactivated");
-  const gst = taxType === "none" ? 0 : taxType === "igst" ? Number(p.igst_rate ?? p.gst_rate ?? 18) : Number(p.cgst_rate ?? Number(p.gst_rate ?? 18)/2) + Number(p.sgst_rate ?? Number(p.gst_rate ?? 18)/2);
-  const inclusive = kind === "sale" ? p.sale_tax_incl : p.purchase_tax_incl;
-  const price = Number(kind === "sale" ? p.unit_price : p.cost_price ?? p.unit_price) || 0;
-  return { rate: inclusive ? price / (1 + gst / 100) : price, gst_rate: gst, unit: p.unit || "pcs", sku: p.sku ?? "", mrp: Number(p.mrp) || 0, sale_price: Number(p.unit_price) || 0 };
+  if (p['deactivated']) throw new Error("This product is deactivated");
+  const gst = taxType === "none" ? 0 : taxType === "igst" ? Number(p['igst_rate'] ?? p['gst_rate'] ?? 18) : Number(p['cgst_rate'] ?? Number(p['gst_rate'] ?? 18)/2) + Number(p['sgst_rate'] ?? Number(p['gst_rate'] ?? 18)/2);
+  const inclusive = kind === "sale" ? p['sale_tax_incl'] : p['purchase_tax_incl'];
+  const price = Number(kind === "sale" ? p['unit_price'] : p['cost_price'] ?? p['unit_price']) || 0;
+  return { rate: inclusive ? price / (1 + gst / 100) : price, gst_rate: gst, unit: p['unit'] || "pcs", sku: p['sku'] ?? "", mrp: Number(p['mrp']) || 0, sale_price: Number(p['unit_price']) || 0 };
 }

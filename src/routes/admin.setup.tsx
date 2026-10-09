@@ -8,7 +8,7 @@ import { ONLINE_SHOP_SQL } from "@/lib/online-shop-sql";
 import { INVOICE_ENTRY_SQL } from "@/lib/invoice-entry-sql";
 import { STOCK_MAINTENANCE_SQL } from "@/lib/stock-maintenance-sql";
 import { MASTERS_SQL } from "@/lib/masters-sql";
-const SETUP_SQL = BASE_SQL + INVOICE_SQL + COMPANY_SQL + USERNAME_SQL + IMPORT_SQL + INVOICE_ENTRY_SQL + INVOICE_EDIT_SQL + ONLINE_SHOP_SQL + STOCK_MAINTENANCE_SQL + MASTERS_SQL;
+const SETUP_SQL = BASE_SQL + INVOICE_SQL + COMPANY_SQL + USERNAME_SQL + IMPORT_SQL + INVOICE_ENTRY_SQL + INVOICE_EDIT_SQL + MASTERS_SQL + ONLINE_SHOP_SQL + STOCK_MAINTENANCE_SQL;
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -46,7 +46,7 @@ function SetupPage() {
         <div className="space-y-3 border-y border-border py-5">
           <h2 className="font-semibold">Product and Masters update</h2>
           <p className="text-sm text-muted-foreground">Run this update after the existing setup to enable the full Product form and linked Masters options.</p>
-          <Button variant="outline" onClick={async () => { await navigator.clipboard.writeText(MASTERS_SQL); setCopied(true); setTimeout(() => setCopied(false), 2000); }}><Copy className="h-4 w-4"/>Copy Product and Masters update</Button>
+          <Button variant="outline" onClick={async () => { await navigator.clipboard.writeText(MASTERS_SQL + ONLINE_SHOP_SQL); setCopied(true); setTimeout(() => setCopied(false), 2000); }}><Copy className="h-4 w-4"/>Copy Product and Masters update</Button>
         </div>
         <div className="space-y-3 border-y border-border py-5">
           <h2 className="font-semibold">Online shop setup</h2>
