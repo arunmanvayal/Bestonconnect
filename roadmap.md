@@ -23,3 +23,4 @@
 - [x] Verify product/master validation, login gates and isolated product layouts.
 - [ ] Apply Product and Masters update and verify live saves/link propagation (external database owner session and Setup update required).
 - [x] Preserve unsaved inputs across app/tab switching throughout the app; same-user sign-in, focus and reconnect regression checks passed without clearing input or company cache.
+- [ ] Replace the admin sidebar with reference-style categorized dropdown navigation and verify all existing destinations remain accessible.
