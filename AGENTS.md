@@ -13,7 +13,8 @@
 - Keep device-specific layout density, sidebar, invoice column widths, and shortcut assignments in the shared workspace preferences context so every module stays synchronized.
 - Publish page actions through the shared workspace command event so configurable shortcuts never depend on page-specific keyboard listeners.
 - Define shortcut labels, defaults and typed navigation destinations in one browser-safe command registry; settings and dispatch use it so new options cannot have nonfunctional assignments.
-- Update saved sales invoices through one company-scoped, security-invoker SQL transaction that preserves invoice IDs; this prevents partial stock or ledger changes on failure.
+- Route invoices, edits, settlements, returns, journals and stock changes through company-scoped security-invoker transactions with payload-bound retry identifiers; this prevents partial writes and duplicate uncertain retries while preserving invoice IDs.
+- Verify financial transaction SQL in isolated PostgreSQL with the production schema and company policies; this tests real rollback and reconciliation without changing external business data.
 - Derive new invoice numbers from the highest matching series number across all visible company bills and recheck before saving; recent-list counts and component defaults are not sequence sources.
 - Keep the customer storefront at / and every management page under the shared /admin parent, which gates its Outlet before any dashboard shell mounts; this shows only login to signed-out visitors and retains old URLs as redirects.
 - Store online listing metadata separately from real stock and expose only explicit customer-safe fields through the online_catalog RPC; this keeps unpublished products and private inventory fields inaccessible to guests.

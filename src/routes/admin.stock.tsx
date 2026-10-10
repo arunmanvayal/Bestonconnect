@@ -7,7 +7,7 @@ import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Plus, Trash2, ArrowDownToLine, ArrowUpFromLine, SlidersHorizontal, Pencil, ListOrdered } from "lucide-react";
 import { toast } from "sonner";
-import { adjustStock } from "@/lib/books";
+import { adjustStock, postStockMovement } from "@/lib/books";
 import { AppLayout } from "@/components/AppLayout";
 import { SupabaseGate, money } from "@/components/SupabaseGate";
 import { useSupabase } from "@/lib/supabase";
@@ -85,19 +85,11 @@ function StockInner() {
       if (!supabase) throw new Error("Connection unavailable");
       const qty = Number(moveQty) || 0;
       if (qty <= 0) throw new Error("Quantity must be greater than zero");
-      const { error } = await supabase.from("stock_movements").insert({
-        product_id: moveProduct.id,
-        type: moveType,
-        quantity: qty,
-        note: moveNote,
-      });
-      if (error) throw error;
-      const newQty = moveType === "in" ? Number(moveProduct.quantity) + qty : Number(moveProduct.quantity) - qty;
-      const { error: updError } = await supabase.from("products").update({ quantity: newQty }).eq("id", moveProduct.id);
-      if (updError) throw updError;
+      if (!moveProduct) throw new Error("Select a product");
+      await postStockMovement(supabase, moveProduct.id, moveType, qty, moveNote);
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["products"] });
+      qc.invalidateQueries();
       setMoveProduct(null);
       setMoveQty("1");
       setMoveNote("");

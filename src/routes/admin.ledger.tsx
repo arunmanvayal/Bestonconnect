@@ -6,6 +6,7 @@ import { AppLayout } from "@/components/AppLayout";
 import { SupabaseGate, money } from "@/components/SupabaseGate";
 import { useSupabase } from "@/lib/supabase";
 import { matchesSearch } from "@/lib/search";
+import { postJournal } from "@/lib/books";
 import { fetchSearchRecords } from "@/lib/search-data";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -84,25 +85,10 @@ function LedgerInner() {
 
   const addEntry = useMutation({
     mutationFn: async () => {
-      const { data: inserted, error } = await supabase
-        .from("journal_entries")
-        .insert(entry)
-        .select("id")
-        .single();
-      if (error) throw error;
-      const rows = lines
-        .filter((l) => l.account_id && (Number(l.debit) || Number(l.credit)))
-        .map((l) => ({
-          entry_id: inserted.id,
-          account_id: l.account_id,
-          debit: Number(l.debit) || 0,
-          credit: Number(l.credit) || 0,
-        }));
-      const { error: lineError } = await supabase.from("journal_lines").insert(rows);
-      if (lineError) throw lineError;
+      await postJournal(supabase, entry, lines.map(l => ({ account_id: l.account_id, debit: Number(l.debit) || 0, credit: Number(l.credit) || 0 })));
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["journal_entries"] });
+      qc.invalidateQueries();
       setEntry({ entry_date: new Date().toISOString().slice(0, 10), reference: "", description: "" });
       setLines([{ ...EMPTY_LINE }, { ...EMPTY_LINE }]);
       setOpen(false);
@@ -114,7 +100,7 @@ function LedgerInner() {
       const { error } = await supabase.from("journal_entries").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["journal_entries"] }),
+    onSuccess: () => qc.invalidateQueries(),
   });
 
   const setLine = (i: number, patch: Partial<Line>) =>
