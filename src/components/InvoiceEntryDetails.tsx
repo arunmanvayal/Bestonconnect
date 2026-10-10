@@ -3,9 +3,11 @@ import { emptyEntryDetails, type EntryDetails } from "@/lib/invoice-entry";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { masterNames, useMasters } from "@/lib/masters";
+import { useWorkspacePreferences } from "@/lib/workspace-preferences";
 
-type Props = { kind: Kind; header: Header; set: <K extends keyof Header>(key: K, value: Header[K]) => void; pickParty: (value: string) => void; partyRef: React.RefObject<HTMLInputElement | null>; parties: any[]; billNo: string };
-export function InvoiceEntryHeader({ kind, header: h, set, pickParty, partyRef, parties, billNo }: Props) {
+type Props = { kind: Kind; header: Header; set: <K extends keyof Header>(key: K, value: Header[K]) => void; pickParty: (value: string) => void; partyRef: React.RefObject<HTMLInputElement | null>; openParty: () => void; parties: any[]; billNo: string };
+export function InvoiceEntryHeader({ kind, header: h, set, pickParty, partyRef, openParty, parties, billNo }: Props) {
+  const { shortcuts } = useWorkspacePreferences();
   const { data: masters = [] } = useMasters();
   const details = h.entry_details ?? emptyEntryDetails(h.bill_date);
   const extra = (key: keyof EntryDetails, value: string) => set("entry_details", { ...details, [key]: value });
