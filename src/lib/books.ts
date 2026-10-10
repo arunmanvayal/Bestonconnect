@@ -50,166 +50,63 @@ export function lineCalc(l: Line) {
   return { gross, taxable, tax, amount: taxable + tax };
 }
 
+export function allocatedInvoiceLines(lines: Line[], h: Header) {
+  const base = lines.reduce((sum, l) => sum + lineCalc(l).taxable, 0);
+  const ratio = base > 0 ? Math.max(0, base - h.bill_discount) / base : 1;
+  return lines.map(l => {
+    const taxable = r2(lineCalc(l).taxable * ratio);
+    const tax = h.tax_type === "none" ? 0 : r2(taxable * l.gst_rate / 100);
+    return { ...l, taxable, tax, amount: r2(taxable + tax) };
+  });
+}
+
 export function totals(lines: Line[], h: Header) {
-  let gross = 0, lineDisc = 0, taxable = 0, tax = 0;
-  for (const l of lines) {
-    const c = lineCalc(l);
-    gross += c.gross;
-    lineDisc += l.discount;
-    taxable += c.taxable;
-    tax += c.tax;
-  }
-  // Bill-level discount reduces taxable proportionally
-  const ratio = taxable > 0 ? Math.max(0, taxable - h.bill_discount) / taxable : 1;
-  taxable *= ratio;
-  tax = h.tax_type === "none" ? 0 : tax * ratio;
-  const cgst = h.tax_type === "gst" ? tax / 2 : 0;
-  const sgst = cgst;
+  const allocated = allocatedInvoiceLines(lines, h);
+  const gross = lines.reduce((sum, l) => sum + lineCalc(l).gross, 0);
+  const discount = lines.reduce((sum, l) => sum + l.discount, h.bill_discount);
+  const taxable = r2(allocated.reduce((sum, l) => sum + l.taxable, 0));
+  const tax = r2(allocated.reduce((sum, l) => sum + l.tax, 0));
+  const cgst = h.tax_type === "gst" ? r2(tax / 2) : 0;
+  const sgst = h.tax_type === "gst" ? r2(tax - cgst) : 0;
   const igst = h.tax_type === "igst" ? tax : 0;
-  const totalValue = taxable + tax;
+  const totalValue = r2(taxable + tax);
   const beforeRound = totalValue + h.other_exp + h.freight - h.cash_disc;
   const net = Math.round(beforeRound);
-  return {
-    gross: r2(gross), discount: r2(lineDisc + h.bill_discount), taxable: r2(taxable),
-    cgst: r2(cgst), sgst: r2(sgst), igst: r2(igst), total_tax: r2(tax),
-    total_value: r2(totalValue), round_off: r2(net - beforeRound), net_total: net,
-    total_qty: lines.reduce((s, l) => s + l.quantity + l.free_qty, 0),
-  };
+  return { gross: r2(gross), discount: r2(discount), taxable, cgst, sgst, igst, total_tax: tax,
+    total_value: totalValue, round_off: r2(net - beforeRound), net_total: net,
+    total_qty: lines.reduce((sum, l) => sum + l.quantity + l.free_qty, 0) };
 }
 
-async function ensureAccount(sb: SupabaseClient, code: string, name: string, type: string) {
-  const { data } = await sb.from("accounts").select("id").eq("code", code).limit(1);
-  if (data && data[0]) return data[0].id as string;
-  const { data: ins, error } = await sb.from("accounts").insert({ code, name, type }).select("id").single();
-  if (error) throw error;
-  return ins.id as string;
-}
-
-async function ensureParty(sb: SupabaseClient, name: string, contact: string, kind: Kind, address: string) {
-  if (!name.trim()) return null;
-  const { data } = await sb.from("customers").select("id").eq("party_type", kind === "sale" ? "customer" : "supplier").ilike("name", name.trim().replace(/[\\%_]/g, "\\$&")).limit(1);
-  if (data && data[0]) return data[0].id as string;
-  const { data: ins, error } = await sb
-    .from("customers")
-    .insert({ name: name.trim(), phone: contact, address, party_type: kind === "sale" ? "customer" : "supplier" })
-    .select("id").single();
-  if (error) throw error;
-  return ins.id as string;
-}
-
-/** Saves an invoice and syncs stock, parties and double-entry ledger. */
-export async function postInvoice(sb: SupabaseClient, kind: Kind, h: Header, rawLines: Line[]) {
-  const lines = rawLines.filter((l) => l.item_name.trim() && l.quantity > 0);
-  if (lines.length === 0) throw new Error("Add at least one item with quantity");
-  // Check the required extension before any party, stock or ledger writes.
-  if (h.entry_details) {
-    const checks = await Promise.all([sb.from("invoices").select("entry_details").limit(0), sb.from("invoice_items").select("entry_details").limit(0)]);
-    if (checks.some(result => result.error)) throw new Error("Run the latest Setup script once to save the additional invoice fields. Nothing has been saved.");
-  }
-  const { data: duplicate, error: duplicateError } = await sb.from("invoices").select("id").eq("kind", kind).eq("bill_no", h.bill_no).limit(1);
-  if (duplicateError) throw duplicateError;
-  if (duplicate?.length) throw new Error(`Bill ${h.bill_no} already exists. Clear Bill No to use the next automatic number.`);
-  const t = totals(lines, h);
-  const party_id = await ensureParty(sb, h.party_name, h.contact, kind, h.billing_address);
-
-  // Ledger accounts
-  const payCode: [string, string, string] = h.payment_mode === "credit"
-    ? (kind === "sale" ? ["1100", "Accounts Receivable", "asset"] : ["2000", "Accounts Payable", "liability"])
-    : h.payment_mode === "bank" || h.payment_mode === "upi"
-      ? ["1010", "Bank", "asset"] : ["1000", "Cash", "asset"];
-  const payAcc = await ensureAccount(sb, payCode[0], payCode[1], payCode[2]);
-  const mainAcc = kind === "sale"
-    ? await ensureAccount(sb, "4000", "Sales", "income")
-    : await ensureAccount(sb, "5000", "Purchases", "expense");
-  const taxAcc = kind === "sale"
-    ? await ensureAccount(sb, "2100", "GST Output", "liability")
-    : await ensureAccount(sb, "1200", "GST Input", "asset");
-
-  const { data: je, error: jeErr } = await sb.from("journal_entries").insert({
-    entry_date: h.bill_date,
-    reference: h.bill_no,
-    description: `${kind === "sale" ? "Sales" : "Purchase"} invoice ${h.bill_no}${h.party_name ? " — " + h.party_name : ""}`,
-  }).select("id").single();
-  if (jeErr) throw jeErr;
-
-  const mainAmt = r2(t.net_total - t.total_tax); // taxable + extras + round off
-  const jl = kind === "sale"
-    ? [
-        { entry_id: je.id, account_id: payAcc, debit: t.net_total, credit: 0 },
-        { entry_id: je.id, account_id: mainAcc, debit: 0, credit: mainAmt },
-        { entry_id: je.id, account_id: taxAcc, debit: 0, credit: t.total_tax },
-      ]
-    : [
-        { entry_id: je.id, account_id: mainAcc, debit: mainAmt, credit: 0 },
-        { entry_id: je.id, account_id: taxAcc, debit: t.total_tax, credit: 0 },
-        { entry_id: je.id, account_id: payAcc, debit: 0, credit: t.net_total },
-      ];
-  const { error: jlErr } = await sb.from("journal_lines").insert(jl.filter((l) => l.debit || l.credit));
-  if (jlErr) throw jlErr;
-
-  const { data: inv, error: invErr } = await sb.from("invoices").insert({
-    kind, bill_no: h.bill_no, bill_date: h.bill_date, party_id, party_name: h.party_name, contact: h.contact,
-    payment_mode: h.payment_mode, tax_type: h.tax_type, bill_type: h.bill_type, salesman: h.salesman, ref_no: h.ref_no,
-    gross: t.gross, discount: t.discount, taxable: t.taxable, cgst: t.cgst, sgst: t.sgst, igst: t.igst,
-    total_tax: t.total_tax, other_exp: h.other_exp, freight: h.freight, cash_disc: h.cash_disc,
-    round_off: t.round_off, net_total: t.net_total, remarks: h.remarks,
-    shipping_address: h.shipping_address, billing_address: h.billing_address, journal_entry_id: je.id,
-    entry_details: h.entry_details ?? {},
-  }).select("id").single();
-  if (invErr) throw invErr;
-
-  for (const l of lines) {
-    const c = lineCalc(l);
-    let productId = l.product_id;
-    if (!productId) {
-      // New item on purchase/sale — create it in stock
-      const { data: p, error } = await sb.from("products").insert({
-        name: l.item_name, sku: l.sku || l.barcode, barcode: l.barcode, unit: l.unit || "pcs", quantity: 0,
-        unit_price: kind === "sale" ? l.rate : l.sale_price ?? r2(l.rate * (1 + l.profit_pct / 100)),
-        cost_price: kind === "purchase" ? l.rate : 0, gst_rate: l.gst_rate,
-        mrp: l.mrp ?? 0,
-      }).select("id").single();
-      if (error) throw error;
-      productId = p.id;
-    }
-    await sb.from("invoice_items").insert({
-      invoice_id: inv.id, product_id: productId, item_name: l.item_name, unit: l.unit,
-      quantity: l.quantity, free_qty: l.free_qty, rate: l.rate, discount: l.discount, gst_rate: l.gst_rate,
-      taxable: r2(c.taxable), tax: r2(c.tax), amount: r2(c.amount),
-      entry_details: { sku: l.sku ?? "", barcode: l.barcode, serial_no: l.serial_no ?? "", mrp: l.mrp ?? 0, sale_price: l.sale_price ?? 0, profit_pct: l.profit_pct },
-    });
-    const qty = l.quantity + l.free_qty;
-    await sb.from("stock_movements").insert({
-      product_id: productId, type: kind === "sale" ? "out" : "in", quantity: qty,
-      note: `${kind === "sale" ? "Sale" : "Purchase"} ${h.bill_no}`,
-    });
-    const { data: cur } = await sb.from("products").select("quantity").eq("id", productId).single();
-    const update: Record<string, number | string> = {
-      quantity: Number(cur?.quantity ?? 0) + (kind === "sale" ? -qty : qty),
-    };
-    if (kind === "purchase") {
-      update["cost_price"] = l.rate;
-      if (l.barcode) update["barcode"] = l.barcode;
-      if (l.sku) update["sku"] = l.sku;
-      update["mrp"] = l.mrp ?? 0;
-      if (l.sale_price != null) update["unit_price"] = l.sale_price;
-      else if (l.profit_pct > 0) update["unit_price"] = r2(l.rate * (1 + l.profit_pct / 100));
-    }
-    await sb.from("products").update(update).eq("id", productId);
-  }
-  return inv.id as string;
-}
-
-/** A single transactional database operation keeps the original bill ID. */
-export async function updateSalesInvoice(sb: SupabaseClient, invoiceId: string, h: Header, rawLines: Line[]) {
-  const lines = rawLines.filter((l) => l.item_name.trim() && l.quantity > 0);
-  if (!lines.length) throw new Error("Add at least one item with quantity");
-  const { data, error } = await sb.rpc("update_sales_invoice", { _invoice_id: invoiceId, _header: h, _lines: lines });
+/** Keep the same request for retries of identical payloads, including uncertain network failures. */
+const saveRequests = new WeakMap<SupabaseClient, Map<string, string>>();
+async function atomicSave<T>(sb: SupabaseClient, operation: string, payload: Record<string, unknown>): Promise<T> {
+  let requests = saveRequests.get(sb);
+  if (!requests) { requests = new Map(); saveRequests.set(sb, requests); }
+  const fingerprint = JSON.stringify([operation, payload]);
+  const request = requests.get(fingerprint) ?? crypto.randomUUID();
+  requests.set(fingerprint, request);
+  const { data, error } = await sb.rpc(operation, { ...payload, _request_key: request });
   if (error) {
-    if (error.code === "PGRST202" || error.code === "42883") throw new Error("Run the updated Setup script in your database SQL Editor once to enable safe bill updates. Your original bill is unchanged.");
-    throw error;
+    if (error.code === "PGRST202" || error.code === "42883") throw new Error("Run the Financial transactions update on Setup before saving. No partial-write fallback was attempted; your entries remain on screen.");
+    throw new Error(error.message || "Save was not confirmed. Your entries remain on screen; retry the same save.");
   }
-  return data as string;
+  if (data === null || data === undefined) throw new Error("Save was not confirmed. Retry the same save before creating another entry.");
+  requests.delete(fingerprint);
+  return data as T;
+}
+
+/** Invoice, items, stock, party and ledger commit together on the database. */
+export async function postInvoice(sb: SupabaseClient, kind: Kind, h: Header, rawLines: Line[]) {
+  const lines = rawLines.filter(l => l.item_name.trim() && l.quantity > 0);
+  if (!lines.length) throw new Error("Add at least one item with quantity");
+  return atomicSave<string>(sb, "post_financial_invoice", { _kind: kind, _header: h, _lines: lines, _invoice_id: null });
+}
+
+/** Preserve the saved bill identity with the same calculator as new invoices. */
+export async function updateSalesInvoice(sb: SupabaseClient, invoiceId: string, h: Header, rawLines: Line[]) {
+  const lines = rawLines.filter(l => l.item_name.trim() && l.quantity > 0);
+  if (!lines.length) throw new Error("Add at least one item with quantity");
+  return atomicSave<string>(sb, "post_financial_invoice", { _kind: "sale", _header: h, _lines: lines, _invoice_id: invoiceId });
 }
 
 /** Live account balances = opening balance + ledger activity. */
@@ -228,7 +125,7 @@ export async function fetchBalances(sb: SupabaseClient) {
 }
 
 export const INVOICE_QUERY_KEYS = [
-  ["invoices"], ["products"], ["accounts"], ["balances"], ["dashboard"], ["journal"], ["journal_entries"], ["customers"], ["ledger"], ["payments"], ["outstanding"], ["returns"], ["reports"],
+  ["invoices"], ["products"], ["accounts"], ["balances"], ["dashboard"], ["journal"], ["journal_entries"], ["customers"], ["ledger"], ["payments"], ["outstanding"], ["returns"], ["reports"], ["invoice-print"], ["customer-detail"], ["online-catalog"], ["online-admin-products"], ["invoice-next-number"],
 ];
 
 export type PayKind = "receipt" | "payment";
@@ -238,27 +135,9 @@ export async function postPayment(sb: SupabaseClient, p: {
   kind: PayKind; voucher_no: string; pay_date: string; party_id: string | null; party_name: string;
   amount: number; mode: string; reference: string; notes: string;
 }) {
-  if (!p.party_name.trim()) throw new Error("Select a party");
-  if (!(p.amount > 0)) throw new Error("Enter an amount");
-  const cashAcc = p.mode === "cash"
-    ? await ensureAccount(sb, "1000", "Cash", "asset")
-    : await ensureAccount(sb, "1010", "Bank", "asset");
-  const partyAcc = p.kind === "receipt"
-    ? await ensureAccount(sb, "1100", "Accounts Receivable", "asset")
-    : await ensureAccount(sb, "2000", "Accounts Payable", "liability");
-  const { data: je, error } = await sb.from("journal_entries").insert({
-    entry_date: p.pay_date, reference: p.voucher_no,
-    description: `${p.kind === "receipt" ? "Receipt from" : "Payment to"} ${p.party_name}`,
-  }).select("id").single();
-  if (error) throw error;
-  const amt = r2(p.amount);
-  const jl = p.kind === "receipt"
-    ? [{ entry_id: je.id, account_id: cashAcc, debit: amt, credit: 0 }, { entry_id: je.id, account_id: partyAcc, debit: 0, credit: amt }]
-    : [{ entry_id: je.id, account_id: partyAcc, debit: amt, credit: 0 }, { entry_id: je.id, account_id: cashAcc, debit: 0, credit: amt }];
-  const { error: e2 } = await sb.from("journal_lines").insert(jl);
-  if (e2) throw e2;
-  const { error: e3 } = await sb.from("payments").insert({ ...p, amount: amt, journal_entry_id: je.id });
-  if (e3) throw e3;
+  if (!p.party_name.trim() || !p.party_id) throw new Error("Select a party");
+  if (!Number.isFinite(p.amount) || !(p.amount > 0)) throw new Error("Enter an amount");
+  return atomicSave<string>(sb, "post_financial_payment", { _payment: p });
 }
 
 /** Outstanding per party: credit bills minus receipts/payments. */
@@ -305,11 +184,12 @@ export type ReturnLine = { invoice_item_id: string; product_id: string | null; i
 
 /** Loads a sale invoice's items with already-returned quantities. */
 export async function loadReturnable(sb: SupabaseClient, invoiceId: string): Promise<ReturnLine[]> {
-  const [{ data: items, error }, { data: prev }] = await Promise.all([
+  const [{ data: items, error }, { data: prev, error: previousError }] = await Promise.all([
     sb.from("invoice_items").select("*").eq("invoice_id", invoiceId),
     sb.from("sales_return_items").select("invoice_item_id, quantity, sales_returns!inner(invoice_id)").eq("sales_returns.invoice_id", invoiceId),
   ]);
   if (error) throw error;
+  if (previousError) throw previousError;
   return (items ?? []).map((it: any) => {
     const sold = Number(it.quantity);
     const returned = (prev ?? []).filter((p: any) => p.invoice_item_id === it.id).reduce((a: number, p: any) => a + Number(p.quantity), 0);
@@ -325,60 +205,26 @@ export async function loadReturnable(sb: SupabaseClient, invoiceId: string): Pro
 export async function postSalesReturn(sb: SupabaseClient, r: {
   invoice: any; return_no: string; return_date: string; refund_mode: string; reason: string; lines: ReturnLine[];
 }) {
-  const lines = r.lines.filter((l) => l.qty > 0);
-  if (lines.length === 0) throw new Error("Enter a return quantity for at least one item");
-  for (const l of lines) if (l.qty > l.sold - l.returned) throw new Error(`Only ${l.sold - l.returned} of ${l.item_name} can be returned`);
-  const taxable = r2(lines.reduce((a, l) => a + l.unitTaxable * l.qty, 0));
-  const tax = r2(lines.reduce((a, l) => a + l.unitTax * l.qty, 0));
-  const amount = r2(taxable + tax);
-  const retAcc = await ensureAccount(sb, "4010", "Sales Returns", "income");
-  const taxAcc = await ensureAccount(sb, "2100", "GST Output", "liability");
-  const payAcc = r.refund_mode === "credit"
-    ? await ensureAccount(sb, "1100", "Accounts Receivable", "asset")
-    : r.refund_mode === "bank" ? await ensureAccount(sb, "1010", "Bank", "asset") : await ensureAccount(sb, "1000", "Cash", "asset");
-  const { data: je, error } = await sb.from("journal_entries").insert({
-    entry_date: r.return_date, reference: r.return_no,
-    description: `Sales return ${r.return_no} against ${r.invoice.bill_no}${r.invoice.party_name ? " — " + r.invoice.party_name : ""}`,
-  }).select("id").single();
-  if (error) throw error;
-  const jl = [
-    { entry_id: je.id, account_id: retAcc, debit: taxable, credit: 0 },
-    { entry_id: je.id, account_id: taxAcc, debit: tax, credit: 0 },
-    { entry_id: je.id, account_id: payAcc, debit: 0, credit: amount },
-  ].filter((l) => l.debit || l.credit);
-  const { error: e2 } = await sb.from("journal_lines").insert(jl);
-  if (e2) throw e2;
-  const { data: ret, error: e3 } = await sb.from("sales_returns").insert({
-    return_no: r.return_no, return_date: r.return_date, invoice_id: r.invoice.id, bill_no: r.invoice.bill_no,
-    party_id: r.invoice.party_id, party_name: r.invoice.party_name, refund_mode: r.refund_mode,
-    taxable, total_tax: tax, amount, reason: r.reason, journal_entry_id: je.id,
-  }).select("id").single();
-  if (e3) throw e3;
-  for (const l of lines) {
-    await sb.from("sales_return_items").insert({
-      return_id: ret.id, invoice_item_id: l.invoice_item_id, product_id: l.product_id, item_name: l.item_name,
-      quantity: l.qty, rate: l.rate, gst_rate: l.gst_rate,
-      taxable: r2(l.unitTaxable * l.qty), tax: r2(l.unitTax * l.qty), amount: r2((l.unitTaxable + l.unitTax) * l.qty),
-    });
-    if (l.product_id) {
-      await sb.from("stock_movements").insert({ product_id: l.product_id, type: "in", quantity: l.qty, note: `Sales return ${r.return_no}` });
-      const { data: cur } = await sb.from("products").select("quantity").eq("id", l.product_id).single();
-      await sb.from("products").update({ quantity: Number(cur?.quantity ?? 0) + l.qty }).eq("id", l.product_id);
-    }
-  }
-  return amount;
+  const lines = r.lines.filter(l => l.qty > 0);
+  if (!r.invoice?.id || !lines.length) throw new Error("Select a bill and enter return quantities");
+  return atomicSave<number>(sb, "post_financial_return", { _return: {
+    invoice_id: r.invoice.id, return_no: r.return_no, return_date: r.return_date,
+    refund_mode: r.refund_mode, reason: r.reason,
+    lines: lines.map(l => ({ invoice_item_id: l.invoice_item_id, qty: l.qty })),
+  }});
 }
 
-/** Sets a product's stock quantity and prices, recording the difference as an adjustment. */
+/** Adjustment uses reviewed values and commits the movement and product together. */
 export async function adjustStock(sb: SupabaseClient, p: any, a: { quantity: number; cost_price: number; unit_price: number; reason: string }) {
-  const diff = r2(a.quantity - Number(p.quantity));
-  if (diff !== 0) {
-    const { error } = await sb.from("stock_movements").insert({
-      product_id: p.id, type: "adjustment", quantity: Math.abs(diff),
-      note: `Adjustment ${diff > 0 ? "+" : "-"}${Math.abs(diff)}${a.reason ? " — " + a.reason : ""}`,
-    });
-    if (error) throw error;
-  }
-  const { error } = await sb.from("products").update({ quantity: a.quantity, cost_price: a.cost_price, unit_price: a.unit_price }).eq("id", p.id);
-  if (error) throw error;
+  return atomicSave<number>(sb, "post_financial_stock", { _product_id: p.id, _change: {
+    ...a, mode: "adjustment", expected_quantity: Number(p.quantity), expected_cost: Number(p.cost_price ?? 0), expected_price: Number(p.unit_price),
+  }});
+}
+
+export async function postStockMovement(sb: SupabaseClient, productId: string, type: "in" | "out", quantity: number, reason: string) {
+  return atomicSave<number>(sb, "post_financial_stock", { _product_id: productId, _change: { mode: type, quantity, reason } });
+}
+
+export async function postJournal(sb: SupabaseClient, entry: { entry_date: string; reference: string; description: string }, lines: Array<{ account_id: string; debit: number; credit: number }>) {
+  return atomicSave<string>(sb, "post_financial_journal", { _entry: entry, _lines: lines });
 }

@@ -96,7 +96,18 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
   });
   const billNo = h.bill_no || nextNo || "";
   const t = useMemo(() => totals(lines, h), [lines, h]);
-  const set = <K extends keyof Header>(k: K, v: Header[K]) => setH((p) => ({ ...p, [k]: v }));
+  const set = <K extends keyof Header>(k: K, v: Header[K]) => {
+    if (k === "tax_type" && typeof v === "string") {
+      setLines(previous => previous.map(l => {
+        const product = products.find(p => p.id === l.product_id);
+        if (!product) return l;
+        const oldDefaults = productInvoiceDefaults(product, kind, h.tax_type);
+        const nextDefaults = productInvoiceDefaults(product, kind, v);
+        return { ...l, gst_rate: nextDefaults.gst_rate, rate: Math.abs(l.rate - oldDefaults.rate) < 0.000001 ? nextDefaults.rate : l.rate };
+      }));
+    }
+    setH(p => ({ ...p, [k]: v }));
+  };
   const num = (v: string) => Number(v) || 0;
 
   const updateLine = (i: number, patch: Partial<Line>) =>
@@ -239,6 +250,8 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
         }
       }
       const number = h.bill_no.trim() || await fetchNextInvoiceNumber(sb, kind);
+      // Freeze the number before requesting a save: an uncertain retry must use identical data.
+      setH(previous => ({ ...previous, bill_no: number }));
       const id = await postInvoice(sb, kind, { ...h, bill_no: number }, lines);
       return { id, number };
     },

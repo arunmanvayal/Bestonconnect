@@ -11,10 +11,17 @@ describe("saved sales bill updates", () => {
     const calls: unknown[] = [];
     const sb = { rpc: async (name: string, params: unknown) => { calls.push({ name, params }); return { data: "original-bill-id", error: null }; }, from: () => { throw new Error("Must not delete or re-create bill"); } } as unknown as SupabaseClient;
     assert.equal(await updateSalesInvoice(sb, "original-bill-id", header, [line]), "original-bill-id");
-    assert.deepEqual(calls, [{ name: "update_sales_invoice", params: { _invoice_id: "original-bill-id", _header: header, _lines: [line] } }]);
+    assert.equal(calls.length, 1);
+    const call = calls[0] as { name: string; params: Record<string, unknown> };
+    assert.equal(call.name, "post_financial_invoice");
+    assert.equal(call.params['_invoice_id'], "original-bill-id");
+    assert.equal(call.params['_kind'], "sale");
+    assert.deepEqual(call.params['_header'], header);
+    assert.deepEqual(call.params['_lines'], [line]);
+    assert.match(String(call.params['_request_key']), /^[0-9a-f-]{36}$/);
   });
   test("missing setup stops the update instead of falling back to destructive writes", async () => {
     const sb = { rpc: async () => ({ data: null, error: { code: "PGRST202" } }), from: () => { throw new Error("Must not delete bill"); } } as unknown as SupabaseClient;
-    await assert.rejects(updateSalesInvoice(sb, "original-bill-id", header, [line]), /original bill is unchanged/);
+    await assert.rejects(updateSalesInvoice(sb, "original-bill-id", header, [line]), /Financial transactions update/);
   });
 });
