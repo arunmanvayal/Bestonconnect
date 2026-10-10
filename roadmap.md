@@ -27,3 +27,6 @@
 - [x] Include every current admin and Masters option in shared shortcut settings; 73 tests pass, isolated browser checks verify assignment, duplicate prevention, persistence, clearing and destination handling. Real signed-in page checks remain blocked by the unavailable external owner session.
 - [x] Add F11 customer/supplier picker with inline persistent creation and automatic invoice selection; 77 tests pass and isolated browser checks verify both F11 triggers, party filtering, error draft retention, selection and unsaved invoice preservation.
 - [ ] Verify live F11 customer/supplier saving and later reuse (external owner authentication unavailable).
+- [ ] Replace invoice, payment, return, journal and stock saves with all-or-nothing database transactions and safe retry handling.
+- [ ] Run isolated PostgreSQL sales/purchase GST/IGST/No Tax × cash/credit matrix with settlements, edits, returns, rollback and report reconciliation.
+- [ ] Apply financial transaction update and verify authenticated UI against external database (requires owner setup and external session).
