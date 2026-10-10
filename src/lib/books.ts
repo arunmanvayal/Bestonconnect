@@ -85,7 +85,7 @@ export function totals(lines: Line[], h: Header) {
 
 /** Keep the same request for retries of identical payloads, including uncertain network failures. */
 const saveRequests = new WeakMap<SupabaseClient, Map<string, string>>();
-async function atomicSave<T>(sb: SupabaseClient, operation: string, payload: Record<string, unknown>): Promise<T> {
+export async function atomicSave<T>(sb: SupabaseClient, operation: string, payload: Record<string, unknown>): Promise<T> {
   let requests = saveRequests.get(sb);
   if (!requests) { requests = new Map(); saveRequests.set(sb, requests); }
   const fingerprint = JSON.stringify([operation, payload]);

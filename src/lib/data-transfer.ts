@@ -1,6 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import * as XLSX from "xlsx";
-import { fetchBalances } from "@/lib/books";
+import { fetchBalances, atomicSave } from "@/lib/books";
 
 export type Dataset = "customers" | "vendors" | "ledgers" | "products";
 
@@ -48,7 +48,7 @@ export async function exportDataset(sb: SupabaseClient, dataset: Dataset) {
     download([PRODUCT_HEADERS, ...items.map((p) => {
       const g = Number(p.gst_rate ?? 0);
       return [p.sku || p.name, p.name, p.hsn ?? "", p.barcode ?? "", p.category ?? "", p.manufacturer || "NONE", String(p.reorder_level ?? 0), p.rack ?? "", p.unit ?? "", p.alt_unit ?? "", String(p.conv_factor ?? 1),
-        fix(p.cost_price), fix(p.unit_price), fix(p.mrp), Number(p.quantity ?? 0), pct(g / 2), pct(g / 2), "0.0", !!p.purchase_tax_incl, !!p.sale_tax_incl, !!p.expiry_date, p.expiry_date || "NA"];
+        fix(p.cost_price), fix(p.unit_price), fix(p.mrp), Number(p.quantity ?? 0), pct(p.cgst_rate ?? g / 2), pct(p.sgst_rate ?? g / 2), pct(p.igst_rate ?? g), !!p.purchase_tax_incl, !!p.sale_tax_incl, !!p.expiry_date, p.expiry_date || "NA"];
     })], dataset);
     return items.length;
   }
@@ -66,7 +66,8 @@ export async function exportDataset(sb: SupabaseClient, dataset: Dataset) {
 /** Parses a spreadsheet into header-keyed rows, dropping empty lines. */
 export async function readSheet(file: File) {
   const wb = XLSX.read(await file.arrayBuffer());
-  const ws = wb.Sheets[wb.SheetNames[0]!]!;
+  const name = wb.SheetNames[0]; const ws = name ? wb.Sheets[name] : undefined;
+  if (!ws) throw new Error("No sheet found");
   const rows = XLSX.utils.sheet_to_json<Record<string, unknown>>(ws, { defval: "", raw: true });
   const clean = rows.map((r) => Object.fromEntries(Object.entries(r).map(([k, v]) => [k.trim(), v])))
     .filter((r) => Object.values(r).some((v) => str(v) !== ""));
@@ -83,82 +84,17 @@ export function detectDataset(headers: string[]): Dataset | null {
 type Progress = (done: number, total: number) => void;
 export type ImportResult = { inserted: number; updated: number; skipped: number };
 
-async function runChunks<T>(items: T[], size: number, fn: (chunk: T[]) => Promise<void>, onStep: (n: number) => void) {
-  for (let i = 0; i < items.length; i += size) { const chunk = items.slice(i, i + size); await fn(chunk); onStep(chunk.length); }
-}
-
-export async function importRows(sb: SupabaseClient, dataset: Dataset, rows: Record<string, unknown>[], updateExisting: boolean, onProgress: Progress): Promise<ImportResult> {
-  const res: ImportResult = { inserted: 0, updated: 0, skipped: 0 };
-  let done = 0;
-  const step = (n: number) => { done += n; onProgress(done, rows.length); };
-
+export function spreadsheetRecord(dataset: Dataset, r: Record<string, unknown>) {
   if (dataset === "products") {
-    const existing = await fetchAll(sb, "products");
-    const byBarcode = new Map<string, any>(), byCode = new Map<string, any>();
-    for (const p of existing) {
-      if (p.barcode) byBarcode.set(str(p.barcode).toLowerCase(), p);
-      else byCode.set(`${str(p.sku)}|${str(p.name)}`.toLowerCase(), p);
-    }
-    const inserts: any[] = [], updates: Array<{ id: string; rec: any }> = [];
-    for (const r of rows) {
-      const name = str(r["Item Name"]) || str(r["Item Code"]);
-      if (!name) { res.skipped++; step(1); continue; }
-      const igst = num(r["IGST %"]);
-      const rec = {
-        sku: str(r["Item Code"]) || name, name, hsn: str(r["HSNCODE"]), barcode: str(r["Barcode"]), category: str(r["Category"]),
-        manufacturer: str(r["Manufacturer"]), reorder_level: num(r["ROL"]), rack: str(r["Rack"]), unit: str(r["Unit"]) || "pcs",
-        alt_unit: str(r["Alt Unit"]), conv_factor: num(r["Conv.Factor"]) || 1, cost_price: num(r["PR.Rate"]), unit_price: num(r["SL Rate"]),
-        mrp: num(r["MRP"]), quantity: num(r["Quantity"]), gst_rate: igst || num(r["CGST %"]) + num(r["SGST %"]),
-        purchase_tax_incl: bool(r["PR TaxIncl"]), sale_tax_incl: bool(r["SL TaxIncl"]),
-        expiry_date: /^(na|)$/i.test(str(r["Expiry Date"])) ? "" : str(r["Expiry Date"]),
-      };
-      const match = rec.barcode ? byBarcode.get(rec.barcode.toLowerCase()) : byCode.get(`${rec.sku}|${name}`.toLowerCase());
-      if (match) { if (updateExisting) updates.push({ id: match.id, rec }); else { res.skipped++; step(1); } }
-      else {
-        inserts.push(rec);
-        if (rec.barcode) byBarcode.set(rec.barcode.toLowerCase(), rec); else byCode.set(`${rec.sku}|${name}`.toLowerCase(), rec);
-      }
-    }
-    await runChunks(inserts, 500, async (chunk) => {
-      const { data, error } = await sb.from("products").insert(chunk).select("id, quantity");
-      if (error) throw error;
-      const moves = (data ?? []).filter((p: any) => Number(p.quantity) > 0).map((p: any) => ({ product_id: p.id, type: "in", quantity: Number(p.quantity), note: "Opening stock (Excel import)" }));
-      if (moves.length) await sb.from("stock_movements").insert(moves);
-      res.inserted += chunk.length;
-    }, step);
-    await runChunks(updates, 10, async (chunk) => {
-      const results = await Promise.all(chunk.map(({ id, rec }) => sb.from("products").update(rec).eq("id", id)));
-      const err = results.find((x) => x.error)?.error; if (err) throw err;
-      res.updated += chunk.length;
-    }, step);
-    return res;
+    const cgst = num(r["CGST %"]), sgst = num(r["SGST %"]);
+    return { sku: str(r["Item Code"]) || str(r["Item Name"]), name: str(r["Item Name"]) || str(r["Item Code"]), hsn: str(r["HSNCODE"]), barcode: str(r["Barcode"]), category: str(r["Category"]), manufacturer: str(r["Manufacturer"]), reorder_level: num(r["ROL"]), rack: str(r["Rack"]), store_location: str(r["Rack"]) || "MAIN", product_group: "GENERAL", unit: str(r["Unit"]) || "pcs", alt_unit: str(r["Alt Unit"]), conv_factor: num(r["Conv.Factor"]) || 1, cost_price: num(r["PR.Rate"]), unit_price: num(r["SL Rate"]), mrp: num(r["MRP"]), quantity: num(r["Quantity"]), cgst_rate: cgst, sgst_rate: sgst, igst_rate: str(r["IGST %"]) ? num(r["IGST %"]) : cgst+sgst, gst_rate: cgst+sgst, purchase_tax_incl: bool(r["PR TaxIncl"]), sale_tax_incl: bool(r["SL TaxIncl"]), deactivated: false, remarks: "" };
   }
-
-  const partyType = dataset === "vendors" ? "supplier" : "customer";
-  const existing = (await fetchAll(sb, "customers")).filter((c) => (c.party_type ?? "customer") === partyType);
-  const byName = new Map(existing.map((c) => [str(c.name).toLowerCase(), c]));
-  const inserts: any[] = [], updates: Array<{ id: string; rec: any }> = [];
-  for (const r of rows) {
-    const name = str(r["Ledger Name"]) || str(r["Ledger Code"]);
-    if (!name) { res.skipped++; step(1); continue; }
-    const area = str(r["Area"]);
-    const rec = {
-      code: str(r["Ledger Code"]) || name, name, address: str(r["Address"]), contact_no: str(r["Contact No"]),
-      phone: str(r["Phone No"]) || str(r["Contact No"]), area: /^none$/i.test(area) ? "" : area, gstin: str(r["TIN No"]),
-      email: str(r["Email"]), notes: str(r["Remarks"]), discount: num(r["Discount"]), opening_balance: num(r["OS Amount"]), party_type: partyType,
-    };
-    const match = byName.get(name.toLowerCase());
-    if (match) { if (updateExisting) updates.push({ id: match.id, rec }); else { res.skipped++; step(1); } }
-    else { inserts.push(rec); byName.set(name.toLowerCase(), rec); }
-  }
-  await runChunks(inserts, 500, async (chunk) => {
-    const { error } = await sb.from("customers").insert(chunk); if (error) throw error;
-    res.inserted += chunk.length;
-  }, step);
-  await runChunks(updates, 10, async (chunk) => {
-    const results = await Promise.all(chunk.map(({ id, rec }) => sb.from("customers").update(rec).eq("id", id)));
-    const err = results.find((x) => x.error)?.error; if (err) throw err;
-    res.updated += chunk.length;
-  }, step);
-  return res;
+  if (dataset === "ledgers") return { code: str(r["Ledger Code"]), name: str(r["Ledger Name"]), type: str(r["Group"]).toLowerCase(), opening_balance: num(r["Opening Balance"]) };
+  return { code: str(r["Ledger Code"]) || str(r["Ledger Name"]), name: str(r["Ledger Name"]) || str(r["Ledger Code"]), address: str(r["Address"]), contact_no: str(r["Contact No"]), phone: str(r["Phone No"]) || str(r["Contact No"]), area: str(r["Area"]), gstin: str(r["TIN No"]), email: str(r["Email"]), notes: str(r["Remarks"]), discount: num(r["Discount"]), opening_balance: num(r["OS Amount"]), party_type: dataset === "vendors" ? "supplier" : "customer" };
+}
+export async function importRows(sb: SupabaseClient, dataset: Dataset, rows: Record<string, unknown>[], updateExisting: boolean, onProgress: Progress): Promise<ImportResult> {
+  const records = rows.map(r => spreadsheetRecord(dataset,r)).filter(r => r.name.trim());
+  const result = await atomicSave<ImportResult>(sb,"import_business_rows",{ _dataset: dataset, _rows: records, _update: updateExisting });
+  onProgress(rows.length,rows.length);
+  return { ...result, skipped: result.skipped + rows.length - records.length };
 }
