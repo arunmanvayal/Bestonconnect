@@ -25,4 +25,5 @@
 - [x] Preserve unsaved inputs across app/tab switching throughout the app; same-user sign-in, focus and reconnect regression checks passed without clearing input or company cache.
 - [x] Replace the admin sidebar with reference-style categorized dropdown navigation; all existing destinations, dropdown interactions and signed-out login boundary checked.
 - [x] Include every current admin and Masters option in shared shortcut settings; 73 tests pass, isolated browser checks verify assignment, duplicate prevention, persistence, clearing and destination handling. Real signed-in page checks remain blocked by the unavailable external owner session.
-- [ ] Add F11 customer/supplier picker with inline persistent creation and automatic invoice selection; verify both invoice types.
+- [x] Add F11 customer/supplier picker with inline persistent creation and automatic invoice selection; 77 tests pass and isolated browser checks verify both F11 triggers, party filtering, error draft retention, selection and unsaved invoice preservation.
+- [ ] Verify live F11 customer/supplier saving and later reuse (external owner authentication unavailable).
