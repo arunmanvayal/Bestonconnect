@@ -213,7 +213,7 @@ begin
   a:=round(allocation*(prev+q)/it.quantity,2)-round(allocation*prev/it.quantity,2);
   t:=case when inv.tax_type='none' then 0 else round(it.tax*(prev+q)/it.quantity,2)-round(it.tax*prev/it.quantity,2) end;
   free_back:=coalesce(it.free_qty,0)*q/it.quantity;
-  calc:=calc || jsonb_build_array(jsonb_build_object('id',it.id,'product_id',it.product_id,'name',it.item_name,'rate',it.rate,'gst_rate',it.gst_rate,'qty',q,'stock_qty',q+free_back,'amount',a,'tax',t));
+  calc:=calc || jsonb_build_array(jsonb_build_object('id',it.id,'product_id',it.product_id,'name',it.item_name,'rate',it.rate,'gst_rate',it.gst_rate,'qty',q,'stock_qty',(q+free_back)*coalesce((it.entry_details->>'unit_factor')::numeric,1),'amount',a,'tax',t));
   amt:=amt+a; tax:=tax+t;
  end loop;
  ra:=financial_account('4010','Sales Returns','income'); ta:=financial_account('2100','GST Output','liability');

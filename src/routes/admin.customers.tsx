@@ -1,7 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Plus, Trash2, Search } from "lucide-react";
+import { Plus, Trash2, Search, Pencil } from "lucide-react";
+import { fetchOutstanding } from "@/lib/books";
+import { toast } from "sonner";
 import { money } from "@/components/SupabaseGate";
 import { AppLayout } from "@/components/AppLayout";
 import { SupabaseGate } from "@/components/SupabaseGate";
@@ -33,7 +35,7 @@ export const Route = createFileRoute("/admin/customers")({
   component: CustomersPage,
 });
 
-const EMPTY = { name: "", company: "", email: "", phone: "", address: "", notes: "" };
+const EMPTY = { name: "", company: "", email: "", phone: "", address: "", notes: "", gstin: "", party_type: "customer", opening_balance: "0" };
 
 function CustomersPage() {
   return (
@@ -46,8 +48,9 @@ function CustomersPage() {
 }
 
 function CustomersInner() {
-  const supabase = useSupabase()!;
+  const supabase = useSupabase();
   const qc = useQueryClient();
+  const [editId, setEditId] = useState<string | null>(null);
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState(EMPTY);
   const [q, setQ] = useState("");
@@ -56,17 +59,21 @@ function CustomersInner() {
   const { data: customers = [], isLoading } = useQuery({
     queryKey: ["customers"],
     queryFn: async () => {
+      if (!supabase) throw new Error("Connection unavailable");
       return fetchSearchRecords(supabase, "customers", "name");
     },
   });
 
   const addCustomer = useMutation({
     mutationFn: async () => {
-      const { error } = await supabase.from("customers").insert(form);
+      if (!supabase) throw new Error("Connection unavailable");
+      const payload = { ...form, name: form.name.trim(), opening_balance: Number(form.opening_balance) };
+      if (!payload.name || !Number.isFinite(payload.opening_balance)) throw new Error("Enter valid name and opening balance");
+      const { error } = await (editId ? supabase.from("customers").update(payload).eq("id",editId) : supabase.from("customers").insert(payload));
       if (error) throw error;
     },
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ["customers"] });
+      qc.invalidateQueries();
       setForm(EMPTY);
       setOpen(false);
     },
@@ -74,10 +81,12 @@ function CustomersInner() {
 
   const removeCustomer = useMutation({
     mutationFn: async (id: string) => {
+      if (!supabase) throw new Error("Connection unavailable");
       const { error } = await supabase.from("customers").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["customers"] }),
+    onSuccess: () => qc.invalidateQueries(),
+    onError: (error: any) => toast.error(error.message || "Party cannot be deleted"),
   });
 
   const term = q.toLowerCase().trim();
@@ -95,10 +104,10 @@ function CustomersInner() {
         </div>
         <Dialog open={open} onOpenChange={setOpen}>
           <DialogTrigger asChild>
-            <Button><Plus className="h-4 w-4" /><span className="hidden sm:inline">Add Customer</span><span className="sm:hidden">Add</span></Button>
+            <Button onClick={() => { setEditId(null); setForm(EMPTY); }}><Plus className="h-4 w-4" /><span className="hidden sm:inline">Add Customer</span><span className="sm:hidden">Add</span></Button>
           </DialogTrigger>
           <DialogContent>
-            <DialogHeader><DialogTitle>New Customer</DialogTitle></DialogHeader>
+            <DialogHeader><DialogTitle>{editId ? "Edit party" : "New party"}</DialogTitle></DialogHeader>
             <form
               className="space-y-4"
               onSubmit={(e) => { e.preventDefault(); addCustomer.mutate(); }}
@@ -129,6 +138,8 @@ function CustomersInner() {
                 <Label>Notes</Label>
                 <Input value={form.notes} onChange={set("notes")} />
               </div>
+              <div className="grid grid-cols-2 gap-3"><label className="space-y-2"><Label>Type</Label><select aria-label="Party type" className="h-10 w-full border border-input bg-background px-2" value={form.party_type} onChange={e => setForm(f=>({...f,party_type:e.target.value}))}><option value="customer">Customer</option><option value="supplier">Supplier</option></select></label><label className="space-y-2"><Label>Opening balance</Label><Input aria-label="Opening balance" type="number" value={form.opening_balance} onChange={set("opening_balance")}/></label></div>
+              <label className="space-y-2"><Label>GSTIN</Label><Input value={form.gstin} onChange={set("gstin")}/></label>
               <Button type="submit" className="w-full" disabled={addCustomer.isPending}>
                 {addCustomer.isPending ? "Saving…" : "Save Customer"}
               </Button>
@@ -154,7 +165,7 @@ function CustomersInner() {
                 <TableHead>Company</TableHead>
                 <TableHead>Email</TableHead>
                 <TableHead>Phone</TableHead>
-                <TableHead className="w-12" />
+                <TableHead className="w-24" />
               </TableRow>
             </TableHeader>
             <TableBody>
@@ -170,6 +181,7 @@ function CustomersInner() {
                     <TableCell>{c.email}</TableCell>
                     <TableCell>{c.phone}</TableCell>
                     <TableCell>
+                      <Button variant="ghost" size="icon" aria-label={`Edit ${c.name}`} onClick={() => { setEditId(c.id); setForm({ ...EMPTY, ...Object.fromEntries(Object.keys(EMPTY).map(key=>[key,String(c[key] ?? EMPTY[key as keyof typeof EMPTY])])) }); setOpen(true); }}><Pencil className="h-4 w-4"/></Button>
                       <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); if (confirm(`Delete ${c.name}?`)) removeCustomer.mutate(c.id); }}>
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
@@ -192,19 +204,22 @@ function CustomersInner() {
 }
 
 function CustomerDetail({ c }: { c: any }) {
-  const sb = useSupabase()!;
+  const sb = useSupabase();
   const { data, isLoading } = useQuery({
     queryKey: ["customer-detail", c.id],
     queryFn: async () => {
-      const nm = c.name.replace(/"/g, "");
-      const [inv, pay, ret] = await Promise.all([
-        sb.from("invoices").select("*").or(`party_id.eq.${c.id},party_name.eq."${c.name.replace(/"/g, "")}"`).order("bill_date", { ascending: false }),
-        sb.from("payments").select("*").or(`party_id.eq.${c.id},party_name.eq."${c.name.replace(/"/g, "")}"`).order("pay_date", { ascending: false }),
-        sb.from("sales_returns").select("*").or(`party_id.eq.${c.id},party_name.eq."${nm}"`),
+      if (!sb) throw new Error("Connection unavailable");
+      const [inv, pay, ret, current, outstanding] = await Promise.all([
+        fetchSearchRecords(sb,"invoices","bill_date"), fetchSearchRecords(sb,"payments","pay_date"), fetchSearchRecords(sb,"sales_returns","return_date"), sb.from("customers").select("*").eq("id",c.id).single(), fetchOutstanding(sb),
       ]);
-      return { invoices: (inv.data ?? []) as any[], payments: (pay.data ?? []) as any[], returns: (ret.data ?? []) as any[] };
+      if (current.error) throw current.error;
+      const party = current.data;
+      const match = (record: any) => record.party_id === c.id || (!record.party_id && record.party_name?.trim().toLowerCase() === party.name?.trim().toLowerCase());
+      return { party, invoices: inv.filter(i=>match(i) && i.kind === (party.party_type === "supplier" ? "purchase" : "sale")), payments: pay.filter(p=>match(p) && p.kind === (party.party_type === "supplier" ? "payment" : "receipt")), returns: party.party_type === "supplier" ? [] : ret.filter(match), balance: outstanding.rows.find(r=>r.party_id===c.id)?.balance ?? 0 };
+
     },
   });
+  c = data?.party ?? c;
   const invoices = data?.invoices ?? [];
   const payments = data?.payments ?? [];
   const returns = data?.returns ?? [];
@@ -233,8 +248,8 @@ function CustomerDetail({ c }: { c: any }) {
         ))}
       </div>
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-        {stat("Total sales", sales)}{stat("Received", received)}{stat("Owes you", Math.max(0, creditSale - returnedCredit - received))}
-        {stat("Total purchases", purchases)}{stat("Paid", paid)}{stat("You owe", Math.max(0, creditPurch - paid))}{stat("Returns", returnedAll)}
+        {stat("Total sales", sales)}{stat("Received", received)}{stat("Owes you", c.party_type === "supplier" ? 0 : Math.max(0, data?.balance ?? Number(c.opening_balance || 0)))}
+        {stat("Total purchases", purchases)}{stat("Paid", paid)}{stat("You owe", c.party_type === "supplier" ? Math.max(0, data?.balance ?? Number(c.opening_balance || 0)) : 0)}{stat("Returns", returnedAll)}{stat("Opening balance", Number(c.opening_balance || 0))}{stat("Advance", Math.max(0,-(data?.balance || 0)))}
       </div>
       <div>
         <h3 className="mb-2 font-semibold">Transactions</h3>

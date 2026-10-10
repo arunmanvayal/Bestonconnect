@@ -8,6 +8,7 @@ import { SupabaseGate, money } from "@/components/SupabaseGate";
 import { useSupabase } from "@/lib/supabase";
 import { matchesSearch } from "@/lib/search";
 import { fetchSearchRecords } from "@/lib/search-data";
+import { returnLineTotals, moneyRound } from "@/lib/invoice-calculations";
 import { loadReturnable, postSalesReturn, type ReturnLine } from "@/lib/books";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -65,12 +66,10 @@ function ReturnsInner() {
   const found = invoices.filter((i: any) => matchesSearch(q, i.bill_no, i.party_name)).slice(0, 12);
 
   const openInvoice = async (i: any) => {
-    setInv(i);
-    setMode(i.payment_mode === "credit" ? "credit" : i.payment_mode === "cash" ? "cash" : "bank");
-    try { setLines(await loadReturnable(sb, i.id)); } catch (e: any) { toast.error(e.message); }
+    try { const loaded = await loadReturnable(sb, i.id); setInv(i); setMode(i.payment_mode === "credit" ? "credit" : i.payment_mode === "cash" ? "cash" : "bank"); setLines(loaded); } catch (e: any) { toast.error(e.message); }
   };
 
-  const total = useMemo(() => lines.reduce((a, l) => a + (l.unitTaxable + l.unitTax) * l.qty, 0), [lines]);
+  const total = useMemo(() => moneyRound(lines.reduce((a, l) => a + returnLineTotals(l).amount, 0)), [lines]);
   const setQty = (idx: number, v: number) => setLines((ls) => ls.map((l, i) => (i === idx ? { ...l, qty: Math.max(0, Math.min(v, l.sold - l.returned)) } : l)));
 
   const save = useMutation({
@@ -141,7 +140,7 @@ function ReturnsInner() {
                               <Button size="sm" variant="ghost" disabled={left <= 0} onClick={() => setQty(idx, left)}>All</Button>
                             </div>
                           </td>
-                          <td className="px-3 text-right font-semibold tabular-nums">{money((l.unitTaxable + l.unitTax) * l.qty)}</td>
+                          <td className="px-3 text-right font-semibold tabular-nums">{money(returnLineTotals(l).amount)}</td>
                         </tr>
                       );
                     })}</tbody>
@@ -151,14 +150,14 @@ function ReturnsInner() {
                   <label className="space-y-1 text-sm"><span className="text-xs text-muted-foreground">Return date</span><Input type="date" value={date} onChange={(e) => setDate(e.target.value)} /></label>
                   <label className="space-y-1 text-sm"><span className="text-xs text-muted-foreground">Refund as</span>
                     <select className={selectCls} value={mode} onChange={(e) => setMode(e.target.value)}>
-                      <option value="credit">Reduce customer balance</option><option value="cash">Cash refund</option><option value="bank">Bank / UPI refund</option>
+                      <option value="credit" disabled={inv.payment_mode !== "credit"}>Reduce customer balance</option><option value="cash">Cash refund</option><option value="bank">Bank / UPI refund</option>
                     </select>
                   </label>
                   <label className="space-y-1 text-sm"><span className="text-xs text-muted-foreground">Reason</span><Input value={reason} placeholder="Damaged, wrong item…" onChange={(e) => setReason(e.target.value)} /></label>
                 </div>
                 <div className="sticky bottom-20 flex items-center gap-3 rounded-2xl border border-border/70 bg-card/95 px-4 py-3 shadow-lg backdrop-blur lg:bottom-4">
                   <div><p className="text-xs text-muted-foreground">Return total (incl. GST)</p><p className="font-display text-xl font-bold tabular-nums">{money(total)}</p></div>
-                  <Button className="ml-auto" title={`Save · ${shortcuts.save}`} disabled={save.isPending || total <= 0} onClick={() => save.mutate()}>{save.isPending ? "Saving…" : "Save Return"}</Button>
+                  <Button className="ml-auto" title={`Save · ${shortcuts.save}`} disabled={save.isPending || !lines.some(l => l.qty > 0)} onClick={() => save.mutate()}>{save.isPending ? "Saving…" : "Save Return"}</Button>
                 </div>
               </>
             )}
