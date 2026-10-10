@@ -1,6 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { InvoiceEntryCells, invoiceColumns, invoiceWidths } from "@/components/InvoiceEntryGrid";
 import { InvoiceEntryHeader, InvoiceEntryFooter } from "@/components/InvoiceEntryDetails";
+import { InvoicePartyDialog } from "@/components/InvoicePartyDialog";
+import { saveInvoiceParty, type InvoiceParty } from "@/lib/invoice-party";
 import { emptyEntryDetails } from "@/lib/invoice-entry";
 import { exportInvoiceLines, importInvoiceLines } from "@/lib/invoice-transfer";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
@@ -52,6 +54,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
   const [loadingBill, setLoadingBill] = useState(false);
   const [matchingBills, setMatchingBills] = useState<any[]>([]);
   const [historyOpen, setHistoryOpen] = useState(false);
+  const [partyOpen, setPartyOpen] = useState(false);
   const isSale = kind === "sale";
   const { shortcuts, columnWidths, setColumnWidths, resetColumnWidths } = useWorkspacePreferences();
   const partyRef = useRef<HTMLInputElement>(null);
@@ -177,6 +180,12 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
     setH((prev) => ({ ...prev, party_name: name, contact: p?.phone || p?.contact_no || "", billing_address: p?.address ?? "" }));
   };
 
+  const selectParty = (party: InvoiceParty) => {
+    setH(previous => ({ ...previous, party_name: party.name, contact: party.phone || party.contact_no || "", billing_address: party.address || "" }));
+    setPartyOpen(false);
+  };
+  const openParty = () => { setSuggest(null); setPartyOpen(true); };
+
   const reset = () => { setH(emptyHeader(kind)); setLines([emptyLine()]); setSelected(null); setEditingId(null); setMatchingBills([]); };
 
   const loadBill = async (no?: string, invoiceId?: string) => {
@@ -260,7 +269,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
     const input = tbodyRef.current?.querySelector<HTMLInputElement>(`input[data-row="${row}"][data-col="item"]`);
     input?.focus(); input?.select();
   };
-  useWorkspaceCommands({ save: () => save.mutate(), addRow, removeRow: removeSelected, print: printInvoice, refresh: reset, focusProduct, focusParty: () => partyRef.current?.focus() });
+  useWorkspaceCommands({ save: () => { if (!partyOpen) save.mutate(); }, addRow: () => { if (!partyOpen) addRow(); }, removeRow: () => { if (!partyOpen) removeSelected(); }, print: () => { if (!partyOpen) printInvoice(); }, refresh: () => { if (!partyOpen) reset(); }, focusProduct: () => { if (!partyOpen) focusProduct(); }, focusParty: openParty });
 
   const startResize = (index: number, event: React.PointerEvent<HTMLSpanElement>) => {
     event.preventDefault();
@@ -305,7 +314,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
       </div>}
 
       <div className="invoice-entry-frame overflow-hidden border border-border bg-card">
-        <InvoiceEntryHeader kind={kind} header={h} set={set} pickParty={pickParty} partyRef={partyRef} parties={parties.filter(p => (p.party_type ?? "customer") === (isSale ? "customer" : "supplier"))} billNo={billNo} />
+        <InvoiceEntryHeader kind={kind} header={h} set={set} pickParty={pickParty} partyRef={partyRef} openParty={openParty} parties={parties.filter(p => (p.party_type ?? "customer") === (isSale ? "customer" : "supplier"))} billNo={billNo} />
 
         <div className="invoice-entry-body grid">
           {/* Items grid */}
@@ -395,6 +404,15 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
         </div>
       )}
 
+      <InvoicePartyDialog open={partyOpen} onOpenChange={setPartyOpen} kind={kind} parties={parties} initialName={h.party_name} onSelect={selectParty} onSave={async draft => {
+        if (!sb) throw new Error("Database connection unavailable");
+        const party = await saveInvoiceParty(sb, kind, draft);
+        qc.setQueryData<any[]>(["customers"], previous => [...(previous ?? []).filter(p => p.id !== party.id), party]);
+        selectParty(party);
+        void qc.invalidateQueries({ queryKey: ["customers"] });
+        void qc.invalidateQueries({ queryKey: ["masters"] });
+        toast.success(`${isSale ? "Customer" : "Supplier"} saved`);
+      }}/>
       <Dialog open={historyOpen} onOpenChange={setHistoryOpen}><DialogContent className="max-h-[80dvh] overflow-auto sm:max-w-4xl"><DialogTitle>Recent {isSale ? "sales" : "purchase"} invoices</DialogTitle>
       <div className="overflow-hidden rounded-2xl border border-border/70 bg-card/90 shadow-sm">
         <div className="border-b border-border px-4 py-3 font-semibold text-foreground">Recent {isSale ? "sales" : "purchase"} invoices</div>
