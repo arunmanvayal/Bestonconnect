@@ -90,7 +90,7 @@ describe('real PostgreSQL financial matrix',()=>{
    const netLedger=await n(db,`select sum(case when a.code='2100' then j.credit-j.debit else j.credit-j.debit end) v from journal_lines j join accounts a on a.id=j.account_id where a.code in ('2100','1200')`);
    const invoiceRows=(await db.query<any>('select * from invoices')).rows;
    const returnRows=(await db.query<any>('select * from sales_returns')).rows;
-   const report = gstReport(invoiceRows, returnRows);
+   const report = gstReport(invoiceRows.map(i=>({...i,bill_date:i.bill_date.toISOString().slice(0,10)})), returnRows.map(r=>({...r,return_date:r.return_date.toISOString().slice(0,10)})));
    assert.equal(report.length,1);assert.equal(report[0]?.net,netLedger,'actual reports calculator reconciles with journal');
    const readAdapter={from(table:string){const q={select(){return q;},order(){return q;},range(){return q;},then(resolve:any,reject:any){return db.query<any>('select * from '+table).then(r=>resolve({data:r.rows,error:null}),reject);}};return q;}} as unknown as SupabaseClient;
    const outstanding=await fetchOutstanding(readAdapter);
