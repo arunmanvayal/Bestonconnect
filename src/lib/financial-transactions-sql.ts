@@ -176,7 +176,7 @@ end $fn$;
 create or replace function public.post_financial_return(_return jsonb, _request_key uuid) returns numeric
 language plpgsql security invoker set search_path=public as $fn$
 declare cid uuid:=current_company(); prior jsonb; inv invoices%rowtype; it invoice_items%rowtype; l jsonb; prev numeric; q numeric; subtotal numeric; ratio numeric;
- amt numeric:=0; tax numeric:=0; a numeric; t numeric; ret uuid; je uuid; ra uuid; ta uuid; pa uuid; free_back numeric; calc jsonb:='[]'; mode text:=_return->>'refund_mode';
+ amt numeric:=0; tax numeric:=0; a numeric; t numeric; allocation numeric; preceding numeric; ret uuid; je uuid; ra uuid; ta uuid; pa uuid; free_back numeric; calc jsonb:='[]'; mode text:=_return->>'refund_mode';
 begin
  prior:=financial_begin(_request_key,'return',_return); if prior is not null then return (prior->>'amount')::numeric; end if;
  select * into inv from invoices where id=(_return->>'invoice_id')::uuid and company_id=cid and kind='sale' for update;
@@ -192,9 +192,10 @@ begin
   select coalesce(sum(quantity),0) into prev from sales_return_items where invoice_item_id=it.id and company_id=cid;
   q:=(l->>'qty')::numeric;
   if q is null or q<=0 or prev+q>it.quantity then raise exception 'Return quantity exceeds remaining sold quantity'; end if;
-  ratio:=case when subtotal>0 then it.amount/subtotal else 0 end;
+  select coalesce(sum(amount),0) into preceding from invoice_items where invoice_id=inv.id and company_id=cid and id<it.id;
+  allocation:=case when subtotal>0 then round(inv.net_total*(preceding+it.amount)/subtotal,2)-round(inv.net_total*preceding/subtotal,2) else 0 end;
   -- Cumulative allocation makes partial + final returns equal the rounded bill exactly.
-  a:=round(inv.net_total*ratio*(prev+q)/it.quantity,2)-round(inv.net_total*ratio*prev/it.quantity,2);
+  a:=round(allocation*(prev+q)/it.quantity,2)-round(allocation*prev/it.quantity,2);
   t:=case when inv.tax_type='none' then 0 else round(it.tax*(prev+q)/it.quantity,2)-round(it.tax*prev/it.quantity,2) end;
   free_back:=coalesce(it.free_qty,0)*q/it.quantity;
   calc:=calc || jsonb_build_array(jsonb_build_object('id',it.id,'product_id',it.product_id,'name',it.item_name,'rate',it.rate,'gst_rate',it.gst_rate,'qty',q,'stock_qty',q+free_back,'amount',a,'tax',t));

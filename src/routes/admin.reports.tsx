@@ -1,3 +1,4 @@
+import { gstReport } from "@/lib/financial-reports";
 import { fetchAll } from "@/lib/data-transfer";
 import { fetchSearchRecords } from "@/lib/search-data";
 import { matchesSearch } from "@/lib/search";
@@ -50,7 +51,7 @@ function ReportsInner() {
   const [to, setTo] = useState(today());
   const [search, setSearch] = useState("");
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, error } = useQuery({
     queryKey: ["reports"],
     queryFn: async () => {
       const [inv, rets, prods, parties, balances, outstanding] = await Promise.all([
@@ -113,11 +114,7 @@ function ReportsInner() {
         return { cols: [{ key: "code", label: "Code" }, { key: "name", label: "Account" }, { key: "debit_total", label: "Debits", money: true }, { key: "credit_total", label: "Credits", money: true }, { key: "balance", label: "Balance", money: true }], rows, totals: sum(rows, ["debit_total", "credit_total", "balance"]) };
       }
       case "gst": {
-        const m = new Map<string, any>();
-        const row = (k: string) => m.get(k) ?? { month: k, out_taxable: 0, output: 0, ret_tax: 0, in_taxable: 0, input: 0, net: 0 };
-        for (const i of inv) { const k = String(i.bill_date).slice(0, 7); const r = row(k); if (i.kind === "sale") { r.out_taxable += Number(i.taxable); r.output += Number(i.total_tax); } else { r.in_taxable += Number(i.taxable); r.input += Number(i.total_tax); } m.set(k, r); }
-        for (const x of rets) { const k = String(x.return_date).slice(0, 7); const r = row(k); r.ret_tax += Number(x.total_tax); m.set(k, r); }
-        const rows = [...m.values()].map((r) => ({ ...r, net: r.output - r.ret_tax - r.input })).sort((a, b) => b.month.localeCompare(a.month));
+        const rows = gstReport(inv, rets);
         return { cols: [{ key: "month", label: "Month" }, { key: "out_taxable", label: "Sales Taxable", money: true }, { key: "output", label: "Output GST", money: true }, { key: "ret_tax", label: "Returns GST", money: true }, { key: "in_taxable", label: "Purchase Taxable", money: true }, { key: "input", label: "Input GST", money: true }, { key: "net", label: "Net Payable", money: true }], rows, totals: sum(rows, ["out_taxable", "output", "ret_tax", "in_taxable", "input", "net"]) };
       }
       case "pl": {
@@ -173,6 +170,7 @@ function ReportsInner() {
         </div>
       )}
 
+      {error && <p role="alert" className="text-sm text-destructive">Reports could not be loaded. Your saved records have not been changed.</p>}
       <Input className="print:hidden" aria-label="Search report" placeholder="Search this report" value={search} onChange={e => setSearch(e.target.value)} />
       <div className="overflow-hidden rounded-2xl border border-border/70 bg-card/90 shadow-sm">
         <div className="border-b border-border px-4 py-3 font-semibold">{TABS.find((t) => t[0] === tab)?.[1]} report {dated && <span className="text-sm font-normal text-muted-foreground">· {from} to {to}</span>}</div>

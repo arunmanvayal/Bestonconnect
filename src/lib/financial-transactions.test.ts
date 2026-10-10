@@ -5,7 +5,8 @@ import { SETUP_SQL, INVOICE_SQL, COMPANY_SQL, IMPORT_SQL } from './schema-sql';
 import { INVOICE_ENTRY_SQL } from './invoice-entry-sql';
 import { MASTERS_SQL } from './masters-sql';
 import { FINANCIAL_TRANSACTIONS_SQL } from './financial-transactions-sql';
-import { totals, postInvoice, type Header, type Line } from './books';
+import { gstReport } from "./financial-reports";
+import { totals, postInvoice, fetchOutstanding, type Header, type Line } from './books';
 import type { SupabaseClient } from '@supabase/supabase-js';
 const user='10000000-0000-0000-0000-000000000001';
 const company='20000000-0000-0000-0000-000000000001';
@@ -87,8 +88,31 @@ describe('real PostgreSQL financial matrix',()=>{
    assert.equal(await n(db,`select sum(j.debit-j.credit) v from journal_lines j join accounts a on a.id=j.account_id where a.code='1100'`),-150,'receipts then full credit return leave customer advance');
    const netReport=await n(db,`select (select sum(total_tax) from invoices where kind='sale')-(select sum(total_tax) from sales_returns)-(select sum(total_tax) from invoices where kind='purchase') v`);
    const netLedger=await n(db,`select sum(case when a.code='2100' then j.credit-j.debit else j.credit-j.debit end) v from journal_lines j join accounts a on a.id=j.account_id where a.code in ('2100','1200')`);
+   const invoiceRows=(await db.query<any>('select * from invoices')).rows;
+   const returnRows=(await db.query<any>('select * from sales_returns')).rows;
+   const report = gstReport(invoiceRows, returnRows);
+   assert.equal(report.length,1);assert.equal(report[0]?.net,netLedger,'actual reports calculator reconciles with journal');
+   const readAdapter={from(table:string){const q={select(){return q;},order(){return q;},range(){return q;},then(resolve:any,reject:any){return db.query<any>('select * from '+table).then(r=>resolve({data:r.rows,error:null}),reject);}};return q;}} as unknown as SupabaseClient;
+   const outstanding=await fetchOutstanding(readAdapter);
+   assert.equal(outstanding.rows.filter(r=>r.side==='supplier').reduce((sum,r)=>sum+r.balance,0),0);
+   assert.equal(outstanding.rows.filter(r=>r.side==='customer').reduce((sum,r)=>sum+r.balance,0),-150);
    assert.equal(netReport,netLedger,'GST report reconciles with input/output tax ledger');
    assert.equal(await n(db,`select sum(total_tax) v from invoices where kind='purchase'`),144);
+  }finally{await db.close();}
+ });
+ it('multi-item fractional tax, freebies, extras and partial returns reconcile exactly to the rounded bill',async()=>{
+  const db=await database();try{
+   const h={...header,bill_no:'FRACTIONAL',bill_discount:0.03,other_exp:0.11,freight:0.13,cash_disc:0.07};
+   const lines=[{...line,quantity:3,free_qty:1,rate:0.37,gst_rate:18},{...line,quantity:3,free_qty:0,rate:0.41,gst_rate:5},{...line,quantity:3,rate:0.29,gst_rate:12}];
+   const expected=totals(lines,h);const id=await rpc(db,'post_financial_invoice',['sale',h,lines,crypto.randomUUID(),null]);
+   const inv=(await db.query<any>('select * from invoices where id=$1',[id])).rows[0];
+   assert.equal(Number(inv.total_tax),expected.total_tax);assert.equal(Number(inv.net_total),expected.net_total);
+   assert.equal(Number(inv.cgst)+Number(inv.sgst),Number(inv.total_tax));
+   const items=(await db.query<any>('select * from invoice_items where invoice_id=$1 order by id',[id])).rows;
+   let total=0;
+   for(let part=1;part<=3;part++)total+=Number(await rpc(db,'post_financial_return',[{invoice_id:id,return_no:'FRACTION-'+part,return_date:'2026-10-10',refund_mode:'cash',lines:items.map((i:any)=>({invoice_item_id:i.id,qty:1}))},crypto.randomUUID()]));
+   assert.equal(total,expected.net_total);assert.equal(await n(db,`select quantity v from products where id='${product}'`),100);
+   assert.equal(await n(db,`select sum(total_tax) v from sales_returns where invoice_id='${id}'`),expected.total_tax);
   }finally{await db.close();}
  });
  it('late failures roll back every financial table for invoice, payment, return, stock and journal',async()=>{
