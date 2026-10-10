@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { Users, Wallet, Package, AlertTriangle, ArrowRight, ShoppingCart, Truck, TrendingUp, ArrowUpRight } from "lucide-react";
+import { fetchSearchRecords } from "@/lib/search-data";
 import { fetchBalances } from "@/lib/books";
 import { AppLayout } from "@/components/AppLayout";
 import { SupabaseGate, money } from "@/components/SupabaseGate";
@@ -42,13 +43,13 @@ function DashboardInner() {
       const [customers, accounts, products, entries, invoices] = await Promise.all([
         supabase.from("customers").select("id", { count: "exact", head: true }),
         fetchBalances(supabase).then((d) => ({ data: d, error: null })).catch((e) => ({ data: [] as any[], error: e })),
-        supabase.from("products").select("id, name, quantity, reorder_level"),
+        fetchSearchRecords(supabase,"products","name").then(data=>({data,error:null})),
         supabase
           .from("journal_entries")
           .select("id, entry_date, description, journal_lines(debit, credit)")
           .order("entry_date", { ascending: false })
           .limit(5),
-        supabase.from("invoices").select("kind, net_total, bill_date, payment_mode"),
+        fetchSearchRecords(supabase,"invoices","bill_date").then(data=>({data,error:null})),
       ]);
       return {
         customerCount: customers.count ?? 0,
@@ -56,7 +57,7 @@ function DashboardInner() {
         products: products.data ?? [],
         recentEntries: entries.data ?? [],
         invoices: (invoices.data ?? []) as any[],
-        error: customers.error ?? accounts.error ?? products.error ?? entries.error,
+        error: customers.error ?? accounts.error ?? products.error ?? entries.error ?? invoices.error,
       };
     },
   });
@@ -84,7 +85,7 @@ function DashboardInner() {
   const byCode = (c: string) => Number(accounts.find((a: any) => a.code === c)?.balance ?? 0);
   const inv = data?.invoices ?? [];
   const month = new Date().toISOString().slice(0, 7);
-  const sumKind = (k: string, m?: boolean) => inv.filter((i) => i.kind === k && (!m || String(i.bill_date).startsWith(month))).reduce((s, i) => s + Number(i.net_total), 0);
+  const sumKind = (k: string, m?: boolean) => inv.filter((i) => i.kind === k && (!m || String(i.bill_date).startsWith(month))).reduce((s, i) => s + Number(i.taxable), 0);
 
   const stats = [
     { label: "Customers", value: String(data?.customerCount ?? 0), icon: Users, to: "/admin/customers" },

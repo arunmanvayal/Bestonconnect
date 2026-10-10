@@ -1,4 +1,4 @@
-import { gstReport } from "@/lib/financial-reports";
+import { gstReport, gstDetails } from "@/lib/financial-reports";
 import { fetchAll } from "@/lib/data-transfer";
 import { fetchSearchRecords } from "@/lib/search-data";
 import { matchesSearch } from "@/lib/search";
@@ -36,7 +36,7 @@ export const Route = createFileRoute("/admin/reports")({
 const TABS = [
   ["sales", "Sales"], ["purchase", "Purchase"], ["returns", "Sales Returns"], ["stock", "Stock"],
   ["customers", "Customers"], ["vendors", "Vendors"], ["debtors", "Debtors"], ["creditors", "Creditors"],
-  ["expenses", "Expenses"], ["gst", "GST"], ["pl", "Profit & Loss"],
+  ["expenses", "Expenses"], ["gst", "GST"], ["gst-detail", "GST Details"], ["hsn", "HSN"], ["pl", "Profit & Loss"],
 ] as const;
 type Tab = (typeof TABS)[number][0];
 type Col = { key: string; label: string; money?: boolean; num?: boolean };
@@ -54,15 +54,18 @@ function ReportsInner() {
   const { data, isLoading, error } = useQuery({
     queryKey: ["reports"],
     queryFn: async () => {
-      const [inv, rets, prods, parties, balances, outstanding] = await Promise.all([
+      const [inv, rets, prods, parties, balances, outstanding, items, journalLines, journalEntries] = await Promise.all([
         fetchSearchRecords(sb, "invoices", "bill_date").then(data => ({ data })),
         fetchSearchRecords(sb, "sales_returns", "return_date").then(data => ({ data })),
         fetchAll(sb, "products").then((data) => ({ data, error: null })),
         fetchSearchRecords(sb, "customers", "name").then(data => ({ data })),
         fetchBalances(sb),
         fetchOutstanding(sb),
+        fetchSearchRecords(sb,"invoice_items","id"),
+        fetchSearchRecords(sb,"journal_lines","id"),
+        fetchSearchRecords(sb,"journal_entries","entry_date"),
       ]);
-      return { inv: (inv.data ?? []) as any[], rets: (rets.data ?? []) as any[], prods: (prods.data ?? []) as any[], parties: (parties.data ?? []) as any[], balances, outstanding };
+      return { inv: (inv.data ?? []) as any[], rets: (rets.data ?? []) as any[], prods: (prods.data ?? []) as any[], parties: (parties.data ?? []) as any[], balances, outstanding, items, journalLines, journalEntries };
     },
   });
 
@@ -77,8 +80,8 @@ function ReportsInner() {
     const byParty = (list: any[]) => {
       const m = new Map<string, any>();
       for (const i of list) {
-        const k = i.party_name || "Walk-in";
-        const r = m.get(k) ?? { party: k, bills: 0, taxable: 0, total_tax: 0, net_total: 0, credit: 0 };
+        const k = i.party_id || i.party_name || "Walk-in";
+        const r = m.get(k) ?? { party: i.party_name || "Walk-in", bills: 0, taxable: 0, total_tax: 0, net_total: 0, credit: 0 };
         r.bills++; r.taxable += Number(i.taxable); r.total_tax += Number(i.total_tax); r.net_total += Number(i.net_total);
         if (i.payment_mode === "credit") r.credit += Number(i.net_total);
         m.set(k, r);
@@ -117,15 +120,25 @@ function ReportsInner() {
         const rows = gstReport(inv, rets);
         return { cols: [{ key: "month", label: "Month" }, { key: "out_taxable", label: "Sales Taxable", money: true }, { key: "output", label: "Output GST", money: true }, { key: "ret_tax", label: "Returns GST", money: true }, { key: "in_taxable", label: "Purchase Taxable", money: true }, { key: "input", label: "Input GST", money: true }, { key: "net", label: "Net Payable", money: true }], rows, totals: sum(rows, ["out_taxable", "output", "ret_tax", "in_taxable", "input", "net"]) };
       }
+      case "gst-detail": {
+        const rows=gstDetails(inv,data.items,rets).bills;
+        return { cols:[{key:"bill_date",label:"Date"},{key:"bill_no",label:"Bill / credit note"},{key:"party_name",label:"Party"},{key:"gstin",label:"GSTIN"},{key:"classification",label:"Type"},{key:"taxable",label:"Taxable",money:true},{key:"cgst",label:"CGST",money:true},{key:"sgst",label:"SGST",money:true},{key:"igst",label:"IGST",money:true},{key:"total_tax",label:"GST",money:true},{key:"kfc",label:"KFC",money:true},{key:"net_total",label:"Total",money:true}],rows,totals:sum(rows,["taxable","total_tax","kfc","net_total"]) };
+      }
+      case "hsn": {
+        const rows=gstDetails(inv,data.items,[]).hsn;
+        return {cols:[{key:"hsn",label:"HSN"},{key:"kind",label:"Sale / Purchase"},{key:"rate",label:"Rate",num:true},{key:"quantity",label:"Quantity",num:true},{key:"taxable",label:"Taxable",money:true},{key:"cgst",label:"CGST",money:true},{key:"sgst",label:"SGST",money:true},{key:"igst",label:"IGST",money:true},{key:"total_tax",label:"Tax",money:true}],rows,totals:sum(rows,["taxable","cgst","sgst","igst","total_tax"])};
+      }
       case "pl": {
         const s = sales.reduce((a, i) => a + Number(i.taxable), 0);
         const r = rets.reduce((a, i) => a + Number(i.taxable), 0);
         const p = purch.reduce((a, i) => a + Number(i.taxable), 0);
-        const exp = data.balances.filter((a: any) => a.type === "expense" && a.code !== "5000").reduce((a: number, x: any) => a + x.balance, 0);
+        const periodEntries = new Set(data.journalEntries.filter(e=>inRange(String(e.entry_date))).map(e=>e.id));
+        const expenseAccounts = new Set(data.balances.filter(a=>a.type === "expense" && a.code !== "5000").map(a=>a.id));
+        const exp = data.journalLines.filter(l=>periodEntries.has(l.entry_id) && expenseAccounts.has(l.account_id)).reduce((sum,l)=>sum+Number(l.debit)-Number(l.credit),0);
         const rows = [
           { item: "Sales (taxable)", amount: s }, { item: "Less: Sales returns", amount: -r }, { item: "Net sales", amount: s - r },
           { item: "Less: Purchases (taxable)", amount: -p }, { item: "Gross profit", amount: s - r - p },
-          { item: "Less: Other expenses (all time)", amount: -exp }, { item: "Net profit (approx.)", amount: s - r - p - exp },
+          { item: "Less: Other expenses (selected period)", amount: -exp }, { item: "Net profit (approx.)", amount: s - r - p - exp },
         ];
         return { cols: [{ key: "item", label: "Particulars" }, { key: "amount", label: "Amount", money: true }], rows };
       }
