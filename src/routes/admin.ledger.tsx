@@ -6,6 +6,7 @@ import { AppLayout } from "@/components/AppLayout";
 import { SupabaseGate, money } from "@/components/SupabaseGate";
 import { useSupabase } from "@/lib/supabase";
 import { matchesSearch } from "@/lib/search";
+import { toast } from "sonner";
 import { postJournal } from "@/lib/books";
 import { fetchSearchRecords } from "@/lib/search-data";
 import { Button } from "@/components/ui/button";
@@ -58,7 +59,7 @@ function LedgerInner() {
   const [lines, setLines] = useState<Line[]>([{ ...EMPTY_LINE }, { ...EMPTY_LINE }]);
 
   const { data: accounts = [] } = useQuery({
-    queryKey: ["accounts"],
+    queryKey: ["account-master-records"],
     queryFn: async () => {
       return fetchSearchRecords(supabase, "accounts", "code");
     },
@@ -101,6 +102,7 @@ function LedgerInner() {
       if (error) throw error;
     },
     onSuccess: () => qc.invalidateQueries(),
+    onError: (error: any) => toast.error(error.message || "Linked entry cannot be deleted"),
   });
 
   const setLine = (i: number, patch: Partial<Line>) =>

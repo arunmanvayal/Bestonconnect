@@ -5,8 +5,11 @@ import { SETUP_SQL, INVOICE_SQL, COMPANY_SQL, IMPORT_SQL } from './schema-sql';
 import { INVOICE_ENTRY_SQL } from './invoice-entry-sql';
 import { MASTERS_SQL } from './masters-sql';
 import { FINANCIAL_TRANSACTIONS_SQL } from './financial-transactions-sql';
+import { FINANCIAL_IMPORT_SQL } from "./financial-import-sql";
+import { spreadsheetRecord } from "./data-transfer";
+import { returnAllocation, returnLineTotals, savedItemPresentation } from "./invoice-calculations";
 import { gstReport } from "./financial-reports";
-import { totals, postInvoice, fetchOutstanding, type Header, type Line } from './books';
+import { totals, postInvoice, fetchOutstanding, fetchBalances, type Header, type Line } from './books';
 import type { SupabaseClient } from '@supabase/supabase-js';
 const user='10000000-0000-0000-0000-000000000001';
 const company='20000000-0000-0000-0000-000000000001';
@@ -22,7 +25,7 @@ async function database(){
  create function auth.uid() returns uuid language sql stable as $$ select nullif(current_setting('test.user',true),'')::uuid $$;
  grant usage on schema auth to authenticated; grant execute on function auth.uid() to authenticated;
  insert into auth.users values('${user}'); select set_config('test.user','${user}',false);`);
- await db.exec(SETUP_SQL+INVOICE_SQL+COMPANY_SQL+IMPORT_SQL+INVOICE_ENTRY_SQL+MASTERS_SQL+FINANCIAL_TRANSACTIONS_SQL);
+ await db.exec(SETUP_SQL+INVOICE_SQL+COMPANY_SQL+IMPORT_SQL+INVOICE_ENTRY_SQL+MASTERS_SQL+FINANCIAL_TRANSACTIONS_SQL+FINANCIAL_IMPORT_SQL);
  await db.exec(`insert into companies(id,owner_id,name) values('${company}','${user}','Audit company');
  insert into user_settings(user_id,active_company_id) values('${user}','${company}');
  insert into products(id,name,unit,sku,barcode,quantity,cost_price,unit_price,gst_rate) values('${product}','Audit product','pcs','AUDIT','AUDIT',100,100,100,18);
@@ -113,6 +116,44 @@ describe('real PostgreSQL financial matrix',()=>{
    for(let part=1;part<=3;part++)total+=Number(await rpc(db,'post_financial_return',[{invoice_id:id,return_no:'FRACTION-'+part,return_date:'2026-10-10',refund_mode:'cash',lines:items.map((i:any)=>({invoice_item_id:i.id,qty:1}))},crypto.randomUUID()]));
    assert.equal(total,expected.net_total);assert.equal(await n(db,`select quantity v from products where id='${product}'`),100);
    assert.equal(await n(db,`select sum(total_tax) v from sales_returns where invoice_id='${id}'`),expected.total_tax);
+  }finally{await db.close();}
+ });
+ it('purchase edits, alternate units, print snapshots, opening balances and protected history',async()=>{
+  const db=await database();try{
+   await db.exec(`update products set alt_unit='box',conv_factor=10,hsn='8544' where id='${product}';update customers set opening_balance=100,gstin='32TEST' where id='${customer}';update customers set opening_balance=70 where id='${supplier}';update companies set terms='Saved terms' where id='${company}';`);
+   const h={...header,bill_no:'ALT',party_id:customer,entry_details:{kfc_amount:'5'}};
+   const alt={...line,unit:'box',unit_factor:10,quantity:2,rate:1000};
+   const id=await rpc(db,'post_financial_invoice',['sale',h,[alt],crypto.randomUUID(),null]);
+   assert.equal(await n(db,`select quantity v from products where id='${product}'`),80);
+   const inv=(await db.query<any>('select * from invoices where id=$1',[id])).rows[0];
+   assert.equal(Number(inv.net_total),2365);assert.equal(inv.entry_details.party_gstin,'32TEST');assert.equal(inv.entry_details.company.terms,'Saved terms');
+   const item=(await db.query<any>('select * from invoice_items where invoice_id=$1',[id])).rows[0];assert.equal(item.entry_details.hsn,'8544');
+   await db.exec(`update products set hsn='NEW' where id='${product}';update customers set gstin='NEW' where id='${customer}';`);
+   assert.equal(savedItemPresentation(item,inv).amount,2360);
+   for(const table of ['customers','accounts','journal_lines']){
+    const sql=table==='customers'?`delete from customers where id='${customer}'`:table==='accounts'?`delete from accounts where code='1100'`:`delete from journal_lines where entry_id='${inv.journal_entry_id}'`;
+    await assert.rejects(db.exec(sql),/linked business history/);
+   }
+   const alloc=returnAllocation([item],inv);assert.equal(returnLineTotals({sold:2,returned:0,qty:1,allocation:alloc.get(item.id) || 0,taxableTotal:Number(item.taxable),taxTotal:Number(item.tax)}).amount,1182.5);
+   await rpc(db,'post_financial_return',[{invoice_id:id,return_no:'ALT-RETURN',return_date:'2026-10-10',refund_mode:'cash',lines:[{invoice_item_id:item.id,qty:1}]},crypto.randomUUID()]);
+   assert.equal(await n(db,`select quantity v from products where id='${product}'`),90);
+   const purchase=await rpc(db,'post_financial_invoice',['purchase',{...header,bill_no:'EDIT-P',party_name:'Supplier'},[line],crypto.randomUUID(),null]);
+   await rpc(db,'post_financial_invoice',['purchase',{...header,bill_no:'EDIT-P',party_name:'Supplier'},[{...line,quantity:3}],crypto.randomUUID(),purchase]);
+   assert.equal(await n(db,`select quantity v from products where id='${product}'`),93);
+   const adapter={from(table:string){const q={select(){return q;},order(){return q;},range(){return q;},then(resolve:any,reject:any){return db.query<any>('select * from '+table).then(r=>resolve({data:r.rows,error:null}),reject);}};return q;}} as unknown as SupabaseClient;
+   const balances=await fetchBalances(adapter);assert.equal(balances.find(a=>a.code==='1100')?.opening_balance,100);
+   const outstanding=await fetchOutstanding(adapter);assert.equal(outstanding.rows.find(r=>r.party_id===customer)?.balance,100);assert.equal(outstanding.rows.find(r=>r.party_id===supplier)?.balance,70);
+  }finally{await db.close();}
+ });
+ it('Excel stock and tax changes commit with movements and roll back the whole sheet on errors',async()=>{
+  const db=await database();try{
+   const rec=spreadsheetRecord('products',{'Item Code':'AUDIT','Item Name':'Audit product','Barcode':'AUDIT','Unit':'pcs','Quantity':125,'CGST %':5,'SGST %':7,'IGST %':18});
+   const result=await rpc(db,'import_business_rows',['products',[rec],true,crypto.randomUUID()]);assert.equal(result.updated,1);
+   assert.equal(await n(db,`select quantity v from products where id='${product}'`),125);assert.equal(await n(db,`select igst_rate v from products where id='${product}'`),18);
+   assert.equal(await n(db,`select sum(quantity) v from stock_movements where product_id='${product}'`),25);
+   const before=await snapshot(db);await assert.rejects(rpc(db,'import_business_rows',['products',[{...rec,quantity:130},{...rec,sku:'BAD',barcode:'BAD',quantity:-1}],true,crypto.randomUUID()]),/Invalid/);assert.deepEqual(await snapshot(db),before);
+   const ledger=spreadsheetRecord('ledgers',{'Ledger Code':'8000','Ledger Name':'Expenses','Group':'expense','Opening Balance':150});
+   await rpc(db,'import_business_rows',['ledgers',[ledger],true,crypto.randomUUID()]);assert.equal(await n(db,`select opening_balance v from accounts where code='8000'`),150);
   }finally{await db.close();}
  });
  it('late failures roll back every financial table for invoice, payment, return, stock and journal',async()=>{

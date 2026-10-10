@@ -5,6 +5,7 @@ import { ArrowLeft, Printer } from "lucide-react";
 import { SupabaseGate, money } from "@/components/SupabaseGate";
 import { useSupabase } from "@/lib/supabase";
 import { amountInWords, useActiveCompany } from "@/lib/company";
+import { savedItemPresentation } from "@/lib/invoice-calculations";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/admin/invoice/$id")({
@@ -32,7 +33,7 @@ function PrintInvoice() {
   const { id } = Route.useParams();
   const { print } = Route.useSearch();
   const sb = useSupabase();
-  const { data: company } = useActiveCompany();
+  const { data: activeCompany } = useActiveCompany();
   const { data, isLoading } = useQuery({
     queryKey: ["invoice-print", id],
     enabled: !!sb,
@@ -40,18 +41,21 @@ function PrintInvoice() {
       if (!sb) throw new Error("Database is not connected");
       const { data: inv, error } = await sb.from("invoices").select("*").eq("id", id).single();
       if (error) throw error;
-      const [{ data: items }, party] = await Promise.all([
+      const [{ data: items, error: itemsError }, party] = await Promise.all([
         sb.from("invoice_items").select("*").eq("invoice_id", id),
         inv.party_id ? sb.from("customers").select("gstin, email, address").eq("id", inv.party_id).maybeSingle() : Promise.resolve({ data: null }),
       ]);
+      if (itemsError) throw itemsError;
+      if ("error" in party && party.error) throw party.error;
       const pids = (items ?? []).map((i: any) => i.product_id).filter(Boolean);
       const { data: prods } = pids.length ? await sb.from("products").select("id, hsn").in("id", pids) : { data: [] as any[] };
       const hsn: Record<string, string> = {};
       (prods ?? []).forEach((p: any) => { hsn[p.id] = p.hsn ?? ""; });
-      return { inv, items: (items ?? []).map((i: any) => ({ ...i, hsn: hsn[i.product_id] ?? "" })), party: party.data as any };
+      return { inv, items: (items ?? []).map((i: any) => ({ ...i, hsn: i.entry_details?.hsn ?? hsn[i.product_id] ?? "" })), party: party.data as any };
     },
   });
 
+  const company = data?.inv.entry_details?.company ?? activeCompany;
   useEffect(() => {
     if (print && data && company) { const t = setTimeout(() => window.print(), 400); return () => clearTimeout(t); }
     return undefined;
@@ -68,7 +72,8 @@ function PrintInvoice() {
   const date = new Date(inv.bill_date).toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" }).replace(/ /g, "-");
   const B = "border-foreground";
   const td = `border-x ${B} px-1 py-[3px] align-top`;
-  const cols = ["No", "Name of Product / Service", "HSN Code", "Qty", "Rate", "Gross Amt.", "Disc %", "Taxable Value", "CGST %", "CGST Amt", "SGST %", "SGST Amt", "Total"];
+  const interState = inv.tax_type === "igst";
+  const cols = ["No", "Name of Product / Service", "HSN Code", "Qty", "Rate", "Gross Amt.", "Disc %", "Taxable Value", interState ? "IGST %" : "CGST %", interState ? "IGST Amt" : "CGST Amt", "SGST %", "SGST Amt", "Total"];
   const widths = ["4%", "22%", "10%", "5%", "7%", "7.5%", "5%", "7.5%", "5%", "6.5%", "5%", "6.5%", "9%"];
 
   return (
@@ -115,9 +120,9 @@ function PrintInvoice() {
             <p className={`border-b ${B} py-1 text-center text-[11px]`}>Details of Consignee | Shipped to:</p>
             <div className={`min-h-[22mm] space-y-1 border-r ${B} p-1.5 font-semibold`}>
               <p className="text-[11px]">{isSale ? "Customer" : "Supplier"}: {String(inv.party_name || "Cash").toUpperCase()}</p>
-              {(inv.billing_address || party?.address) && <p className="whitespace-pre-line font-normal">{inv.billing_address || party?.address}</p>}
+              {(inv.billing_address || inv.entry_details?.party_address || party?.address) && <p className="whitespace-pre-line font-normal">{inv.billing_address || inv.entry_details?.party_address || party?.address}</p>}
               <p>Ph: {inv.contact}</p>
-              <p>GSTIN : {party?.gstin}</p>
+              <p>GSTIN : {inv.entry_details?.party_gstin ?? party?.gstin}</p>
             </div>
             <div className="p-1.5 whitespace-pre-line">{inv.shipping_address}</div>
           </div>
@@ -130,11 +135,11 @@ function PrintInvoice() {
             </thead>
             <tbody className="font-semibold">
               {items.map((it: any, i: number) => {
-                const half = Number(inv.igst) > 0 ? 0 : Number(it.tax) / 2;
-                const rate = Number(it.gst_rate) / 2;
-                const disc = Number(it.discount || 0);
-                const gross = Number(it.taxable) + disc;
-                const discPct = gross ? Math.round((disc / gross) * 1000) / 10 : 0;
+                const calc = savedItemPresentation(it, inv);
+                const half = calc.cgst;
+                const rate = calc.rate / 2;
+                const gross = calc.gross;
+                const discPct = calc.discountPercent;
                 return (
                   <tr key={it.id}>
                     <td className={`${td} text-center`}>{i + 1}</td>
@@ -145,10 +150,10 @@ function PrintInvoice() {
                     <td className={`${td} text-right`}>{fmt(gross)}</td>
                     <td className={`${td} text-center`}>{discPct}</td>
                     <td className={`${td} text-right`}>{fmt(it.taxable)}</td>
-                    <td className={td}>{rate.toFixed(1)}</td>
-                    <td className={`${td} text-right`}>{fmt(half)}</td>
-                    <td className={td}>{rate.toFixed(1)}</td>
-                    <td className={`${td} text-right`}>{fmt(half)}</td>
+                    <td className={td}>{(interState ? calc.rate : rate).toFixed(1)}</td>
+                    <td className={`${td} text-right`}>{fmt(interState ? calc.igst : half)}</td>
+                    <td className={td}>{(interState ? 0 : rate).toFixed(1)}</td>
+                    <td className={`${td} text-right`}>{fmt(calc.sgst)}</td>
                     <td className={`${td} text-right`}>{fmt(it.amount)}</td>
                   </tr>
                 );
@@ -166,6 +171,11 @@ function PrintInvoice() {
           </table>
 
           {/* Footer */}
+          <div className="flex flex-wrap justify-end gap-x-3 px-2 pt-1 text-[9px]">
+            <span>Taxable: {fmt(inv.taxable)}</span><span>CGST: {fmt(inv.cgst)}</span><span>SGST: {fmt(inv.sgst)}</span><span>IGST: {fmt(inv.igst)}</span>
+            {Number(inv.other_exp)>0 && <span>Other expenses: {fmt(inv.other_exp)}</span>}{Number(inv.freight)>0 && <span>Freight: {fmt(inv.freight)}</span>}{Number(inv.cash_disc)>0 && <span>Cash discount: −{fmt(inv.cash_disc)}</span>}{Number(inv.entry_details?.kfc_amount)>0 && <span>KFC: {fmt(Number(inv.entry_details.kfc_amount))}</span>}
+          </div>
+          {company.terms && <p className="whitespace-pre-line px-2 pt-1 text-[9px]">{company.terms}</p>}
           <div className="grid grid-cols-[minmax(0,1fr)_auto] items-end gap-4 px-2 pt-2">
             <p className="text-[12px]">{amountInWords(inv.net_total)}</p>
             <p className="flex items-baseline gap-10"><span className="text-[12px]">Round Off :{fmt(inv.round_off)}</span><span className="text-[17px] font-semibold">Bill Amount : {fmt(inv.net_total)}</span></p>

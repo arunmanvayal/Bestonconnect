@@ -46,7 +46,7 @@ declare l jsonb; calc jsonb := '[]'; gross numeric:=0; disc numeric:=0; base num
 begin
  if _header->>'tax_type' is null or _header->>'tax_type' not in ('gst','igst','none') or _header->>'payment_mode' is null or _header->>'payment_mode' not in ('cash','credit','bank','upi') then raise exception 'Invalid tax or payment mode'; end if;
  if jsonb_typeof(_lines) <> 'array' or jsonb_array_length(_lines)=0 then raise exception 'Add at least one item with quantity'; end if;
- if bd < 0 or coalesce((_header->>'other_exp')::numeric,0)<0 or coalesce((_header->>'freight')::numeric,0)<0 or coalesce((_header->>'cash_disc')::numeric,0)<0 then raise exception 'Amounts cannot be negative'; end if;
+ if bd < 0 or coalesce((_header->>'other_exp')::numeric,0)<0 or coalesce((_header->>'freight')::numeric,0)<0 or coalesce((_header->>'cash_disc')::numeric,0)<0 or coalesce(nullif(_header->'entry_details'->>'kfc_amount','')::numeric,0)<0 then raise exception 'Amounts cannot be negative'; end if;
  for l in select value from jsonb_array_elements(_lines) loop
   qty:=(l->>'quantity')::numeric; price:=(l->>'rate')::numeric; d:=coalesce((l->>'discount')::numeric,0); g:=coalesce((l->>'gst_rate')::numeric,0);
   if qty is null or qty<=0 or price is null or price<0 or d<0 or d>qty*price or g<0 or g>100 or coalesce((l->>'free_qty')::numeric,0)<0 or nullif(trim(l->>'item_name'),'') is null then raise exception 'Invalid item quantity or amount'; end if;
@@ -60,7 +60,7 @@ begin
   taxable:=taxable+b; tax:=tax+t;
   calc:=calc || jsonb_build_array(l || jsonb_build_object('taxable',b,'tax',t,'amount',b+t));
  end loop;
- before_round:=taxable+tax+coalesce((_header->>'other_exp')::numeric,0)+coalesce((_header->>'freight')::numeric,0)-coalesce((_header->>'cash_disc')::numeric,0);
+ before_round:=taxable+tax+coalesce((_header->>'other_exp')::numeric,0)+coalesce((_header->>'freight')::numeric,0)+coalesce(nullif(_header->'entry_details'->>'kfc_amount','')::numeric,0)-coalesce((_header->>'cash_disc')::numeric,0);
  net:=round(before_round);
  if net<0 then raise exception 'Bill amount cannot be negative'; end if;
  return jsonb_build_object('lines',calc,'gross',round(gross,2),'discount',round(disc+bd,2),'taxable',taxable,'total_tax',tax,
@@ -81,11 +81,12 @@ begin
  if nullif(bill,'') is null then raise exception 'Enter a bill number'; end if;
  if _header->>'payment_mode'='credit' and nullif(trim(_header->>'party_name'),'') is null then raise exception 'Select a party for a credit bill'; end if;
  if exists(select 1 from invoices where company_id=cid and kind=_kind and lower(trim(bill_no))=lower(bill) and (_invoice_id is null or id<>_invoice_id)) then raise exception 'Bill number already exists'; end if;
+ perform set_config('businessdesk.financial_write',cid::text,true);
  if _invoice_id is not null then
   select * into inv from invoices where id=_invoice_id and company_id=cid and kind=_kind for update;
   if not found then raise exception 'Bill not found in this company'; end if;
   if exists(select 1 from sales_returns where invoice_id=inv.id) then raise exception 'Bills with sales returns cannot be edited'; end if;
-  if _kind<>'sale' then raise exception 'Only sales bill updates are supported'; end if;
+
  end if;
  c:=financial_invoice_totals(_header,_lines); net:=(c->>'net_total')::numeric; tax:=(c->>'total_tax')::numeric;
  -- Resolve every product before any stock changes; any later failure rolls everything back.
@@ -101,11 +102,16 @@ begin
   end if;
   select * into p from products where id=pid and company_id=cid for update;
   if not found or p.deactivated then raise exception 'Product not available in this company'; end if;
-  _lines:=_lines || jsonb_build_array(l || jsonb_build_object('product_id',pid));
+  if coalesce((l->>'unit_factor')::numeric,1)<=0 then raise exception 'Invalid unit conversion'; end if;
+  if l->>'unit'=p.unit then l:=l || jsonb_build_object('unit_factor',1);
+  elsif l->>'unit'=p.alt_unit and nullif(p.alt_unit,'') is not null then
+   if _invoice_id is null then l:=l || jsonb_build_object('unit_factor',p.conv_factor); end if;
+  else raise exception 'Select the main or alternate product unit'; end if;
+  _lines:=_lines || jsonb_build_array(l || jsonb_build_object('product_id',pid,'hsn',p.hsn,'main_unit',p.unit,'alt_unit',p.alt_unit,'conv_factor',p.conv_factor));
  end loop;
  for delta in select product_id,sum(old_qty)-sum(new_qty) change from (
-  select product_id,quantity+coalesce(free_qty,0) old_qty,0::numeric new_qty from invoice_items where invoice_id=_invoice_id
-  union all select (value->>'product_id')::uuid,0::numeric,(value->>'quantity')::numeric+coalesce((value->>'free_qty')::numeric,0) from jsonb_array_elements(_lines)
+  select product_id,(quantity+coalesce(free_qty,0))*coalesce((entry_details->>'unit_factor')::numeric,1) old_qty,0::numeric new_qty from invoice_items where invoice_id=_invoice_id
+  union all select (value->>'product_id')::uuid,0::numeric,((value->>'quantity')::numeric+coalesce((value->>'free_qty')::numeric,0))*coalesce((value->>'unit_factor')::numeric,1) from jsonb_array_elements(_lines)
  ) x group by product_id order by product_id loop
   select quantity into qty from products where id=delta.product_id and company_id=cid for update;
   qty:=qty+case when _kind='sale' then delta.change else -delta.change end;
@@ -114,7 +120,10 @@ begin
   if delta.change<>0 then insert into stock_movements(company_id,product_id,type,quantity,note)
    values(cid,delta.product_id,case when (_kind='sale' and delta.change>0) or (_kind='purchase' and delta.change<0) then 'in' else 'out' end,abs(delta.change),case when _invoice_id is null then 'Invoice ' else 'Bill update ' end || bill); end if;
  end loop;
- if nullif(trim(_header->>'party_name'),'') is not null then
+ if nullif(_header->>'party_id','') is not null then
+  select id into party from customers where id=(_header->>'party_id')::uuid and company_id=cid and party_type=case when _kind='sale' then 'customer' else 'supplier' end;
+  if party is null then raise exception 'Party not available in this company'; end if;
+ elsif nullif(trim(_header->>'party_name'),'') is not null then
   if (select count(*) from customers where company_id=cid and party_type=case when _kind='sale' then 'customer' else 'supplier' end and lower(trim(name))=lower(trim(_header->>'party_name')))>1 then raise exception 'Duplicate party names. Resolve duplicates before saving'; end if;
   select id into party from customers where company_id=cid and party_type=case when _kind='sale' then 'customer' else 'supplier' end and lower(trim(name))=lower(trim(_header->>'party_name'));
   if party is null then insert into customers(company_id,name,phone,address,party_type) values(cid,trim(_header->>'party_name'),_header->>'contact',_header->>'billing_address',case when _kind='sale' then 'customer' else 'supplier' end) returning id into party; end if;
@@ -135,16 +144,17 @@ begin
  if iid is null then insert into invoices(company_id,kind,bill_no,bill_date) values(cid,_kind,bill,(_header->>'bill_date')::date) returning id into iid; end if;
  update invoices set bill_no=bill,bill_date=(_header->>'bill_date')::date,party_id=party,party_name=coalesce(_header->>'party_name',''),contact=_header->>'contact',payment_mode=_header->>'payment_mode',tax_type=_header->>'tax_type',bill_type=_header->>'bill_type',salesman=_header->>'salesman',ref_no=_header->>'ref_no',
  gross=(c->>'gross')::numeric,discount=(c->>'discount')::numeric,taxable=(c->>'taxable')::numeric,total_tax=tax,cgst=(c->>'cgst')::numeric,sgst=(c->>'sgst')::numeric,igst=(c->>'igst')::numeric,net_total=net,round_off=(c->>'round_off')::numeric,
- other_exp=coalesce((_header->>'other_exp')::numeric,0),freight=coalesce((_header->>'freight')::numeric,0),cash_disc=coalesce((_header->>'cash_disc')::numeric,0),remarks=_header->>'remarks',shipping_address=_header->>'shipping_address',billing_address=_header->>'billing_address',entry_details=coalesce(_header->'entry_details','{}'),journal_entry_id=je where id=iid and company_id=cid;
+ other_exp=coalesce((_header->>'other_exp')::numeric,0),freight=coalesce((_header->>'freight')::numeric,0),cash_disc=coalesce((_header->>'cash_disc')::numeric,0),remarks=_header->>'remarks',shipping_address=_header->>'shipping_address',billing_address=_header->>'billing_address',entry_details=coalesce(_header->'entry_details','{}') || jsonb_build_object('party_gstin',coalesce((select gstin from customers where id=party),''),'party_address',coalesce((select address from customers where id=party),''),'company',coalesce(inv.entry_details->'company',(select to_jsonb(co) from companies co where co.id=cid))),journal_entry_id=je where id=iid and company_id=cid;
  delete from invoice_items where invoice_id=iid and company_id=cid;
  for l in select value from jsonb_array_elements(_lines) loop
   pid:=(l->>'product_id')::uuid;
   insert into invoice_items(company_id,invoice_id,product_id,item_name,unit,quantity,free_qty,rate,discount,gst_rate,taxable,tax,amount,entry_details)
   values(cid,iid,pid,l->>'item_name',l->>'unit',(l->>'quantity')::numeric,coalesce((l->>'free_qty')::numeric,0),(l->>'rate')::numeric,coalesce((l->>'discount')::numeric,0),coalesce((l->>'gst_rate')::numeric,0),(l->>'taxable')::numeric,(l->>'tax')::numeric,(l->>'amount')::numeric,
-   jsonb_build_object('sku',l->>'sku','barcode',l->>'barcode','serial_no',l->>'serial_no','mrp',l->'mrp','sale_price',l->'sale_price','profit_pct',l->'profit_pct'));
-  if _kind='purchase' then update products set cost_price=(l->>'rate')::numeric,unit_price=coalesce((l->>'sale_price')::numeric,unit_price),mrp=coalesce((l->>'mrp')::numeric,mrp),barcode=coalesce(nullif(l->>'barcode',''),barcode),sku=coalesce(nullif(l->>'sku',''),sku) where id=pid and company_id=cid; end if;
+   jsonb_build_object('sku',l->>'sku','barcode',l->>'barcode','serial_no',l->>'serial_no','mrp',l->'mrp','sale_price',l->'sale_price','profit_pct',l->'profit_pct','hsn',l->>'hsn','unit_factor',l->'unit_factor','main_unit',l->>'main_unit','alt_unit',l->>'alt_unit','conv_factor',l->'conv_factor'));
+  if _kind='purchase' then update products set cost_price=(l->>'rate')::numeric/coalesce((l->>'unit_factor')::numeric,1),unit_price=coalesce((l->>'sale_price')::numeric/coalesce((l->>'unit_factor')::numeric,1),unit_price),mrp=coalesce((l->>'mrp')::numeric,mrp),barcode=coalesce(nullif(l->>'barcode',''),barcode),sku=coalesce(nullif(l->>'sku',''),sku) where id=pid and company_id=cid; end if;
  end loop;
  insert into financial_requests(company_id,request_key,operation,payload,result) values(cid,_request_key,'invoice',payload,jsonb_build_object('id',iid));
+ perform set_config('businessdesk.financial_write','',true);
  return iid;
 end $fn$;
 
@@ -193,12 +203,17 @@ begin
   q:=(l->>'qty')::numeric;
   if q is null or q<=0 or prev+q>it.quantity then raise exception 'Return quantity exceeds remaining sold quantity'; end if;
   select coalesce(sum(amount),0) into preceding from invoice_items where invoice_id=inv.id and company_id=cid and id<it.id;
-  allocation:=case when subtotal>0 then round(inv.net_total*(preceding+it.amount)/subtotal,2)-round(inv.net_total*preceding/subtotal,2) else 0 end;
+  if subtotal>0 then allocation:=round(inv.net_total*(preceding+it.amount)/subtotal,2)-round(inv.net_total*preceding/subtotal,2);
+  else
+   select coalesce(sum(quantity),0) into preceding from invoice_items where invoice_id=inv.id and company_id=cid and id<it.id;
+   select sum(quantity) into ratio from invoice_items where invoice_id=inv.id and company_id=cid;
+   allocation:=round(inv.net_total*(preceding+it.quantity)/ratio,2)-round(inv.net_total*preceding/ratio,2);
+  end if;
   -- Cumulative allocation makes partial + final returns equal the rounded bill exactly.
   a:=round(allocation*(prev+q)/it.quantity,2)-round(allocation*prev/it.quantity,2);
   t:=case when inv.tax_type='none' then 0 else round(it.tax*(prev+q)/it.quantity,2)-round(it.tax*prev/it.quantity,2) end;
   free_back:=coalesce(it.free_qty,0)*q/it.quantity;
-  calc:=calc || jsonb_build_array(jsonb_build_object('id',it.id,'product_id',it.product_id,'name',it.item_name,'rate',it.rate,'gst_rate',it.gst_rate,'qty',q,'stock_qty',q+free_back,'amount',a,'tax',t));
+  calc:=calc || jsonb_build_array(jsonb_build_object('id',it.id,'product_id',it.product_id,'name',it.item_name,'rate',it.rate,'gst_rate',it.gst_rate,'qty',q,'stock_qty',(q+free_back)*coalesce((it.entry_details->>'unit_factor')::numeric,1),'amount',a,'tax',t));
   amt:=amt+a; tax:=tax+t;
  end loop;
  ra:=financial_account('4010','Sales Returns','income'); ta:=financial_account('2100','GST Output','liability');
@@ -267,6 +282,35 @@ end $fn$;
 drop trigger if exists guard_linked_journal_delete on journal_entries;
 create trigger guard_linked_journal_delete before delete on journal_entries for each row execute function guard_linked_journal_delete();
 
+
+create or replace function public.guard_financial_records() returns trigger
+language plpgsql security invoker set search_path=public as $fn$
+declare cid uuid:=current_company(); linked boolean:=false;
+begin
+ if tg_table_name='customers' then
+  if tg_op='UPDATE' then
+   if new.company_id is distinct from old.company_id then raise exception 'Party company cannot change'; end if;
+   if new.party_type is not distinct from old.party_type then return new; end if;
+  end if;
+  linked:=coalesce(old.opening_balance,0)<>0 or exists(select 1 from invoices where company_id=cid and (party_id=old.id or (party_id is null and lower(party_name)=lower(old.name)))) or exists(select 1 from payments where company_id=cid and (party_id=old.id or (party_id is null and lower(party_name)=lower(old.name)))) or exists(select 1 from sales_returns where company_id=cid and (party_id=old.id or (party_id is null and lower(party_name)=lower(old.name))));
+ elsif tg_table_name='accounts' then
+  if tg_op='UPDATE' and new.code is not distinct from old.code and new.type is not distinct from old.type and new.company_id is not distinct from old.company_id then return new; end if;
+  linked:=coalesce(old.opening_balance,0)<>0 or old.code in ('1000','1010','1100','1200','2000','2100','4000','5000') or exists(select 1 from journal_lines where account_id=old.id and company_id=cid);
+ elsif tg_table_name='journal_lines' then
+  linked:=exists(select 1 from invoices where journal_entry_id=old.entry_id and company_id=cid) or exists(select 1 from payments where journal_entry_id=old.entry_id and company_id=cid) or exists(select 1 from sales_returns where journal_entry_id=old.entry_id and company_id=cid);
+  if linked and current_setting('businessdesk.financial_write',true)=cid::text then linked:=false; end if;
+ end if;
+ if linked then raise exception 'Record has opening balance or linked business history; it cannot be deleted or reassigned'; end if;
+ if tg_op='DELETE' then return old; else return new; end if;
+end $fn$;
+drop trigger if exists guard_party_history on customers;
+create trigger guard_party_history before delete or update on customers for each row execute function guard_financial_records();
+drop trigger if exists guard_account_history on accounts;
+create trigger guard_account_history before delete or update on accounts for each row execute function guard_financial_records();
+drop trigger if exists guard_journal_line_history on journal_lines;
+create trigger guard_journal_line_history before delete or update on journal_lines for each row execute function guard_financial_records();
+revoke all on function public.guard_financial_records() from public,anon;
+grant execute on function public.guard_financial_records() to authenticated;
 do $do$ declare signature text; begin
  foreach signature in array array[
  'financial_begin(uuid,text,jsonb)','financial_account(text,text,text)','financial_invoice_totals(jsonb,jsonb)',

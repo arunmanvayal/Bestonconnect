@@ -1,3 +1,4 @@
+import { toast } from "sonner";
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
@@ -99,7 +100,8 @@ function AccountsInner() {
       const { error } = await supabase.from("accounts").delete().eq("id", id);
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["accounts"] }),
+    onSuccess: () => qc.invalidateQueries(),
+    onError: (error: any) => toast.error(error.message || "Linked account cannot be deleted"),
   });
 
   const shown = accounts.filter(a => matchesSearch(search, a.code, a.name, a.type));

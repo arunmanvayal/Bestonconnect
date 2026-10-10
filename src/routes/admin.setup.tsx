@@ -7,9 +7,10 @@ import { INVOICE_EDIT_SQL } from "@/lib/invoice-edit-sql";
 import { ONLINE_SHOP_SQL } from "@/lib/online-shop-sql";
 import { INVOICE_ENTRY_SQL } from "@/lib/invoice-entry-sql";
 import { STOCK_MAINTENANCE_SQL } from "@/lib/stock-maintenance-sql";
+import { FINANCIAL_IMPORT_SQL } from "@/lib/financial-import-sql";
 import { FINANCIAL_TRANSACTIONS_SQL } from "@/lib/financial-transactions-sql";
 import { MASTERS_SQL } from "@/lib/masters-sql";
-const SETUP_SQL = BASE_SQL + INVOICE_SQL + COMPANY_SQL + USERNAME_SQL + IMPORT_SQL + INVOICE_ENTRY_SQL + INVOICE_EDIT_SQL + MASTERS_SQL + ONLINE_SHOP_SQL + STOCK_MAINTENANCE_SQL + FINANCIAL_TRANSACTIONS_SQL;
+const SETUP_SQL = BASE_SQL + INVOICE_SQL + COMPANY_SQL + USERNAME_SQL + IMPORT_SQL + INVOICE_ENTRY_SQL + INVOICE_EDIT_SQL + MASTERS_SQL + ONLINE_SHOP_SQL + STOCK_MAINTENANCE_SQL + FINANCIAL_TRANSACTIONS_SQL + FINANCIAL_IMPORT_SQL;
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -47,7 +48,7 @@ function SetupPage() {
         <div className="space-y-3 border-y border-border py-5">
           <h2 className="font-semibold">Financial transactions update</h2>
           <p className="text-sm text-muted-foreground">Run this after the latest existing setup. Bills, payments, returns, stock changes and journals then save together or remain unchanged on failure. Existing records are not rewritten.</p>
-          <Button variant="outline" onClick={async () => { await navigator.clipboard.writeText(FINANCIAL_TRANSACTIONS_SQL); setCopied(true); setTimeout(() => setCopied(false), 2000); }}><Copy className="h-4 w-4"/>Copy Financial transactions update</Button>
+          <Button variant="outline" onClick={async () => { await navigator.clipboard.writeText(FINANCIAL_TRANSACTIONS_SQL + FINANCIAL_IMPORT_SQL); setCopied(true); setTimeout(() => setCopied(false), 2000); }}><Copy className="h-4 w-4"/>Copy Financial transactions update</Button>
         </div>
         <div className="space-y-3 border-y border-border py-5">
           <h2 className="font-semibold">Product and Masters update</h2>
