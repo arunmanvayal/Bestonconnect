@@ -30,7 +30,7 @@ async function database(){
  return db;
 }
 async function rpc(db:PGlite,name:string,args:unknown[]){
- const q=await db.query<{result:any}>(`select ${name}(${args.map((_,i)=>'$'+(i+1)).join(',')}) as result`,args.map(a=>typeof a==='object'?JSON.stringify(a):a));
+ const q=await db.query<{result:any}>(`select ${name}(${args.map((_,i)=>'$'+(i+1)).join(',')}) as result`,args.map(a=>a !== null && typeof a==='object'?JSON.stringify(a):a));
  return q.rows[0]?.result;
 }
 async function n(db:PGlite,sql:string){const q=await db.query<{v:string|number}>(sql);return Number(q.rows[0]?.v);}
