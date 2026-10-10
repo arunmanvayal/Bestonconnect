@@ -1,5 +1,6 @@
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchSearchRecords } from "./search-data";
+import { moneyRound, returnAllocation } from "./invoice-calculations";
 import type { EntryDetails } from "./invoice-entry";
 
 export type Kind = "sale" | "purchase";
@@ -19,6 +20,10 @@ export type Line = {
   serial_no?: string;
   mrp?: number;
   sale_price?: number;
+  unit_factor?: number;
+  main_unit?: string;
+  alt_unit?: string;
+  conv_factor?: number;
 };
 
 export type Header = {
@@ -38,10 +43,11 @@ export type Header = {
   remarks: string;
   shipping_address: string;
   billing_address: string;
+  party_id?: string | null;
   entry_details?: EntryDetails;
 };
 
-const r2 = (n: number) => Math.round(n * 100) / 100;
+const r2 = moneyRound;
 
 export function lineCalc(l: Line) {
   const gross = l.quantity * l.rate;
@@ -70,7 +76,7 @@ export function totals(lines: Line[], h: Header) {
   const sgst = h.tax_type === "gst" ? r2(tax - cgst) : 0;
   const igst = h.tax_type === "igst" ? tax : 0;
   const totalValue = r2(taxable + tax);
-  const beforeRound = totalValue + h.other_exp + h.freight - h.cash_disc;
+  const beforeRound = totalValue + h.other_exp + h.freight + Number(h.entry_details?.kfc_amount || 0) - h.cash_disc;
   const net = Math.round(beforeRound);
   return { gross: r2(gross), discount: r2(discount), taxable, cgst, sgst, igst, total_tax: tax,
     total_value: totalValue, round_off: r2(net - beforeRound), net_total: net,
@@ -103,29 +109,34 @@ export async function postInvoice(sb: SupabaseClient, kind: Kind, h: Header, raw
 }
 
 /** Preserve the saved bill identity with the same calculator as new invoices. */
-export async function updateSalesInvoice(sb: SupabaseClient, invoiceId: string, h: Header, rawLines: Line[]) {
+export async function updateInvoice(sb: SupabaseClient, kind: Kind, invoiceId: string, h: Header, rawLines: Line[]) {
   const lines = rawLines.filter(l => l.item_name.trim() && l.quantity > 0);
   if (!lines.length) throw new Error("Add at least one item with quantity");
-  return atomicSave<string>(sb, "post_financial_invoice", { _kind: "sale", _header: h, _lines: lines, _invoice_id: invoiceId });
+  return atomicSave<string>(sb, "post_financial_invoice", { _kind: kind, _header: h, _lines: lines, _invoice_id: invoiceId });
 }
+
+export const updateSalesInvoice = (sb: SupabaseClient, id: string, h: Header, lines: Line[]) => updateInvoice(sb, "sale", id, h, lines);
 
 /** Live account balances = opening balance + ledger activity. */
 export async function fetchBalances(sb: SupabaseClient) {
-  const [accounts, lines] = await Promise.all([
+  const [accounts, lines, parties] = await Promise.all([
     fetchSearchRecords(sb, "accounts", "code"),
     fetchSearchRecords(sb, "journal_lines", "id"),
+    fetchSearchRecords(sb, "customers", "name"),
   ]);
   return (accounts ?? []).map((a: any) => {
     let dr = 0, cr = 0;
     for (const l of lines ?? []) if (l.account_id === a.id) { dr += Number(l.debit); cr += Number(l.credit); }
     const debitNature = a.type === "asset" || a.type === "expense";
-    const balance = Number(a.opening_balance ?? 0) + (debitNature ? dr - cr : cr - dr);
-    return { ...a, debit_total: dr, credit_total: cr, balance };
+    const partyOpening = a.code === "1100" || a.code === "2000" ? parties.filter(p => (p.party_type === "supplier") === (a.code === "2000")).reduce((sum,p) => sum + Number(p.opening_balance || 0),0) : 0;
+    const opening = r2(Number(a.opening_balance ?? 0) + partyOpening);
+    const balance = r2(opening + (debitNature ? dr - cr : cr - dr));
+    return { ...a, opening_balance: opening, account_opening_balance: Number(a.opening_balance || 0), party_opening_balance: partyOpening, debit_total: r2(dr), credit_total: r2(cr), balance };
   });
 }
 
 export const INVOICE_QUERY_KEYS = [
-  ["invoices"], ["products"], ["accounts"], ["balances"], ["dashboard"], ["journal"], ["journal_entries"], ["customers"], ["ledger"], ["payments"], ["outstanding"], ["returns"], ["reports"], ["invoice-print"], ["customer-detail"], ["online-catalog"], ["online-admin-products"], ["invoice-next-number"],
+  ["invoices"], ["products"], ["accounts"], ["balances"], ["dashboard"], ["journal"], ["journal_entries"], ["customers"], ["ledger"], ["payments"], ["outstanding"], ["returns"], ["reports"], ["invoice-print"], ["customer-detail"], ["online-catalog"], ["online-admin-products"], ["invoice-next-number"], ["masters"], ["stock"],
 ];
 
 export type PayKind = "receipt" | "payment";
@@ -180,22 +191,25 @@ export async function fetchOutstanding(sb: SupabaseClient) {
   return { rows, payments: pays ?? [], invoices: (inv ?? []).filter((i) => i.payment_mode === "credit") };
 }
 
-export type ReturnLine = { invoice_item_id: string; product_id: string | null; item_name: string; sold: number; returned: number; qty: number; rate: number; gst_rate: number; unitTaxable: number; unitTax: number };
+export type ReturnLine = { invoice_item_id: string; product_id: string | null; item_name: string; sold: number; returned: number; qty: number; rate: number; gst_rate: number; unitTaxable: number; unitTax: number; allocation: number; taxableTotal: number; taxTotal: number };
 
 /** Loads a sale invoice's items with already-returned quantities. */
 export async function loadReturnable(sb: SupabaseClient, invoiceId: string): Promise<ReturnLine[]> {
-  const [{ data: items, error }, { data: prev, error: previousError }] = await Promise.all([
+  const [{ data: items, error }, { data: prev, error: previousError }, { data: invoice, error: invoiceError }] = await Promise.all([
     sb.from("invoice_items").select("*").eq("invoice_id", invoiceId),
     sb.from("sales_return_items").select("invoice_item_id, quantity, sales_returns!inner(invoice_id)").eq("sales_returns.invoice_id", invoiceId),
+    sb.from("invoices").select("net_total").eq("id",invoiceId).single(),
   ]);
   if (error) throw error;
   if (previousError) throw previousError;
+  if (invoiceError) throw invoiceError;
+  const allocations = returnAllocation(items ?? [], invoice);
   return (items ?? []).map((it: any) => {
     const sold = Number(it.quantity);
     const returned = (prev ?? []).filter((p: any) => p.invoice_item_id === it.id).reduce((a: number, p: any) => a + Number(p.quantity), 0);
     return {
       invoice_item_id: it.id, product_id: it.product_id, item_name: it.item_name, sold, returned, qty: 0,
-      rate: Number(it.rate), gst_rate: Number(it.gst_rate),
+      rate: Number(it.rate), gst_rate: Number(it.gst_rate), allocation: allocations.get(it.id) ?? 0, taxableTotal: Number(it.taxable), taxTotal: Number(it.tax),
       unitTaxable: sold ? Number(it.taxable) / sold : 0, unitTax: sold ? Number(it.tax) / sold : 0,
     };
   });

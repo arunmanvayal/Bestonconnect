@@ -17,7 +17,7 @@ import { Trash2, RefreshCw, Save, Printer, Plus, FileText, Columns3, Search, Eye
 import { toast } from "sonner";
 import { useSupabase } from "@/lib/supabase";
 import { money } from "@/components/SupabaseGate";
-import { type Header, type Kind, type Line, postInvoice, updateSalesInvoice, totals } from "@/lib/books";
+import { type Header, type Kind, type Line, postInvoice, updateInvoice, totals, allocatedInvoiceLines } from "@/lib/books";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useWorkspaceCommands, useWorkspacePreferences } from "@/lib/workspace-preferences";
@@ -95,6 +95,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
     },
   });
   const billNo = h.bill_no || nextNo || "";
+  const allocated = useMemo(() => allocatedInvoiceLines(lines, h), [lines, h]);
   const t = useMemo(() => totals(lines, h), [lines, h]);
   const set = <K extends keyof Header>(k: K, v: Header[K]) => {
     if (k === "tax_type" && typeof v === "string") {
@@ -121,7 +122,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
   const fillFromProduct = (i: number, p: any, code?: string) =>
     updateLine(i, {
       product_id: p.id, item_name: p.name, barcode: code ?? (isSale ? p.barcode || p.sku || "" : genBarcode()),
-      ...productInvoiceDefaults(p, kind, h.tax_type), quantity: lines[i]?.quantity || 1,
+      ...productInvoiceDefaults(p, kind, h.tax_type), unit_factor: 1, main_unit: p.unit, alt_unit: p.alt_unit || "", conv_factor: Number(p.conv_factor || 1), quantity: lines[i]?.quantity || 1,
     });
 
   const findByCode = (code: string) => {
@@ -188,11 +189,11 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
 
   const pickParty = (name: string) => {
     const p: any = parties.find((x: any) => (x.party_type ?? "customer") === (isSale ? "customer" : "supplier") && x.name.toLowerCase() === name.toLowerCase());
-    setH((prev) => ({ ...prev, party_name: name, contact: p?.phone || p?.contact_no || "", billing_address: p?.address ?? "" }));
+    setH((prev) => ({ ...prev, party_id: p?.id ?? null, party_name: name, contact: p?.phone || p?.contact_no || "", billing_address: p?.address ?? "" }));
   };
 
   const selectParty = (party: InvoiceParty) => {
-    setH(previous => ({ ...previous, party_name: party.name, contact: party.phone || party.contact_no || "", billing_address: party.address || "" }));
+    setH(previous => ({ ...previous, party_id: party.id, party_name: party.name, contact: party.phone || party.contact_no || "", billing_address: party.address || "" }));
     setPartyOpen(false);
   };
   const openParty = () => { setSuggest(null); setPartyOpen(true); };
@@ -219,7 +220,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
     const invData = bill;
     const extraDisc = Math.max(0, Number(bill.discount) - (items ?? []).reduce((a: number, i: any) => a + Number(i.discount || 0), 0));
     setH({
-      bill_no: invData.bill_no, bill_date: invData.bill_date, party_name: invData.party_name ?? "", contact: invData.contact ?? "",
+      party_id: invData.party_id, bill_no: invData.bill_no, bill_date: invData.bill_date, party_name: invData.party_name ?? "", contact: invData.contact ?? "",
       payment_mode: invData.payment_mode ?? "cash", tax_type: invData.tax_type ?? "gst", bill_type: invData.bill_type ?? "", salesman: invData.salesman ?? "",
       ref_no: invData.ref_no ?? "", bill_discount: Math.round(extraDisc * 100) / 100, other_exp: Number(invData.other_exp) || 0, freight: Number(invData.freight) || 0,
       entry_details: { ...emptyEntryDetails(invData.bill_date), ...(invData.entry_details ?? {}) },
@@ -227,7 +228,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
     });
     setLines((items ?? []).map((i: any): Line => {
       const p = products.find((x: any) => x.id === i.product_id);
-      return { product_id: i.product_id, item_name: i.item_name, barcode: i.entry_details?.barcode ?? p?.barcode ?? "", sku: i.entry_details?.sku ?? p?.sku ?? "", serial_no: i.entry_details?.serial_no ?? "", mrp: Number(i.entry_details?.mrp ?? p?.mrp) || 0, sale_price: Number(i.entry_details?.sale_price ?? p?.unit_price) || 0, unit: i.unit || "pcs", quantity: Number(i.quantity), free_qty: Number(i.free_qty) || 0,
+      return { unit_factor: Number(i.entry_details?.unit_factor || 1), main_unit: i.entry_details?.main_unit ?? p?.unit, alt_unit: i.entry_details?.alt_unit ?? p?.alt_unit, conv_factor: Number(i.entry_details?.conv_factor ?? p?.conv_factor ?? 1), product_id: i.product_id, item_name: i.item_name, barcode: i.entry_details?.barcode ?? p?.barcode ?? "", sku: i.entry_details?.sku ?? p?.sku ?? "", serial_no: i.entry_details?.serial_no ?? "", mrp: Number(i.entry_details?.mrp ?? p?.mrp) || 0, sale_price: Number(i.entry_details?.sale_price ?? p?.unit_price) || 0, unit: i.unit || "pcs", quantity: Number(i.quantity), free_qty: Number(i.free_qty) || 0,
         rate: Number(i.rate), discount: Number(i.discount) || 0, gst_rate: Number(i.gst_rate), profit_pct: Number(i.entry_details?.profit_pct) || 0 };
     }).concat([emptyLine()]));
     setEditingId(bill.id); lastSavedId.current = bill.id; setLookup(""); setSelected(null); setSuggest(null);
@@ -240,13 +241,13 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
       if (!sb) throw new Error("Database connection unavailable");
       if (editingId) {
         if (!confirm(`Update bill ${billNo}? Stock and ledger will be recalculated.`)) throw new Error("Update cancelled");
-        const id = await updateSalesInvoice(sb, editingId, { ...h, bill_no: billNo }, lines);
+        const id = await updateInvoice(sb, kind, editingId, { ...h, bill_no: billNo }, lines);
         return { id, number: billNo };
       }
       if (isSale && !editingId) {
         for (const l of lines) {
           const p = products.find((x) => x.id === l.product_id);
-          if (p && l.quantity + l.free_qty > Number(p.quantity)) throw new Error(`Only ${Number(p.quantity)} ${p.unit} of ${p.name} in stock`);
+          if (p && (l.quantity + l.free_qty) * Number(l.unit_factor || 1) > Number(p.quantity)) throw new Error(`Only ${Number(p.quantity)} ${p.unit} of ${p.name} in stock`);
         }
       }
       const number = h.bill_no.trim() || await fetchNextInvoiceNumber(sb, kind);
@@ -314,7 +315,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
       <div className="invoice-entry-title grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-border px-3">
         <div className="flex min-w-0 items-center gap-2"><FileText className="h-4 w-4 shrink-0 text-primary"/><h1 className="truncate text-sm font-semibold">{isSale ? "Retail Invoice" : "Purchase Invoice"}</h1></div>
         <div className="flex shrink-0 items-center gap-1">
-          {isSale && <><Input aria-label="Open bill number" className="invoice-lookup" placeholder="Bill number" value={lookup} onChange={e => setLookup(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); void loadBill(); } }}/><Button size="sm" variant="secondary" disabled={loadingBill || save.isPending} onClick={() => void loadBill()}><Search className="h-3 w-3"/>Open</Button></>}
+          {<><Input aria-label="Open bill number" className="invoice-lookup" placeholder="Bill number" value={lookup} onChange={e => setLookup(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); void loadBill(); } }}/><Button size="sm" variant="secondary" disabled={loadingBill || save.isPending} onClick={() => void loadBill()}><Search className="h-3 w-3"/>Open</Button></>}
           {editingId && <><Button size="sm" variant="outline" onClick={() => window.open(`/admin/invoice/${editingId}`, "_blank")}><Eye className="h-3 w-3"/>Preview</Button><Button size="sm" variant="ghost" onClick={reset}>New bill</Button></>}
           <Button size="sm" variant="ghost" title="Recent invoices" aria-label="Recent invoices" onClick={() => setHistoryOpen(true)}><History className="h-4 w-4"/></Button>
         </div>
@@ -342,7 +343,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
                   {lines.map((l, i) => {
                     return (
                       <tr key={i} onClick={() => setSelected(i)} className={`border-b border-border ${selected === i ? "bg-primary/10" : ""}`}>
-                        <InvoiceEntryCells kind={kind} line={l} row={i} taxType={h.tax_type} update={patch => updateLine(i, patch)} barcode={value => onBarcode(i, value)} item={
+                        <InvoiceEntryCells kind={kind} line={l} row={i} taxType={h.tax_type} calculated={allocated[i]} update={patch => updateLine(i, patch)} barcode={value => onBarcode(i, value)} item={
                           <Input aria-label={`Item Name row ${i + 1}`} className={cellInput} data-row={i} data-col="item" autoComplete="off" placeholder="Search item…" value={l.item_name}
                             onFocus={e => openSuggest(i, e.currentTarget)}
                             onChange={e => { pickItem(i, e.target.value); openSuggest(i, e.currentTarget); }}
@@ -437,7 +438,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
             <tbody>
               {invoices.map((inv) => (
                 <tr key={inv.id} className="border-t border-border">
-                  <td className="px-4 py-2 font-mono">{isSale ? <Button variant="link" className="h-auto p-0" disabled={loadingBill || save.isPending} onClick={() => void loadBill(inv.bill_no, inv.id)}>{inv.bill_no}</Button> : inv.bill_no}</td><td>{inv.bill_date}</td><td>{inv.party_name || "Walk-in"}</td>
+                  <td className="px-4 py-2 font-mono">{<Button variant="link" className="h-auto p-0" disabled={loadingBill || save.isPending} onClick={() => { setHistoryOpen(false); void loadBill(inv.bill_no, inv.id); }}>{inv.bill_no}</Button>}</td><td>{inv.bill_date}</td><td>{inv.party_name || "Walk-in"}</td>
                   <td className="capitalize">{inv.payment_mode}</td><td className="text-right">{money(inv.total_tax)}</td>
                   <td className="px-4 text-right font-semibold">{money(inv.net_total)}</td>
                 </tr>
