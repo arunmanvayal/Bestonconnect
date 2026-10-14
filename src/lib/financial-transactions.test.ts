@@ -88,7 +88,7 @@ describe('real PostgreSQL financial matrix',()=>{
    }
    assert.equal(await n(db,'select sum(debit-credit) v from journal_lines'),0);
    assert.equal(await n(db,`select sum(j.credit-j.debit) v from journal_lines j join accounts a on a.id=j.account_id where a.code='2000'`),0,'supplier payments clear payable');
-   assert.equal(await n(db,`select sum(j.debit-j.credit) v from journal_lines j join accounts a on a.id=j.account_id where a.code='1000'`),-150,'receipts then full credit return leave customer advance');
+   assert.equal(await n(db,`select sum(j.debit-j.credit) v from journal_lines j join accounts a on a.id=j.account_id where a.code='1100'`),-150,'receipts then full credit return leave customer advance');
    const netReport=await n(db,`select (select sum(total_tax) from invoices where kind='sale')-(select sum(total_tax) from sales_returns)-(select sum(total_tax) from invoices where kind='purchase') v`);
    const netLedger=await n(db,`select sum(case when a.code='2100' then j.credit-j.debit else j.credit-j.debit end) v from journal_lines j join accounts a on a.id=j.account_id where a.code in ('2100','1200')`);
    const invoiceRows=(await db.query<any>('select * from invoices')).rows;
