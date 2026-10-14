@@ -130,10 +130,9 @@ describe('real PostgreSQL financial matrix',()=>{
    const item=(await db.query<any>('select * from invoice_items where invoice_id=$1',[id])).rows[0];assert.equal(item.entry_details.hsn,'8544');
    await db.exec(`update products set hsn='NEW' where id='${product}';update customers set gstin='NEW' where id='${customer}';`);
    assert.equal(savedItemPresentation(item,inv).amount,2360);
-   for(const table of ['customers','accounts','journal_lines']){
-    const sql=table==='customers'?`delete from customers where id='${customer}'`:table==='accounts'?`delete from accounts where code='1100'`:`delete from journal_lines where entry_id='${inv.journal_entry_id}'`;
-    await assert.rejects(db.exec(sql),/linked business history/);
-   }
+   await assert.rejects(db.exec(`delete from customers where id='${customer}'`),/linked business history/,'linked party deletion');
+   await assert.rejects(db.exec(`delete from accounts where code='1100'`),/linked business history/,'linked account deletion');
+   await assert.rejects(db.exec(`delete from journal_lines where entry_id='${inv.journal_entry_id}'`),/linked business history/,'linked line deletion');
    const alloc=returnAllocation([item],inv);assert.equal(returnLineTotals({sold:2,returned:0,qty:1,allocation:alloc.get(item.id) || 0,taxableTotal:Number(item.taxable),taxTotal:Number(item.tax)}).amount,1182.5);
    await rpc(db,'post_financial_return',[{invoice_id:id,return_no:'ALT-RETURN',return_date:'2026-10-10',refund_mode:'cash',lines:[{invoice_item_id:item.id,qty:1}]},crypto.randomUUID()]);
    assert.equal(await n(db,`select quantity v from products where id='${product}'`),90);
