@@ -30,8 +30,8 @@
 - [x] Replace invoice, payment, return, journal and stock saves with all-or-nothing database transactions and safe retry handling.
 - [x] Run isolated PostgreSQL sales/purchase GST/IGST/No Tax × cash/credit matrix with settlements, edits, returns, rollback and report reconciliation.
 - [ ] Apply financial transaction update and verify authenticated UI against external database (requires owner setup and external session).
-- [ ] Unify entry, print and return calculations, freeze GST/HSN/terms snapshots.
-- [ ] Protect linked parties/accounts/journal lines and reconcile opening balances across detail, outstanding and ledger.
-- [ ] Finish purchase edits, alternate units, KFC charge, GST detail and safe Excel transfers.
-- [ ] Correct mutation refreshes and rerun isolated financial/regression tests.
+- [x] Unify entry, print and return calculations, freeze GST/HSN/terms snapshots.
+- [x] Protect linked parties/accounts/journal lines and reconcile opening balances across detail, outstanding and ledger.
+- [x] Finish purchase edits, alternate units, KFC charge, GST detail and safe Excel transfers.
+- [x] Correct mutation refreshes and rerun isolated financial/regression tests.
 - [ ] Online payment collection requires confirmed payment provider setup; no money collection will be simulated.

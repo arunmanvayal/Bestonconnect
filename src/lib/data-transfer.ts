@@ -77,6 +77,7 @@ export async function readSheet(file: File) {
 
 export function detectDataset(headers: string[]): Dataset | null {
   if (headers.includes("Item Name")) return "products";
+  if (headers.includes("Ledger Name") && headers.includes("Opening Balance") && headers.includes("Group")) return "ledgers";
   if (headers.includes("Ledger Name")) return "customers";
   return null;
 }

@@ -10,7 +10,7 @@ export const invoiceColumns = (kind: Kind) => kind === "sale"
 export const invoiceWidths = (kind: Kind) => kind === "sale"
   ? [44, 112, 108, 220, 64, 86, 90, 90, 90, 108, 80, 108, 70, 100, 112]
   : [44, 108, 220, 112, 64, 86, 80, 100, 80, 100, 100, 90, 80, 108, 70, 100, 112];
-type Props = { kind: Kind; line: Line; row: number; taxType: string; update: (patch: Partial<Line>) => void; barcode: (value: string) => void; item: React.ReactNode; calculated?: { taxable: number; tax: number; amount: number } };
+type Props = { kind: Kind; line: Line; row: number; taxType: string; update: (patch: Partial<Line>) => void; barcode: (value: string) => void; item: React.ReactNode; calculated?: { taxable: number; tax: number; amount: number } | undefined };
 export function InvoiceEntryCells({ kind, line: l, row, taxType, update, barcode, item, calculated }: Props) {
   const c = lineCalc(l);
   const number = (v: string) => Number(v) || 0;

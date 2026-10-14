@@ -124,7 +124,11 @@ export async function fetchBalances(sb: SupabaseClient) {
     fetchSearchRecords(sb, "journal_lines", "id"),
     fetchSearchRecords(sb, "customers", "name"),
   ]);
-  return (accounts ?? []).map((a: any) => {
+  const visibleAccounts = [...(accounts ?? [])];
+  const openingFor = (supplier: boolean) => parties.filter(p => (p.party_type === "supplier") === supplier).reduce((sum,p) => sum + Number(p.opening_balance || 0),0);
+  if (openingFor(false) && !visibleAccounts.some(a => a.code === "1100")) visibleAccounts.push({ id: "party-opening-receivable", code: "1100", name: "Accounts Receivable", type: "asset", opening_balance: 0 });
+  if (openingFor(true) && !visibleAccounts.some(a => a.code === "2000")) visibleAccounts.push({ id: "party-opening-payable", code: "2000", name: "Accounts Payable", type: "liability", opening_balance: 0 });
+  return visibleAccounts.map((a: any) => {
     let dr = 0, cr = 0;
     for (const l of lines ?? []) if (l.account_id === a.id) { dr += Number(l.debit); cr += Number(l.credit); }
     const debitNature = a.type === "asset" || a.type === "expense";
