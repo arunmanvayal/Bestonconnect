@@ -88,7 +88,7 @@ describe('real PostgreSQL financial matrix',()=>{
    }
    assert.equal(await n(db,'select sum(debit-credit) v from journal_lines'),0);
    assert.equal(await n(db,`select sum(j.credit-j.debit) v from journal_lines j join accounts a on a.id=j.account_id where a.code='2000'`),0,'supplier payments clear payable');
-   assert.equal(await n(db,`select sum(j.debit-j.credit) v from journal_lines j join accounts a on a.id=j.account_id where a.code='1100'`),-150,'receipts then full credit return leave customer advance');
+   assert.equal(await n(db,`select sum(j.debit-j.credit) v from journal_lines j join accounts a on a.id=j.account_id where a.code='1000'`),-150,'receipts then full credit return leave customer advance');
    const netReport=await n(db,`select (select sum(total_tax) from invoices where kind='sale')-(select sum(total_tax) from sales_returns)-(select sum(total_tax) from invoices where kind='purchase') v`);
    const netLedger=await n(db,`select sum(case when a.code='2100' then j.credit-j.debit else j.credit-j.debit end) v from journal_lines j join accounts a on a.id=j.account_id where a.code in ('2100','1200')`);
    const invoiceRows=(await db.query<any>('select * from invoices')).rows;
@@ -131,7 +131,7 @@ describe('real PostgreSQL financial matrix',()=>{
    await db.exec(`update products set hsn='NEW' where id='${product}';update customers set gstin='NEW' where id='${customer}';`);
    assert.equal(savedItemPresentation(item,inv).amount,2360);
    await assert.rejects(db.exec(`delete from customers where id='${customer}'`),/linked business history/,'linked party deletion');
-   await assert.rejects(db.exec(`delete from accounts where code='1100'`),/linked business history/,'linked account deletion');
+   await assert.rejects(db.exec(`delete from accounts where code='1000'`),/linked business history/,'linked account deletion');
    await assert.rejects(db.exec(`delete from journal_lines where entry_id='${inv.journal_entry_id}'`),/linked business history/,'linked line deletion');
    const alloc=returnAllocation([item],inv);assert.equal(returnLineTotals({sold:2,returned:0,qty:1,allocation:alloc.get(item.id) || 0,taxableTotal:Number(item.taxable),taxTotal:Number(item.tax)}).amount,1182.5);
    await rpc(db,'post_financial_return',[{invoice_id:id,return_no:'ALT-RETURN',return_date:'2026-10-10',refund_mode:'cash',lines:[{invoice_item_id:item.id,qty:1}]},crypto.randomUUID()]);
