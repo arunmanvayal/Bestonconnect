@@ -31,7 +31,7 @@ export const Route = createFileRoute("/admin/tools")({
 const EXPORTS: Array<{ id: Dataset; icon: typeof Users }> = [
   { id: "customers", icon: Users }, { id: "vendors", icon: Truck }, { id: "ledgers", icon: BookOpen }, { id: "products", icon: Package },
 ];
-const IMPORTS: Dataset[] = ["customers", "vendors", "products"];
+const IMPORTS: Dataset[] = ["customers", "vendors", "ledgers", "products"];
 
 function ToolsInner() {
   const sb = useSupabase()!;
