@@ -28,3 +28,5 @@
 - Preserve mounted entry state on focus, reconnect and same-user auth notifications: clear cached private data only on identity changes, and initialize editable forms only when their record identity changes.
 - Use one shared horizontal category-dropdown navigation in every admin workspace instead of parallel sidebar and invoice menus; this keeps management destinations consistent without changing page state or permissions.
 - Use an invoice-owned party dialog for selection and creation through the existing company-scoped customers table; guard invoice commands while it is open to prevent a party save from submitting the bill.
+- Maintain numbered Setup scripts in a single browser-safe registry with prerequisites so copy and download expose the same ordered updates.
+- Render invoice product suggestions through a body portal with viewport-bounded positioning so transformed and scroll-clipped workspace ancestors cannot hide results.
