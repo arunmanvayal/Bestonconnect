@@ -1,26 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useState } from "react";
-import { Check, Copy } from "lucide-react";
+import { Check, Copy, Download } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
-import { SETUP_SQL as BASE_SQL, INVOICE_SQL, COMPANY_SQL, USERNAME_SQL, IMPORT_SQL } from "@/lib/schema-sql";
-import { INVOICE_EDIT_SQL } from "@/lib/invoice-edit-sql";
-import { ONLINE_SHOP_SQL } from "@/lib/online-shop-sql";
-import { INVOICE_ENTRY_SQL } from "@/lib/invoice-entry-sql";
-import { STOCK_MAINTENANCE_SQL } from "@/lib/stock-maintenance-sql";
-import { FINANCIAL_IMPORT_SQL } from "@/lib/financial-import-sql";
-import { FINANCIAL_TRANSACTIONS_SQL } from "@/lib/financial-transactions-sql";
-import { MASTERS_SQL } from "@/lib/masters-sql";
-const SETUP_SQL = BASE_SQL + INVOICE_SQL + COMPANY_SQL + USERNAME_SQL + IMPORT_SQL + INVOICE_ENTRY_SQL + INVOICE_EDIT_SQL + MASTERS_SQL + ONLINE_SHOP_SQL + STOCK_MAINTENANCE_SQL + FINANCIAL_TRANSACTIONS_SQL + FINANCIAL_IMPORT_SQL;
+import { setupScripts, numberedSetupSql } from "@/lib/setup-scripts";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export const Route = createFileRoute("/admin/setup")({
   head: () => ({
     meta: [
       { title: "Database Setup — BusinessDesk" },
-      { name: "description", content: "One-time database setup script for your Supabase project." },
+      { name: "description", content: "Numbered database setup updates for BusinessDesk invoices, stock, companies and online orders." },
       { property: "og:title", content: "Database Setup — BusinessDesk" },
-      { property: "og:description", content: "One-time database setup script for your Supabase project." },
+      { property: "og:description", content: "Numbered database setup updates for BusinessDesk invoices, stock, companies and online orders." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
     ],
@@ -29,64 +21,46 @@ export const Route = createFileRoute("/admin/setup")({
 });
 
 function SetupPage() {
-  const [copied, setCopied] = useState(false);
-
-  const copy = async () => {
-    await navigator.clipboard.writeText(SETUP_SQL);
-    setCopied(true);
-    setTimeout(() => setCopied(false), 2000);
+  const [copied, setCopied] = useState<number | null>(null);
+  const copy = async (script: typeof setupScripts[number]) => {
+    try {
+      await navigator.clipboard.writeText(numberedSetupSql(script));
+      setCopied(script.number);
+      setTimeout(() => setCopied(current => current === script.number ? null : current), 2000);
+    } catch { toast.error("Could not copy. Download the SQL file instead."); }
   };
-
-  return (
-    <AppLayout>
-      <div className="mx-auto max-w-4xl space-y-6">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Database Setup</h1>
-          <p className="text-sm text-muted-foreground">One-time step to create the tables in your Supabase project</p>
-        </div>
-
-        <div className="space-y-3 border-y border-border py-5">
-          <h2 className="font-semibold">Financial transactions update</h2>
-          <p className="text-sm text-muted-foreground">Run this after the latest existing setup. Bills, payments, returns, stock changes and journals then save together or remain unchanged on failure. Existing records are not rewritten.</p>
-          <Button variant="outline" onClick={async () => { await navigator.clipboard.writeText(FINANCIAL_TRANSACTIONS_SQL + FINANCIAL_IMPORT_SQL); setCopied(true); setTimeout(() => setCopied(false), 2000); }}><Copy className="h-4 w-4"/>Copy Financial transactions update</Button>
-        </div>
-        <div className="space-y-3 border-y border-border py-5">
-          <h2 className="font-semibold">Product and Masters update</h2>
-          <p className="text-sm text-muted-foreground">Run this update after the existing setup to enable the full Product form and linked Masters options.</p>
-          <Button variant="outline" onClick={async () => { await navigator.clipboard.writeText(MASTERS_SQL + ONLINE_SHOP_SQL); setCopied(true); setTimeout(() => setCopied(false), 2000); }}><Copy className="h-4 w-4"/>Copy Product and Masters update</Button>
-        </div>
-        <div className="space-y-3 border-y border-border py-5">
-          <h2 className="font-semibold">Online shop setup</h2>
-          <p className="text-sm text-muted-foreground">Run the latest script below to enable online products and orders. In your connected database's Storage area, create a public bucket named <strong>online-products</strong>, with a 5 MB file limit and JPG, PNG and WebP images allowed. Product photos are public; orders and business records stay private.</p>
-          <Button variant="outline" onClick={async () => { await navigator.clipboard.writeText(ONLINE_SHOP_SQL); setCopied(true); setTimeout(() => setCopied(false), 2000); }}><Copy className="h-4 w-4" />Copy online shop update only</Button>
-        </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-base">How it works</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-sm text-muted-foreground">
-            <p>1. Open your Supabase dashboard and go to <strong className="text-foreground">SQL Editor → New query</strong>.</p>
-            <p>2. Copy the script below and paste it into the editor.</p>
-            <p>3. Click <strong className="text-foreground">Run</strong>. That's it — come back here and everything will work.</p>
-          </CardContent>
-        </Card>
-
-        <Card>
-           <CardHeader className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-3">
-            <CardTitle className="text-base">Setup script</CardTitle>
-            <Button variant="outline" size="sm" onClick={copy}>
-              {copied ? <Check className="mr-2 h-4 w-4" /> : <Copy className="mr-2 h-4 w-4" />}
-              {copied ? "Copied" : "Copy script"}
-            </Button>
-          </CardHeader>
-          <CardContent>
-            <pre className="max-h-[480px] overflow-auto rounded-md bg-muted p-4 text-xs leading-relaxed text-foreground">
-              {SETUP_SQL}
-            </pre>
-          </CardContent>
-        </Card>
+  const download = (script: typeof setupScripts[number]) => {
+    const url = URL.createObjectURL(new Blob([numberedSetupSql(script)], { type: "text/plain;charset=utf-8" }));
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = `setup-${String(script.number).padStart(2,"0")}-${script.title.toLowerCase().replace(/[^a-z0-9]+/g,"-")}.sql`;
+    link.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+  return <AppLayout>
+    <div className="mx-auto max-w-4xl space-y-6">
+      <header className="space-y-2">
+        <h1 className="font-display text-2xl font-bold">Database Setup</h1>
+        <p className="text-sm text-muted-foreground">New database: run 01–12 in order before using the app. Existing database: run only missing or updated steps after their prerequisites.</p>
+        <p className="text-sm text-muted-foreground">Latest accounting changes: run 11, then 12, if steps 01–10 are already installed. Purchase search selection needs no SQL.</p>
+        <p className="text-sm text-muted-foreground">Open your connected database’s SQL Editor, paste one complete script, and run it. Stop if a step reports an error.</p>
+      </header>
+      <div className="divide-y divide-border border-y border-border">
+        {setupScripts.map(script => <section key={script.number} className="space-y-3 py-5">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <h2 className="font-semibold">{String(script.number).padStart(2,"0")} — {script.title}</h2>
+              <p className="mt-1 text-sm text-muted-foreground">{script.change}</p>
+              <p className="mt-1 text-xs text-muted-foreground">{script.number === 1 ? "New database only; continue through all steps." : `Requires steps 01–${String(script.number-1).padStart(2,"0")} already installed.`}</p>
+            </div>
+            <div className="flex shrink-0 gap-2">
+              <Button size="sm" variant="outline" onClick={() => void copy(script)}>{copied === script.number ? <Check/> : <Copy/>}{copied === script.number ? "Copied" : "Copy SQL"}</Button>
+              <Button size="icon" variant="outline" title={`Download setup ${script.number}`} aria-label={`Download setup ${script.number}`} onClick={() => download(script)}><Download/></Button>
+            </div>
+          </div>
+          <details><summary className="cursor-pointer text-sm text-primary">View SQL</summary><pre className="mt-3 max-h-80 overflow-auto rounded-md bg-muted p-4 text-xs text-foreground">{numberedSetupSql(script)}</pre></details>
+        </section>)}
       </div>
-    </AppLayout>
-  );
+    </div>
+  </AppLayout>;
 }

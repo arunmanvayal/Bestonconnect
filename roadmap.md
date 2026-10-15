@@ -35,3 +35,5 @@
 - [x] Finish purchase edits, alternate units, KFC charge, GST detail and safe Excel transfers.
 - [x] Correct mutation refreshes and rerun isolated financial/regression tests.
 - [ ] Online payment collection requires confirmed payment provider setup; no money collection will be simulated.
+- [x] Fix purchase product suggestion visibility and selection; isolated pointer/keyboard checks passed at 694×537 and 1280×900; 90 regression tests passed.
+- [x] Separate Setup SQL into 12 numbered, described, individually copyable and downloadable scripts; step 11 download verified in the preview.
