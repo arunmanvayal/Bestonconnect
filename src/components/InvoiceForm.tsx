@@ -11,7 +11,9 @@ import { fetchAll } from "@/lib/data-transfer";
 import { fetchNextInvoiceNumber } from "@/lib/invoice-number";
 import { matchesSearch } from "@/lib/search";
 import { productInvoiceDefaults } from "@/lib/masters";
-import { useMemo, useRef, useState } from "react";
+import { suggestionPosition } from "@/lib/invoice-suggestions";
+import { createPortal } from "react-dom";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Trash2, RefreshCw, Save, Printer, Plus, FileText, Columns3, Search, Eye, X, Upload, Download, History } from "lucide-react";
 import { toast } from "sonner";
@@ -63,7 +65,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
   const defaultWidths = invoiceWidths(kind);
   const widths = columnWidths[widthKey] ?? defaultWidths;
 
-  const { data: products = [] } = useQuery({
+  const { data: products = [], error: productError, isPending: productsPending } = useQuery({
     queryKey: ["products"],
     queryFn: async () => {
       if (!sb) throw new Error("Database connection unavailable");
@@ -143,13 +145,27 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
     updateLine(i, { product_id: null, item_name: name });
   };
 
-  const [suggest, setSuggest] = useState<{ row: number; top: number; left: number; width: number } | null>(null);
+  const [suggest, setSuggest] = useState<({ row: number } & ReturnType<typeof suggestionPosition>) | null>(null);
+  const suggestionAnchor = useRef<HTMLElement | null>(null);
   const [hi, setHi] = useState(0);
   const openSuggest = (i: number, el: HTMLElement) => {
-    const r = el.getBoundingClientRect();
-    setSuggest({ row: i, top: r.bottom + 4, left: Math.max(8, Math.min(r.left, window.innerWidth - 328)), width: Math.max(r.width, 320) });
+    suggestionAnchor.current = el;
+    setSuggest({ row: i, ...suggestionPosition(el.getBoundingClientRect(), { width: window.innerWidth, height: window.innerHeight }) });
     setHi(0);
   };
+  const suggestionRow = suggest?.row;
+  useEffect(() => {
+    if (suggestionRow === undefined) return;
+    const reposition = () => {
+      const anchor = suggestionAnchor.current;
+      if (!anchor) return;
+      const position = suggestionPosition(anchor.getBoundingClientRect(), { width: window.innerWidth, height: window.innerHeight });
+      setSuggest(current => current ? { ...current, ...position } : null);
+    };
+    window.addEventListener("resize", reposition);
+    window.addEventListener("scroll", reposition, true);
+    return () => { window.removeEventListener("resize", reposition); window.removeEventListener("scroll", reposition, true); };
+  }, [suggestionRow]);
   const query = suggest ? (lines[suggest.row]?.item_name ?? "").toLowerCase().trim() : "";
   const matches = suggest
     ? products.filter((p) => !p.deactivated && matchesSearch(query, p.name, p.barcode, p.sku, p.category, p.manufacturer, p.hsn)).slice(0, 8)
@@ -402,20 +418,21 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
         </div>
       </div>
 
-      {suggest && matches.length > 0 && (
-        <div className="fixed z-50 max-h-72 overflow-y-auto rounded-xl border border-border bg-popover p-1 text-popover-foreground shadow-xl animate-in fade-in-0 zoom-in-95"
-          style={{ top: suggest.top, left: suggest.left, width: suggest.width }}>
+      {suggest && createPortal(
+        <div role="listbox" aria-label="Product search results" className="fixed z-50 overflow-y-auto rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-xl"
+          style={{ top: suggest.top, left: suggest.left, width: suggest.width, maxHeight: suggest.maxHeight }}>
+          {matches.length === 0 && <p role="status" className="px-3 py-2 text-sm text-muted-foreground">{productError ? "Products could not load. Check the connection and retry." : productsPending ? "Loading products…" : "No matching active products"}</p>}
           {matches.map((p, idx) => (
-            <button key={p.id} type="button" onMouseDown={(e) => { e.preventDefault(); choose(suggest.row, p); }}
-              className={`flex w-full items-center justify-between gap-3 rounded-lg px-3 py-2 text-left text-sm transition-colors ${idx === hi ? "bg-primary/10" : "hover:bg-muted"}`}>
+            <Button key={p.id} role="option" aria-selected={idx === hi} type="button" variant="ghost" onPointerDown={e => e.preventDefault()} onClick={() => choose(suggest.row, p)}
+              className={`flex h-auto w-full items-center justify-between gap-3 rounded-sm px-3 py-2 text-left text-sm transition-colors ${idx === hi ? "bg-primary/10" : "hover:bg-muted"}`}>
               <span className="min-w-0">
                 <span className="block truncate font-medium">{p.name}</span>
                 <span className="block truncate text-xs text-muted-foreground">{p.barcode || p.sku || "No barcode"} · Stock {Number(p.quantity)} {p.unit}</span>
               </span>
               <span className="shrink-0 text-xs font-semibold tabular-nums">₹{Number(isSale ? p.unit_price : p.cost_price || p.unit_price)}</span>
-            </button>
+            </Button>
           ))}
-        </div>
+        </div>, document.body
       )}
 
       <InvoicePartyDialog open={partyOpen} onOpenChange={setPartyOpen} kind={kind} parties={parties} initialName={h.party_name} onSelect={selectParty} onSave={async draft => {
