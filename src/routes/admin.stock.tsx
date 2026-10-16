@@ -104,12 +104,13 @@ function StockInner() {
   const snapshot = (p: any) => ({ id: p.id, quantity: p.quantity, old_barcode: p.barcode ?? "", old_sku: p.sku ?? "", old_name: p.name });
   const maintain = async (action: "delete" | "barcodes") => {
     if (!supabase) return;
-    const rows = action === "delete" ? chosen.map(snapshot) : series.map(row => ({ ...snapshot(products.find(p => p.id === row.id)), barcode: row.barcode }));
+    const byId = new Map(products.map((p: any) => [p.id, p]));
+    const rows = action === "delete" ? chosen.map(snapshot) : series.map(row => ({ ...snapshot(byId.get(row.id)), barcode: row.barcode }));
     if (!rows.length) return;
     setBusy(true);
     try {
       const { data, error } = await supabase.rpc("maintain_stock", { _action: action, _rows: rows });
-      if (error) throw new Error(error.code === "PGRST202" ? "Run the latest Setup script once to enable safe stock cleanup." : error.message);
+      if (error) throw new Error(error.code === "PGRST202" ? "Run the latest Setup script once to enable safe stock cleanup." : error.code === "57014" ? "The update took too long. Run Setup 13 once, then try again." : error.message);
       toast.success(`${data} product${data === 1 ? "" : "s"} updated`);
       setMaintenance(null); setEdit(null); setSelectedIds(new Set()); await qc.invalidateQueries();
     } catch (e) { toast.error(e instanceof Error ? e.message : "Stock was not changed"); } finally { setBusy(false); }
