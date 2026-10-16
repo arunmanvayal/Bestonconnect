@@ -123,6 +123,7 @@ function DashboardInner() {
         <div className="hidden shrink-0 rounded-full border border-border/70 bg-card/80 px-4 py-2 text-xs font-semibold text-muted-foreground shadow-sm sm:block">{new Date().toLocaleDateString("en-IN", { dateStyle: "medium" })}</div>
       </div>
 
+      <BrandLogoCard />
       <div className="flex flex-wrap gap-3"><Link to="/admin/online-orders" className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-3 text-sm font-semibold"><ShoppingCart className="h-4 w-4" />Online orders <ArrowRight className="h-4 w-4" /></Link><Link to="/admin/online-products" className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-3 text-sm font-semibold"><Package className="h-4 w-4" />Online products <ArrowRight className="h-4 w-4" /></Link></div>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {stats.map(({ label, value, icon: Icon, to }, index) => (

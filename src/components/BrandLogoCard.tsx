@@ -20,7 +20,6 @@ export function BrandLogoCard() {
     const { error } = await sb.from("companies").update({ logo }).eq("id", company.id);
     setBusy(false);
     if (error) { toast.error(error.message); return; }
-    qc.setQueryData(["active-company", undefined], undefined);
     void qc.invalidateQueries({ queryKey: ["active-company"] });
     void qc.invalidateQueries({ queryKey: ["companies"] });
     toast.success(logo ? "Logo updated" : "Logo removed");
