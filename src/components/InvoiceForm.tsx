@@ -145,12 +145,14 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
     updateLine(i, { product_id: null, item_name: name });
   };
 
-  const [suggest, setSuggest] = useState<({ row: number } & ReturnType<typeof suggestionPosition>) | null>(null);
+  type SearchCol = "item" | "sku" | "barcode";
+  const [suggest, setSuggest] = useState<({ row: number; col: SearchCol } & ReturnType<typeof suggestionPosition>) | null>(null);
   const suggestionAnchor = useRef<HTMLElement | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const [hi, setHi] = useState(0);
-  const openSuggest = (i: number, el: HTMLElement) => {
+  const openSuggest = (i: number, el: HTMLElement, col: SearchCol = "item") => {
     suggestionAnchor.current = el;
-    setSuggest({ row: i, ...suggestionPosition(el.getBoundingClientRect(), { width: window.innerWidth, height: window.innerHeight }) });
+    setSuggest({ row: i, col, ...suggestionPosition(el.getBoundingClientRect(), { width: window.innerWidth, height: window.innerHeight }) });
     setHi(0);
   };
   const suggestionRow = suggest?.row;
@@ -163,12 +165,16 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
       setSuggest(current => current ? { ...current, ...position } : null);
     };
     window.addEventListener("resize", reposition);
-    window.addEventListener("scroll", reposition, true);
-    return () => { window.removeEventListener("resize", reposition); window.removeEventListener("scroll", reposition, true); };
+    window.addEventListener("scroll", reposition, false);
+    return () => { window.removeEventListener("resize", reposition); window.removeEventListener("scroll", reposition, false); };
   }, [suggestionRow]);
-  const query = suggest ? (lines[suggest.row]?.item_name ?? "").toLowerCase().trim() : "";
-  const matches = suggest
-    ? products.filter((p) => !p.deactivated && matchesSearch(query, p.name, p.barcode, p.sku, p.category, p.manufacturer, p.hsn)).slice(0, 8)
+  useEffect(() => {
+    listRef.current?.querySelector<HTMLElement>(`[data-index="${hi}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [hi, suggest?.row, suggest?.col]);
+  const activeLine = suggest ? lines[suggest.row] : undefined;
+  const query = suggest && activeLine ? String((suggest.col === "item" ? activeLine.item_name : activeLine[suggest.col]) ?? "").toLowerCase().trim() : "";
+  const matches = suggest && (suggest.col === "item" || query)
+    ? products.filter((p) => !p.deactivated && matchesSearch(query, p.name, p.barcode, p.sku, p.category, p.manufacturer, p.hsn)).slice(0, 50)
     : [];
   const choose = (i: number, p: any) => {
     fillFromProduct(i, p);
@@ -178,13 +184,18 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
       el?.focus(); el?.select();
     }, 0);
   };
-  const onItemKeyDown = (i: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!suggest || matches.length === 0) return;
+  const onSearchKeyDown = (i: number, col: SearchCol, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (col !== "item" && e.key === "Enter") {
+      const exact = findByCode(e.currentTarget.value);
+      if (exact) { e.preventDefault(); e.stopPropagation(); choose(i, exact); return; }
+    }
+    if (!suggest || suggest.row !== i || matches.length === 0) return;
     if (e.key === "ArrowDown") { e.preventDefault(); setHi((h) => Math.min(h + 1, matches.length - 1)); }
     else if (e.key === "ArrowUp") { e.preventDefault(); setHi((h) => Math.max(h - 1, 0)); }
     else if (e.key === "Enter" && query) { e.preventDefault(); e.stopPropagation(); choose(i, matches[hi] ?? matches[0]); }
     else if (e.key === "Escape") setSuggest(null);
   };
+  const onItemKeyDown = (i: number, e: React.KeyboardEvent<HTMLInputElement>) => onSearchKeyDown(i, "item", e);
 
   const tbodyRef = useRef<HTMLTableSectionElement>(null);
   const onGridKeyDown = (e: React.KeyboardEvent<HTMLTableSectionElement>) => {
