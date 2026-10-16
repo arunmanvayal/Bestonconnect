@@ -1,10 +1,11 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
+import type { SupabaseClient } from "@supabase/supabase-js";
 import { Users, Wallet, Package, AlertTriangle, ArrowRight, ShoppingCart, Truck, TrendingUp, ArrowUpRight } from "lucide-react";
-import { fetchSearchRecords } from "@/lib/search-data";
 import { fetchBalances } from "@/lib/books";
 import { AppLayout } from "@/components/AppLayout";
 import { SupabaseGate, money } from "@/components/SupabaseGate";
+import { BrandLogoCard } from "@/components/BrandLogoCard";
 import { useSupabase } from "@/lib/supabase";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
@@ -32,6 +33,16 @@ function Dashboard() {
   );
 }
 
+async function fetchColumns(supabase: SupabaseClient, table: string, columns: string, order: string) {
+  const size = 1000; const rows: any[] = [];
+  for (let from = 0; ; from += size) {
+    const { data, error } = await supabase.from(table).select(columns).order(order).order("id").range(from, from + size - 1);
+    if (error) throw error;
+    rows.push(...(data ?? []));
+    if (!data || data.length < size) return rows;
+  }
+}
+
 function DashboardInner() {
   const supabase = useSupabase();
 
@@ -40,16 +51,17 @@ function DashboardInner() {
     enabled: !!supabase,
     queryFn: async () => {
       if (!supabase) throw new Error("Database is not connected");
+      const wrap = (p: Promise<any[]>) => p.then((d) => ({ data: d, error: null })).catch((e) => ({ data: [] as any[], error: e }));
       const [customers, accounts, products, entries, invoices] = await Promise.all([
         supabase.from("customers").select("id", { count: "exact", head: true }),
-        fetchBalances(supabase).then((d) => ({ data: d, error: null })).catch((e) => ({ data: [] as any[], error: e })),
-        fetchSearchRecords(supabase,"products","name").then(data=>({data,error:null})),
+        wrap(fetchBalances(supabase)),
+        wrap(fetchColumns(supabase, "products", "id, name, quantity, reorder_level", "name")),
         supabase
           .from("journal_entries")
           .select("id, entry_date, description, journal_lines(debit, credit)")
           .order("entry_date", { ascending: false })
           .limit(5),
-        fetchSearchRecords(supabase,"invoices","bill_date").then(data=>({data,error:null})),
+        wrap(fetchColumns(supabase, "invoices", "id, kind, taxable, bill_date", "bill_date")),
       ]);
       return {
         customerCount: customers.count ?? 0,
@@ -111,6 +123,7 @@ function DashboardInner() {
         <div className="hidden shrink-0 rounded-full border border-border/70 bg-card/80 px-4 py-2 text-xs font-semibold text-muted-foreground shadow-sm sm:block">{new Date().toLocaleDateString("en-IN", { dateStyle: "medium" })}</div>
       </div>
 
+      <BrandLogoCard />
       <div className="flex flex-wrap gap-3"><Link to="/admin/online-orders" className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-3 text-sm font-semibold"><ShoppingCart className="h-4 w-4" />Online orders <ArrowRight className="h-4 w-4" /></Link><Link to="/admin/online-products" className="inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 py-3 text-sm font-semibold"><Package className="h-4 w-4" />Online products <ArrowRight className="h-4 w-4" /></Link></div>
       <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
         {stats.map(({ label, value, icon: Icon, to }, index) => (

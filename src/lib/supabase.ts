@@ -1,9 +1,10 @@
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
 import { useEffect, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
 import { getSupabaseConfig } from "./config.functions";
 
 let client: SupabaseClient | null = null;
+let pending: Promise<SupabaseClient | null> | null = null;
+const CONFIG_KEY = "businessdesk.db-config";
 
 export function initSupabase(url: string, anonKey: string) {
   if (!client) {
@@ -19,21 +20,31 @@ export function getSupabase(): SupabaseClient {
   return client;
 }
 
-/** React hook: loads config from the server and returns a ready client (or null). */
-export function useSupabase(): SupabaseClient | null {
-  const [ready, setReady] = useState(client !== null);
-  const { data } = useQuery({
-    queryKey: ["supabase-config"],
-    queryFn: () => getSupabaseConfig(),
-    staleTime: Infinity,
-  });
-
-  useEffect(() => {
-    if (data?.url && data?.anonKey) {
-      initSupabase(data.url, data.anonKey);
-      setReady(true);
+/** Connects once per tab: uses the saved connection instantly, refreshing it from the server in the background. */
+function connect(): Promise<SupabaseClient | null> {
+  if (client) return Promise.resolve(client);
+  if (pending) return pending;
+  let cached: { url: string; anonKey: string } | null = null;
+  try { cached = JSON.parse(localStorage.getItem(CONFIG_KEY) ?? "null"); } catch { cached = null; }
+  const fresh = getSupabaseConfig().then((cfg) => {
+    if (cfg?.url && cfg?.anonKey) {
+      try { localStorage.setItem(CONFIG_KEY, JSON.stringify(cfg)); } catch { /* storage unavailable */ }
+      return initSupabase(cfg.url, cfg.anonKey);
     }
-  }, [data]);
+    return client;
+  });
+  pending = cached?.url && cached?.anonKey ? Promise.resolve(initSupabase(cached.url, cached.anonKey)) : fresh;
+  return pending;
+}
 
-  return ready ? client : null;
+/** React hook: returns a ready client (or null while the first connection is made). */
+export function useSupabase(): SupabaseClient | null {
+  const [ready, setReady] = useState<SupabaseClient | null>(client);
+  useEffect(() => {
+    if (ready) return;
+    let alive = true;
+    void connect().then((c) => { if (alive && c) setReady(c); });
+    return () => { alive = false; };
+  }, [ready]);
+  return ready;
 }
