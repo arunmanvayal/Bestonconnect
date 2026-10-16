@@ -165,8 +165,8 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
       setSuggest(current => current ? { ...current, ...position } : null);
     };
     window.addEventListener("resize", reposition);
-    window.addEventListener("scroll", reposition, false);
-    return () => { window.removeEventListener("resize", reposition); window.removeEventListener("scroll", reposition, false); };
+    window.addEventListener("scroll", reposition, true);
+    return () => { window.removeEventListener("resize", reposition); window.removeEventListener("scroll", reposition, true); };
   }, [suggestionRow]);
   useEffect(() => {
     listRef.current?.querySelector<HTMLElement>(`[data-index="${hi}"]`)?.scrollIntoView({ block: "nearest" });
@@ -370,11 +370,11 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
                   {lines.map((l, i) => {
                     return (
                       <tr key={i} onClick={() => setSelected(i)} className={`border-b border-border ${selected === i ? "bg-primary/10" : ""}`}>
-                        <InvoiceEntryCells kind={kind} line={l} row={i} taxType={h.tax_type} calculated={allocated[i]} update={patch => updateLine(i, patch)} barcode={value => onBarcode(i, value)} item={
+                        <InvoiceEntryCells kind={kind} line={l} row={i} taxType={h.tax_type} calculated={allocated[i]} update={patch => updateLine(i, patch)} barcode={value => onBarcode(i, value)} search={{ open: (col, el) => openSuggest(i, el, col), keyDown: (col, e) => onSearchKeyDown(i, col, e), close: () => setSuggest(s => s?.row === i && s.col !== "item" ? null : s) }} item={
                           <Input aria-label={`Item Name row ${i + 1}`} className={cellInput} data-row={i} data-col="item" autoComplete="off" placeholder="Search item…" value={l.item_name}
                             onFocus={e => openSuggest(i, e.currentTarget)}
                             onChange={e => { pickItem(i, e.target.value); openSuggest(i, e.currentTarget); }}
-                            onBlur={() => setTimeout(() => setSuggest(s => s?.row === i ? null : s), 150)}
+                            onBlur={() => setTimeout(() => setSuggest(s => s?.row === i && s.col === "item" ? null : s), 150)}
                             onKeyDown={e => onItemKeyDown(i, e)} />
                         } />
                       </tr>
@@ -430,11 +430,11 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
       </div>
 
       {suggest && createPortal(
-        <div role="listbox" aria-label="Product search results" className="fixed z-50 overflow-y-auto rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-xl"
+        <div ref={listRef} role="listbox" aria-label="Product search results" className="fixed z-50 overflow-y-auto rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-xl"
           style={{ top: suggest.top, left: suggest.left, width: suggest.width, maxHeight: suggest.maxHeight }}>
           {matches.length === 0 && <p role="status" className="px-3 py-2 text-sm text-muted-foreground">{productError ? "Products could not load. Check the connection and retry." : productsPending ? "Loading products…" : "No matching active products"}</p>}
           {matches.map((p, idx) => (
-            <Button key={p.id} role="option" aria-selected={idx === hi} type="button" variant="ghost" onPointerDown={e => e.preventDefault()} onClick={() => choose(suggest.row, p)}
+            <Button key={p.id} data-index={idx} role="option" aria-selected={idx === hi} type="button" variant="ghost" onPointerDown={e => e.preventDefault()} onMouseEnter={() => setHi(idx)} onClick={() => choose(suggest.row, p)}
               className={`flex h-auto w-full items-center justify-between gap-3 rounded-sm px-3 py-2 text-left text-sm transition-colors ${idx === hi ? "bg-primary/10" : "hover:bg-muted"}`}>
               <span className="min-w-0">
                 <span className="block truncate font-medium">{p.name}</span>
