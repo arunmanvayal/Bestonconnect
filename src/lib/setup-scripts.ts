@@ -6,6 +6,7 @@ import { ONLINE_SHOP_SQL } from "@/lib/online-shop-sql";
 import { STOCK_MAINTENANCE_SQL } from "@/lib/stock-maintenance-sql";
 import { FINANCIAL_TRANSACTIONS_SQL } from "@/lib/financial-transactions-sql";
 import { FINANCIAL_IMPORT_SQL } from "@/lib/financial-import-sql";
+import { STOCK_BARCODE_FAST_SQL } from "@/lib/stock-barcode-fast-sql";
 
 export const setupScripts = [
   { number: 1, title: "Core business tables", change: "Creates customers, accounts, stock and journal tables.", sql: SETUP_SQL },
@@ -20,6 +21,7 @@ export const setupScripts = [
   { number: 10, title: "Stock cleanup and barcodes", change: "Adds protected stock cleanup, product editing and barcode resequencing.", sql: STOCK_MAINTENANCE_SQL },
   { number: 11, title: "Financial consistency update", change: "Installs atomic invoices, purchase edits, payments, returns, stock and journals; unified tax, KFC, alternate units, snapshots and linked-record protection.", sql: FINANCIAL_TRANSACTIONS_SQL },
   { number: 12, title: "All-or-nothing Excel import", change: "Installs transactional product, customer, supplier and ledger imports with stock movements.", sql: FINANCIAL_IMPORT_SQL },
+  { number: 13, title: "Fast barcode series for large stock", change: "Rewrites stock cleanup and barcode resequencing as bulk updates so thousands of products save without a statement timeout.", sql: STOCK_BARCODE_FAST_SQL },
 ] as const;
 
 export function numberedSetupSql(script: typeof setupScripts[number]) {

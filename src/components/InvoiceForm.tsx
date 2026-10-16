@@ -145,12 +145,14 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
     updateLine(i, { product_id: null, item_name: name });
   };
 
-  const [suggest, setSuggest] = useState<({ row: number } & ReturnType<typeof suggestionPosition>) | null>(null);
+  type SearchCol = "item" | "sku" | "barcode";
+  const [suggest, setSuggest] = useState<({ row: number; col: SearchCol } & ReturnType<typeof suggestionPosition>) | null>(null);
   const suggestionAnchor = useRef<HTMLElement | null>(null);
+  const listRef = useRef<HTMLDivElement>(null);
   const [hi, setHi] = useState(0);
-  const openSuggest = (i: number, el: HTMLElement) => {
+  const openSuggest = (i: number, el: HTMLElement, col: SearchCol = "item") => {
     suggestionAnchor.current = el;
-    setSuggest({ row: i, ...suggestionPosition(el.getBoundingClientRect(), { width: window.innerWidth, height: window.innerHeight }) });
+    setSuggest({ row: i, col, ...suggestionPosition(el.getBoundingClientRect(), { width: window.innerWidth, height: window.innerHeight }) });
     setHi(0);
   };
   const suggestionRow = suggest?.row;
@@ -166,9 +168,13 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
     window.addEventListener("scroll", reposition, true);
     return () => { window.removeEventListener("resize", reposition); window.removeEventListener("scroll", reposition, true); };
   }, [suggestionRow]);
-  const query = suggest ? (lines[suggest.row]?.item_name ?? "").toLowerCase().trim() : "";
-  const matches = suggest
-    ? products.filter((p) => !p.deactivated && matchesSearch(query, p.name, p.barcode, p.sku, p.category, p.manufacturer, p.hsn)).slice(0, 8)
+  useEffect(() => {
+    listRef.current?.querySelector<HTMLElement>(`[data-index="${hi}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [hi, suggest?.row, suggest?.col]);
+  const activeLine = suggest ? lines[suggest.row] : undefined;
+  const query = suggest && activeLine ? String((suggest.col === "item" ? activeLine.item_name : activeLine[suggest.col]) ?? "").toLowerCase().trim() : "";
+  const matches = suggest && (suggest.col === "item" || query)
+    ? products.filter((p) => !p.deactivated && matchesSearch(query, p.name, p.barcode, p.sku, p.category, p.manufacturer, p.hsn)).slice(0, 50)
     : [];
   const choose = (i: number, p: any) => {
     fillFromProduct(i, p);
@@ -178,13 +184,18 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
       el?.focus(); el?.select();
     }, 0);
   };
-  const onItemKeyDown = (i: number, e: React.KeyboardEvent<HTMLInputElement>) => {
-    if (!suggest || matches.length === 0) return;
+  const onSearchKeyDown = (i: number, col: SearchCol, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (col !== "item" && e.key === "Enter") {
+      const exact = findByCode(e.currentTarget.value);
+      if (exact) { e.preventDefault(); e.stopPropagation(); choose(i, exact); return; }
+    }
+    if (!suggest || suggest.row !== i || matches.length === 0) return;
     if (e.key === "ArrowDown") { e.preventDefault(); setHi((h) => Math.min(h + 1, matches.length - 1)); }
     else if (e.key === "ArrowUp") { e.preventDefault(); setHi((h) => Math.max(h - 1, 0)); }
     else if (e.key === "Enter" && query) { e.preventDefault(); e.stopPropagation(); choose(i, matches[hi] ?? matches[0]); }
     else if (e.key === "Escape") setSuggest(null);
   };
+  const onItemKeyDown = (i: number, e: React.KeyboardEvent<HTMLInputElement>) => onSearchKeyDown(i, "item", e);
 
   const tbodyRef = useRef<HTMLTableSectionElement>(null);
   const onGridKeyDown = (e: React.KeyboardEvent<HTMLTableSectionElement>) => {
@@ -359,11 +370,11 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
                   {lines.map((l, i) => {
                     return (
                       <tr key={i} onClick={() => setSelected(i)} className={`border-b border-border ${selected === i ? "bg-primary/10" : ""}`}>
-                        <InvoiceEntryCells kind={kind} line={l} row={i} taxType={h.tax_type} calculated={allocated[i]} update={patch => updateLine(i, patch)} barcode={value => onBarcode(i, value)} item={
+                        <InvoiceEntryCells kind={kind} line={l} row={i} taxType={h.tax_type} calculated={allocated[i]} update={patch => updateLine(i, patch)} barcode={value => onBarcode(i, value)} search={{ open: (col, el) => openSuggest(i, el, col), keyDown: (col, e) => onSearchKeyDown(i, col, e), close: () => setSuggest(s => s?.row === i && s.col !== "item" ? null : s) }} item={
                           <Input aria-label={`Item Name row ${i + 1}`} className={cellInput} data-row={i} data-col="item" autoComplete="off" placeholder="Search item…" value={l.item_name}
                             onFocus={e => openSuggest(i, e.currentTarget)}
                             onChange={e => { pickItem(i, e.target.value); openSuggest(i, e.currentTarget); }}
-                            onBlur={() => setTimeout(() => setSuggest(s => s?.row === i ? null : s), 150)}
+                            onBlur={() => setTimeout(() => setSuggest(s => s?.row === i && s.col === "item" ? null : s), 150)}
                             onKeyDown={e => onItemKeyDown(i, e)} />
                         } />
                       </tr>
@@ -419,11 +430,11 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
       </div>
 
       {suggest && createPortal(
-        <div role="listbox" aria-label="Product search results" className="fixed z-50 overflow-y-auto rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-xl"
+        <div ref={listRef} role="listbox" aria-label="Product search results" className="fixed z-50 overflow-y-auto rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-xl"
           style={{ top: suggest.top, left: suggest.left, width: suggest.width, maxHeight: suggest.maxHeight }}>
           {matches.length === 0 && <p role="status" className="px-3 py-2 text-sm text-muted-foreground">{productError ? "Products could not load. Check the connection and retry." : productsPending ? "Loading products…" : "No matching active products"}</p>}
           {matches.map((p, idx) => (
-            <Button key={p.id} role="option" aria-selected={idx === hi} type="button" variant="ghost" onPointerDown={e => e.preventDefault()} onClick={() => choose(suggest.row, p)}
+            <Button key={p.id} data-index={idx} role="option" aria-selected={idx === hi} type="button" variant="ghost" onPointerDown={e => e.preventDefault()} onMouseEnter={() => setHi(idx)} onClick={() => choose(suggest.row, p)}
               className={`flex h-auto w-full items-center justify-between gap-3 rounded-sm px-3 py-2 text-left text-sm transition-colors ${idx === hi ? "bg-primary/10" : "hover:bg-muted"}`}>
               <span className="min-w-0">
                 <span className="block truncate font-medium">{p.name}</span>
