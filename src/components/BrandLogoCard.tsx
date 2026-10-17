@@ -22,6 +22,8 @@ export function BrandLogoCard() {
     if (error) { toast.error(error.message); return; }
     void qc.invalidateQueries({ queryKey: ["active-company"] });
     void qc.invalidateQueries({ queryKey: ["companies"] });
+    void qc.invalidateQueries({ queryKey: ["public-brand"] });
+    document.querySelectorAll<HTMLLinkElement>('link[rel="icon"], link[rel="apple-touch-icon"]').forEach(link => { link.href = `/api/public/brand-icon?v=${Date.now()}`; });
     toast.success(logo ? "Logo updated" : "Logo removed");
   };
 
@@ -39,7 +41,7 @@ export function BrandLogoCard() {
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold">Brand logo</p>
-          <p className="text-xs text-muted-foreground">Shown in the admin header and on printed invoices.</p>
+          <p className="text-xs text-muted-foreground">Shown in the admin header and on printed invoices. The first company's logo also appears on the shop and browser icon after Setup 14.</p>
         </div>
         <div className="flex gap-2">
           <Button asChild size="sm" disabled={busy}><label className="cursor-pointer">{busy ? "Saving…" : "Upload logo"}<input type="file" accept="image/*" className="hidden" onChange={(e) => { void onFile(e.target.files?.[0]); e.target.value = ""; }} /></label></Button>

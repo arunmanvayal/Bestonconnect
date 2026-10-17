@@ -14,6 +14,7 @@ import cover from "@/assets/shop-essentials.jpg";
 const categoryIcons = [Zap, CircuitBoard, Wrench];
 export function OnlineStore() {
   const sb = useSupabase();
+  const { data: brand } = useQuery({ queryKey: ["public-brand"], queryFn: async () => { const response = await fetch("/api/public/brand"); if (!response.ok) return { logo: "" }; return response.json() as Promise<{ logo: string }>; }, staleTime: 60_000 });
   const { data: products = [], isLoading, error, refetch } = useQuery({ queryKey: ["online-catalog"], queryFn: () => { if (!sb) throw new Error("Connecting…"); return fetchShopProducts(sb); }, enabled: !!sb, retry: false });
   const [search, setSearch] = useState("");
   const [category, setCategory] = useState("All");
@@ -50,7 +51,7 @@ export function OnlineStore() {
   return <div className="storefront pb-24 sm:pb-8">
     <header className="border-b border-border bg-card">
       <div className="mx-auto flex max-w-6xl items-center justify-between gap-4 px-5 py-5 sm:px-8">
-        <Link to="/" className="flex min-w-0 items-center gap-2"><span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-shop-brand font-display text-xl font-bold text-shop-brand-foreground">BC</span><span className="font-display text-xl font-bold sm:text-2xl">Beston<span className="text-shop-brand">connect</span></span></Link>
+        <Link to="/" className="flex min-w-0 items-center gap-2">{brand?.logo ? <img src={brand.logo} alt="Bestonconnect logo" className="h-11 w-11 shrink-0 object-contain" /> : <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-shop-brand font-display text-xl font-bold text-shop-brand-foreground">BC</span>}<span className="font-display text-xl font-bold sm:text-2xl">Beston<span className="text-shop-brand">connect</span></span></Link>
         <div className="flex gap-2"><Button variant="ghost" size="icon" aria-label={`Open cart, ${cart.reduce((s,l)=>s+l.quantity,0)} items`} onClick={() => { setCartOpen(true); setReceipt(null); }} className="relative"><ShoppingCart />{cart.length > 0 && <span className="absolute right-0 top-0 grid h-4 w-4 place-items-center rounded-full bg-primary text-[10px] text-primary-foreground">{cart.reduce((s,l)=>s+l.quantity,0)}</span>}</Button><Button asChild variant="ghost" size="icon"><Link to="/admin" aria-label="Admin dashboard"><UserRound /></Link></Button></div>
       </div>
     </header>

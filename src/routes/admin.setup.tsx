@@ -41,8 +41,8 @@ function SetupPage() {
     <div className="mx-auto max-w-4xl space-y-6">
       <header className="space-y-2">
         <h1 className="font-display text-2xl font-bold">Database Setup</h1>
-        <p className="text-sm text-muted-foreground">New database: run 01–12 in order before using the app. Existing database: run only missing or updated steps after their prerequisites.</p>
-        <p className="text-sm text-muted-foreground">Latest accounting changes: run 11, then 12, if steps 01–10 are already installed. Purchase search selection needs no SQL.</p>
+        <p className="text-sm text-muted-foreground">New database: run 01–14 in order before using the app. Existing database: run only missing steps after their prerequisites.</p>
+        <p className="text-sm text-muted-foreground">Logo and favicon update: run 14 once if previous steps are installed. It shares only the first company's logo with the public shop.</p>
         <p className="text-sm text-muted-foreground">Open your connected database’s SQL Editor, paste one complete script, and run it. Stop if a step reports an error.</p>
       </header>
       <div className="divide-y divide-border border-y border-border">
