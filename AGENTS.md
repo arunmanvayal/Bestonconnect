@@ -30,3 +30,4 @@
 - Use an invoice-owned party dialog for selection and creation through the existing company-scoped customers table; guard invoice commands while it is open to prevent a party save from submitting the bill.
 - Maintain numbered Setup scripts in a single browser-safe registry with prerequisites so copy and download expose the same ordered updates.
 - Render invoice product suggestions through a body portal with viewport-bounded positioning so transformed and scroll-clipped workspace ancestors cannot hide results.
+- Expose only the earliest company's logo through public_shop_brand and serve a padded square PNG through the public brand-icon endpoint; a stable primary-company identity prevents private workspace switching from changing the site favicon.
