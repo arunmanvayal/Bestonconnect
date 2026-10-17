@@ -46,6 +46,8 @@ import { Route as AdminStockRouteImport } from './routes/admin.stock'
 import { Route as AdminToolsRouteImport } from './routes/admin.tools'
 import { Route as InvoiceIdRouteImport } from './routes/invoice.$id'
 import { Route as AdminInvoiceIdRouteImport } from './routes/admin.invoice.$id'
+import { Route as ApiPublicBrandRouteImport } from './routes/api/public/brand'
+import { Route as ApiPublicBrandIconRouteImport } from './routes/api/public/brand-icon'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -232,6 +234,16 @@ const AdminInvoiceIdRoute = AdminInvoiceIdRouteImport.update({
   path: '/invoice/$id',
   getParentRoute: () => AdminRoute,
 } as any)
+const ApiPublicBrandRoute = ApiPublicBrandRouteImport.update({
+  id: '/api/public/brand',
+  path: '/api/public/brand',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicBrandIconRoute = ApiPublicBrandIconRouteImport.update({
+  id: '/api/public/brand-icon',
+  path: '/api/public/brand-icon',
+  getParentRoute: () => rootRouteImport,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -271,6 +283,8 @@ export interface FileRoutesByFullPath {
   '/invoice/$id': typeof InvoiceIdRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/invoice/$id': typeof AdminInvoiceIdRoute
+  '/api/public/brand': typeof ApiPublicBrandRoute
+  '/api/public/brand-icon': typeof ApiPublicBrandIconRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -309,6 +323,8 @@ export interface FileRoutesByTo {
   '/invoice/$id': typeof InvoiceIdRoute
   '/admin': typeof AdminIndexRoute
   '/admin/invoice/$id': typeof AdminInvoiceIdRoute
+  '/api/public/brand': typeof ApiPublicBrandRoute
+  '/api/public/brand-icon': typeof ApiPublicBrandIconRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -349,6 +365,8 @@ export interface FileRoutesById {
   '/invoice/$id': typeof InvoiceIdRoute
   '/admin/': typeof AdminIndexRoute
   '/admin/invoice/$id': typeof AdminInvoiceIdRoute
+  '/api/public/brand': typeof ApiPublicBrandRoute
+  '/api/public/brand-icon': typeof ApiPublicBrandIconRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -390,6 +408,8 @@ export interface FileRouteTypes {
     | '/invoice/$id'
     | '/admin/'
     | '/admin/invoice/$id'
+    | '/api/public/brand'
+    | '/api/public/brand-icon'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -428,6 +448,8 @@ export interface FileRouteTypes {
     | '/invoice/$id'
     | '/admin'
     | '/admin/invoice/$id'
+    | '/api/public/brand'
+    | '/api/public/brand-icon'
   id:
     | '__root__'
     | '/'
@@ -467,6 +489,8 @@ export interface FileRouteTypes {
     | '/invoice/$id'
     | '/admin/'
     | '/admin/invoice/$id'
+    | '/api/public/brand'
+    | '/api/public/brand-icon'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -488,6 +512,8 @@ export interface RootRouteChildren {
   StockRoute: typeof StockRoute
   ToolsRoute: typeof ToolsRoute
   InvoiceIdRoute: typeof InvoiceIdRoute
+  ApiPublicBrandRoute: typeof ApiPublicBrandRoute
+  ApiPublicBrandIconRoute: typeof ApiPublicBrandIconRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -751,6 +777,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminInvoiceIdRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/api/public/brand': {
+      id: '/api/public/brand'
+      path: '/api/public/brand'
+      fullPath: '/api/public/brand'
+      preLoaderRoute: typeof ApiPublicBrandRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/brand-icon': {
+      id: '/api/public/brand-icon'
+      path: '/api/public/brand-icon'
+      fullPath: '/api/public/brand-icon'
+      preLoaderRoute: typeof ApiPublicBrandIconRouteImport
+      parentRoute: typeof rootRouteImport
+    }
   }
 }
 
@@ -819,6 +859,8 @@ const rootRouteChildren: RootRouteChildren = {
   StockRoute: StockRoute,
   ToolsRoute: ToolsRoute,
   InvoiceIdRoute: InvoiceIdRoute,
+  ApiPublicBrandRoute: ApiPublicBrandRoute,
+  ApiPublicBrandIconRoute: ApiPublicBrandIconRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)
