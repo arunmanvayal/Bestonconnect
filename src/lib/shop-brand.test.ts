@@ -35,3 +35,18 @@ describe("dashboard logo shared with public shop and favicon", () => {
     } finally { await db.close(); }
   });
 });
+describe("logo fix", () => {
+  it("skips an older company without a logo", async () => {
+    const { SHOP_BRAND_LOGO_FIX_SQL } = await import("./shop-brand-sql");
+    const db = new PGlite();
+    try {
+      await db.exec(`create role anon; create role authenticated;
+        create table public.companies(id integer, created_at timestamptz, logo text);
+        insert into companies values (1,'2020-01-01',''), (2,'2021-01-01','bc-logo');`);
+      await db.exec(SHOP_BRAND_LOGO_FIX_SQL);
+      await db.exec("set role anon");
+      const { rows } = await db.query<{ brand: unknown }>("select public.public_shop_brand() as brand");
+      assert.deepEqual(rows[0]?.brand, { logo: "bc-logo" });
+    } finally { await db.close(); }
+  });
+});
