@@ -7,7 +7,7 @@ import { STOCK_MAINTENANCE_SQL } from "@/lib/stock-maintenance-sql";
 import { FINANCIAL_TRANSACTIONS_SQL } from "@/lib/financial-transactions-sql";
 import { FINANCIAL_IMPORT_SQL } from "@/lib/financial-import-sql";
 import { STOCK_BARCODE_FAST_SQL } from "@/lib/stock-barcode-fast-sql";
-import { SHOP_BRAND_SQL } from "@/lib/shop-brand-sql";
+import { SHOP_BRAND_SQL, SHOP_BRAND_LOGO_FIX_SQL } from "@/lib/shop-brand-sql";
 
 export const setupScripts = [
   { number: 1, title: "Core business tables", change: "Creates customers, accounts, stock and journal tables.", sql: SETUP_SQL },
@@ -24,6 +24,7 @@ export const setupScripts = [
   { number: 12, title: "All-or-nothing Excel import", change: "Installs transactional product, customer, supplier and ledger imports with stock movements.", sql: FINANCIAL_IMPORT_SQL },
   { number: 13, title: "Fast barcode series for large stock", change: "Rewrites stock cleanup and barcode resequencing as bulk updates so thousands of products save without a statement timeout.", sql: STOCK_BARCODE_FAST_SQL },
   { number: 14, title: "Shared shop logo and Google favicon", change: "Makes only the primary company's uploaded logo public for the shop and square browser/Google icon. Company details remain private. The primary brand is the first company created.", sql: SHOP_BRAND_SQL },
+  { number: 15, title: "Logo fix: use the company that has a logo", change: "The shop and browser/Google icon now use the earliest company with an uploaded logo, so an older company without a logo no longer blocks it.", sql: SHOP_BRAND_LOGO_FIX_SQL },
 ] as const;
 
 export function numberedSetupSql(script: typeof setupScripts[number]) {
