@@ -87,12 +87,14 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { property: "og:description", content: "CRM, double-entry bookkeeping, ledger and stock management for your business." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary" },
+      { name: "theme-color", content: "#0f3d5c" },
     ],
     links: [
       {
         rel: "stylesheet",
         href: appCss,
       },
+      { rel: "manifest", href: "/manifest.webmanifest" },
       { rel: "icon", href: "/api/public/brand-icon", sizes: "96x96" },
       { rel: "icon", href: "/api/public/brand-icon?size=192", sizes: "192x192" },
       { rel: "apple-touch-icon", href: "/api/public/brand-icon?size=180" },
