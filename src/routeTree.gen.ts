@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AccountsRouteImport } from './routes/accounts'
 import { Route as AdminRouteImport } from './routes/admin'
 import { Route as CustomersRouteImport } from './routes/customers'
+import { Route as FaviconDoticoRouteImport } from './routes/favicon[.]ico'
 import { Route as LedgerRouteImport } from './routes/ledger'
 import { Route as OnlineOrdersRouteImport } from './routes/online-orders'
 import { Route as OnlineProductsRouteImport } from './routes/online-products'
@@ -67,6 +68,11 @@ const AdminRoute = AdminRouteImport.update({
 const CustomersRoute = CustomersRouteImport.update({
   id: '/customers',
   path: '/customers',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const FaviconDoticoRoute = FaviconDoticoRouteImport.update({
+  id: '/favicon.ico',
+  path: '/favicon.ico',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LedgerRoute = LedgerRouteImport.update({
@@ -250,6 +256,7 @@ export interface FileRoutesByFullPath {
   '/accounts': typeof AccountsRoute
   '/admin': typeof AdminRouteWithChildren
   '/customers': typeof CustomersRoute
+  '/favicon.ico': typeof FaviconDoticoRoute
   '/ledger': typeof LedgerRoute
   '/online-orders': typeof OnlineOrdersRoute
   '/online-products': typeof OnlineProductsRoute
@@ -290,6 +297,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/accounts': typeof AccountsRoute
   '/customers': typeof CustomersRoute
+  '/favicon.ico': typeof FaviconDoticoRoute
   '/ledger': typeof LedgerRoute
   '/online-orders': typeof OnlineOrdersRoute
   '/online-products': typeof OnlineProductsRoute
@@ -332,6 +340,7 @@ export interface FileRoutesById {
   '/accounts': typeof AccountsRoute
   '/admin': typeof AdminRouteWithChildren
   '/customers': typeof CustomersRoute
+  '/favicon.ico': typeof FaviconDoticoRoute
   '/ledger': typeof LedgerRoute
   '/online-orders': typeof OnlineOrdersRoute
   '/online-products': typeof OnlineProductsRoute
@@ -375,6 +384,7 @@ export interface FileRouteTypes {
     | '/accounts'
     | '/admin'
     | '/customers'
+    | '/favicon.ico'
     | '/ledger'
     | '/online-orders'
     | '/online-products'
@@ -415,6 +425,7 @@ export interface FileRouteTypes {
     | '/'
     | '/accounts'
     | '/customers'
+    | '/favicon.ico'
     | '/ledger'
     | '/online-orders'
     | '/online-products'
@@ -456,6 +467,7 @@ export interface FileRouteTypes {
     | '/accounts'
     | '/admin'
     | '/customers'
+    | '/favicon.ico'
     | '/ledger'
     | '/online-orders'
     | '/online-products'
@@ -498,6 +510,7 @@ export interface RootRouteChildren {
   AccountsRoute: typeof AccountsRoute
   AdminRoute: typeof AdminRouteWithChildren
   CustomersRoute: typeof CustomersRoute
+  FaviconDoticoRoute: typeof FaviconDoticoRoute
   LedgerRoute: typeof LedgerRoute
   OnlineOrdersRoute: typeof OnlineOrdersRoute
   OnlineProductsRoute: typeof OnlineProductsRoute
@@ -544,6 +557,13 @@ declare module '@tanstack/react-router' {
       path: '/customers'
       fullPath: '/customers'
       preLoaderRoute: typeof CustomersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/favicon.ico': {
+      id: '/favicon.ico'
+      path: '/favicon.ico'
+      fullPath: '/favicon.ico'
+      preLoaderRoute: typeof FaviconDoticoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/ledger': {
@@ -845,6 +865,7 @@ const rootRouteChildren: RootRouteChildren = {
   AccountsRoute: AccountsRoute,
   AdminRoute: AdminRouteWithChildren,
   CustomersRoute: CustomersRoute,
+  FaviconDoticoRoute: FaviconDoticoRoute,
   LedgerRoute: LedgerRoute,
   OnlineOrdersRoute: OnlineOrdersRoute,
   OnlineProductsRoute: OnlineProductsRoute,

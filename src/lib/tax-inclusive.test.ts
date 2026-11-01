@@ -14,3 +14,6 @@ test("inclusive 5% and 28% totals match typed price times quantity", () => {
   for (const g of [5, 12, 28]) expect(Math.round(lineCalc({ quantity: 3, rate: storedRate(250, g, true), discount: 0, gst_rate: g } as any).amount * 100) / 100).toBe(750);
 });
 test("exclusive rates are unchanged", () => { expect(storedRate(100, 18, false)).toBe(100); });
+
+import { nextNumericBarcode } from "./invoice-entry";
+test("new purchase barcode continues the numeric series", () => { expect(nextNumericBarcode(["1", "7961", "BD123", "", null, "12"])).toBe("7962"); });
