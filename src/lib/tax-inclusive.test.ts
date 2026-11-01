@@ -1,4 +1,6 @@
-import { test, expect } from "bun:test";
+import { it as test } from "node:test";
+import assert from "node:assert/strict";
+const expect = (v: unknown) => ({ toBe: (e: unknown) => assert.equal(v, e) });
 import { displayRate, storedRate } from "./invoice-entry";
 import { lineCalc } from "./books";
 test("inclusive 118 at 18% gives taxable 100, GST 18, total 118", () => {
