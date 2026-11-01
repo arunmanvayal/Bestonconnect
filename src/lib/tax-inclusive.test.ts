@@ -1,0 +1,14 @@
+import { test, expect } from "bun:test";
+import { displayRate, storedRate } from "./invoice-entry";
+import { lineCalc } from "./books";
+test("inclusive 118 at 18% gives taxable 100, GST 18, total 118", () => {
+  const rate = storedRate(118, 18, true);
+  const c = lineCalc({ quantity: 1, rate, discount: 0, gst_rate: 18 } as any);
+  expect(Math.round(c.taxable * 100) / 100).toBe(100);
+  expect(Math.round(c.amount * 100) / 100).toBe(118);
+  expect(displayRate(rate, 18, true)).toBe(118);
+});
+test("inclusive 5% and 28% totals match typed price times quantity", () => {
+  for (const g of [5, 12, 28]) expect(Math.round(lineCalc({ quantity: 3, rate: storedRate(250, g, true), discount: 0, gst_rate: g } as any).amount * 100) / 100).toBe(750);
+});
+test("exclusive rates are unchanged", () => { expect(storedRate(100, 18, false)).toBe(100); });
