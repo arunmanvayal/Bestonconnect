@@ -10,3 +10,10 @@ export function discountPercent(gross: number, amount: number) { return gross > 
 export function displayRate(rate: number, gst: number, inclusive?: boolean) { return inclusive ? Math.round(rate * (1 + gst / 100) * 100) / 100 : rate; }
 /** Converts a typed grid rate to the stored pre-tax rate. */
 export function storedRate(typed: number, gst: number, inclusive?: boolean) { return inclusive ? typed / (1 + gst / 100) : typed; }
+
+/** Next purchase barcode: continues the highest purely numeric barcode series (1, 2, 3 …). */
+export function nextNumericBarcode(existing: Array<string | null | undefined>) {
+  let max = 0;
+  for (const b of existing) { const v = String(b ?? "").trim(); if (/^\d{1,15}$/.test(v)) max = Math.max(max, Number(v)); }
+  return String(max + 1);
+}

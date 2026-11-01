@@ -11,6 +11,7 @@ import { fetchAll } from "@/lib/data-transfer";
 import { fetchNextInvoiceNumber } from "@/lib/invoice-number";
 import { matchesSearch } from "@/lib/search";
 import { productInvoiceDefaults } from "@/lib/masters";
+import { nextNumericBarcode } from "@/lib/invoice-entry";
 import { suggestionPosition } from "@/lib/invoice-suggestions";
 import { createPortal } from "react-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -120,7 +121,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
       return next;
     });
 
-  const genBarcode = () => `BD${Date.now().toString().slice(-8)}${Math.floor(Math.random() * 90 + 10)}`;
+  const genBarcode = () => nextNumericBarcode([...products.map((p: any) => p.barcode), ...lines.map(l => l.barcode)]);
   const fillFromProduct = (i: number, p: any, code?: string) =>
     updateLine(i, {
       product_id: p.id, item_name: p.name, barcode: code ?? (isSale ? p.barcode || p.sku || "" : genBarcode()),
