@@ -6,3 +6,7 @@ export type EntryDetails = {
 export const emptyEntryDetails = (date: string): EntryDetails => ({ cost_centre: "MAIN", source: "", voucher_no: "", order_date: date, order_no: "", agent: "NONE", order_details: "", despatch_details: "", vehicle_details: "", entry_date: date, kfc_amount: "" });
 export function discountAmount(gross: number, percent: number) { return Math.round(Math.max(0, gross) * Math.min(100, Math.max(0, percent)) * 100 / 100) / 100; }
 export function discountPercent(gross: number, amount: number) { return gross > 0 ? Math.round(amount / gross * 10000) / 100 : 0; }
+/** Rate shown in the entry grid: tax-inclusive lines show the price with GST included. */
+export function displayRate(rate: number, gst: number, inclusive?: boolean) { return inclusive ? Math.round(rate * (1 + gst / 100) * 100) / 100 : rate; }
+/** Converts a typed grid rate to the stored pre-tax rate. */
+export function storedRate(typed: number, gst: number, inclusive?: boolean) { return inclusive ? typed / (1 + gst / 100) : typed; }

@@ -1,6 +1,6 @@
 import type { Line, Kind } from "@/lib/books";
 import { lineCalc } from "@/lib/books";
-import { discountAmount, discountPercent } from "@/lib/invoice-entry";
+import { discountAmount, discountPercent, displayRate, storedRate } from "@/lib/invoice-entry";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 
@@ -22,6 +22,7 @@ export function InvoiceEntryCells({ kind, line: l, row, taxType, update, barcode
     onFocus={e => { if (e.currentTarget.value) search?.open(key, e.currentTarget); }}
     onBlur={() => setTimeout(() => search?.close(), 150)}
     onKeyDown={e => search?.keyDown(key, e)}/></td>;
+  const rateCell = (label: string, extra?: (rate: number) => Partial<Line>) => <td><Input aria-label={`${label} row ${row + 1}`} title={l.tax_incl ? "Inclusive of tax" : undefined} className="h-8 rounded-none border-0 bg-transparent px-2 text-xs focus-visible:ring-1" data-row={row} data-col="rate" type="number" min={0} value={String(displayRate(l.rate, l.gst_rate, l.tax_incl))} onChange={e => { const rate = storedRate(number(e.target.value), l.gst_rate, l.tax_incl); update({ rate, ...(extra?.(rate) ?? {}) }); }}/></td>;
   void barcode;
   const codeCell = searchCell("sku", "Item code");
   const barcodeCell = searchCell("barcode", "Barcode");
@@ -33,14 +34,14 @@ export function InvoiceEntryCells({ kind, line: l, row, taxType, update, barcode
     {kind === "sale" ? <>{barcodeCell}{codeCell}<td>{item}</td></> : <>{codeCell}<td>{item}</td>{barcodeCell}</>}
     {l.alt_unit && l.main_unit ? <td><Select value={l.unit} onValueChange={unit => { const factor = unit === l.alt_unit ? Number(l.conv_factor || 1) : 1; const ratio = factor / Number(l.unit_factor || 1); update({ unit, unit_factor: factor, rate: l.rate * ratio, sale_price: Number(l.sale_price || 0) * ratio }); }}><SelectTrigger aria-label={`Unit row ${row+1}`} className="h-8 rounded-none border-0 px-2"><SelectValue/></SelectTrigger><SelectContent><SelectItem value={l.main_unit}>{l.main_unit}</SelectItem><SelectItem value={l.alt_unit}>{l.alt_unit}</SelectItem></SelectContent></Select></td> : input("unit", "Unit")}
     {input("quantity", "Quantity", true)}
-    {kind === "sale" ? <>{input("serial_no", "Serial number")}{input("mrp", "MRP", true)}{input("rate", "Rate", true)}<td className="px-2 text-right tabular-nums">{c.gross.toFixed(2)}</td></> : <>
+    {kind === "sale" ? <>{input("serial_no", "Serial number")}{input("mrp", "MRP", true)}{rateCell("Rate")}<td className="px-2 text-right tabular-nums">{c.gross.toFixed(2)}</td></> : <>
       {input("free_qty", "Free quantity", true)}
-      {input("rate", "Unit price", true, v => { const rate = number(v); update({ rate, sale_price: Math.round(rate * (1 + l.profit_pct / 100) * 100) / 100 }); })}
+      {rateCell("Unit price", rate => ({ sale_price: Math.round(rate * (1 + l.profit_pct / 100) * 100) / 100 }))}
       {input("profit_pct", "Profit percent", true, v => { const profit_pct = number(v); update({ profit_pct, sale_price: Math.round(l.rate * (1 + profit_pct / 100) * 100) / 100 }); })}
       <td className="px-2 text-right tabular-nums">{l.rate.toFixed(2)}</td>
       {input("sale_price", "Sale price", true)}{input("mrp", "MRP", true)}
     </>}
     {discountCell}<td className="px-2 text-right tabular-nums">{taxable.toFixed(2)}</td>
-    {input("gst_rate", "GST percent", true)}<td className="px-2 text-right tabular-nums">{tax.toFixed(2)}</td><td className="px-2 text-right font-semibold tabular-nums">{(calculated?.amount ?? taxable + tax).toFixed(2)}</td>
+    {input("gst_rate", "GST percent", true, v => { const gst_rate = number(v); update({ gst_rate, ...(l.tax_incl ? { rate: storedRate(displayRate(l.rate, l.gst_rate, true), gst_rate, true) } : {}) }); })}<td className="px-2 text-right tabular-nums">{tax.toFixed(2)}</td><td className="px-2 text-right font-semibold tabular-nums">{(calculated?.amount ?? taxable + tax).toFixed(2)}</td>
   </>;
 }
