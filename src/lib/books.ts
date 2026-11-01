@@ -16,6 +16,8 @@ export type Line = {
   discount: number;
   gst_rate: number;
   profit_pct: number;
+  /** Product's "Inclusive of Tax" option for this bill kind: the typed rate includes GST. */
+  tax_incl?: boolean;
   sku?: string;
   serial_no?: string;
   mrp?: number;

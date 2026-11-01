@@ -106,7 +106,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
         if (!product) return l;
         const oldDefaults = productInvoiceDefaults(product, kind, h.tax_type);
         const nextDefaults = productInvoiceDefaults(product, kind, v);
-        return { ...l, gst_rate: nextDefaults.gst_rate, rate: Math.abs(l.rate - oldDefaults.rate) < 0.000001 ? nextDefaults.rate : l.rate };
+        return { ...l, gst_rate: nextDefaults.gst_rate, rate: Math.abs(l.rate - oldDefaults.rate) < 0.000001 ? nextDefaults.rate : l.tax_incl ? l.rate * (1 + l.gst_rate / 100) / (1 + nextDefaults.gst_rate / 100) : l.rate };
       }));
     }
     setH(p => ({ ...p, [k]: v }));
@@ -124,7 +124,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
   const fillFromProduct = (i: number, p: any, code?: string) =>
     updateLine(i, {
       product_id: p.id, item_name: p.name, barcode: code ?? (isSale ? p.barcode || p.sku || "" : genBarcode()),
-      ...productInvoiceDefaults(p, kind, h.tax_type), unit_factor: 1, main_unit: p.unit, alt_unit: p.alt_unit || "", conv_factor: Number(p.conv_factor || 1), quantity: lines[i]?.quantity || 1,
+      ...productInvoiceDefaults(p, kind, h.tax_type), tax_incl: !!(isSale ? p.sale_tax_incl : p.purchase_tax_incl), unit_factor: 1, main_unit: p.unit, alt_unit: p.alt_unit || "", conv_factor: Number(p.conv_factor || 1), quantity: lines[i]?.quantity || 1,
     });
 
   const findByCode = (code: string) => {
@@ -256,7 +256,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
     setLines((items ?? []).map((i: any): Line => {
       const p = products.find((x: any) => x.id === i.product_id);
       return { unit_factor: Number(i.entry_details?.unit_factor || 1), main_unit: i.entry_details?.main_unit ?? p?.unit, alt_unit: i.entry_details?.alt_unit ?? p?.alt_unit, conv_factor: Number(i.entry_details?.conv_factor ?? p?.conv_factor ?? 1), product_id: i.product_id, item_name: i.item_name, barcode: i.entry_details?.barcode ?? p?.barcode ?? "", sku: i.entry_details?.sku ?? p?.sku ?? "", serial_no: i.entry_details?.serial_no ?? "", mrp: Number(i.entry_details?.mrp ?? p?.mrp) || 0, sale_price: Number(i.entry_details?.sale_price ?? p?.unit_price) || 0, unit: i.unit || "pcs", quantity: Number(i.quantity), free_qty: Number(i.free_qty) || 0,
-        rate: Number(i.rate), discount: Number(i.discount) || 0, gst_rate: Number(i.gst_rate), profit_pct: Number(i.entry_details?.profit_pct) || 0 };
+        rate: Number(i.rate), discount: Number(i.discount) || 0, gst_rate: Number(i.gst_rate), profit_pct: Number(i.entry_details?.profit_pct) || 0, tax_incl: !!(i.entry_details?.tax_incl ?? (p ? (isSale ? p.sale_tax_incl : p.purchase_tax_incl) : false)) };
     }).concat([emptyLine()]));
     setEditingId(bill.id); lastSavedId.current = bill.id; setLookup(""); setSelected(null); setSuggest(null);
     } catch (e) { toast.error(e instanceof Error ? e.message : "Could not load bill"); }
