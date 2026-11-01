@@ -1,0 +1,30 @@
+{
+  "name": "Bestonconnect",
+  "short_name": "Bestonconnect",
+  "description": "Bestonconnect — electricals, electronics and hardware shop with billing, accounts and stock.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0f3d5c",
+  "icons": [
+    {
+      "src": "/api/public/brand-icon?size=192",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/api/public/brand-icon?size=512",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/api/public/brand-icon?size=512",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "maskable"
+    }
+  ]
+}
