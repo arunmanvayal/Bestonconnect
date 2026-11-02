@@ -8,6 +8,7 @@ import { FINANCIAL_TRANSACTIONS_SQL } from "@/lib/financial-transactions-sql";
 import { FINANCIAL_IMPORT_SQL } from "@/lib/financial-import-sql";
 import { STOCK_BARCODE_FAST_SQL } from "@/lib/stock-barcode-fast-sql";
 import { SHOP_BRAND_SQL, SHOP_BRAND_LOGO_FIX_SQL } from "@/lib/shop-brand-sql";
+import { PURCHASE_PRODUCT_SYNC_SQL, ALL_PRODUCTS_INCLUSIVE_18_SQL } from "@/lib/purchase-product-sync-sql";
 
 export const setupScripts = [
   { number: 1, title: "Core business tables", change: "Creates customers, accounts, stock and journal tables.", sql: SETUP_SQL },
@@ -25,6 +26,8 @@ export const setupScripts = [
   { number: 13, title: "Fast barcode series for large stock", change: "Rewrites stock cleanup and barcode resequencing as bulk updates so thousands of products save without a statement timeout.", sql: STOCK_BARCODE_FAST_SQL },
   { number: 14, title: "Shared shop logo and Google favicon", change: "Makes only the primary company's uploaded logo public for the shop and square browser/Google icon. Company details remain private. The primary brand is the first company created.", sql: SHOP_BRAND_SQL },
   { number: 15, title: "Logo fix: use the company that has a logo", change: "The shop and browser/Google icon now use the earliest company with an uploaded logo, so an older company without a logo no longer blocks it.", sql: SHOP_BRAND_LOGO_FIX_SQL },
+  { number: 16, title: "Purchase bill updates product details", change: "Saving a purchase bill copies the latest GST %, purchase rate, sale price and MRP of each item back to the product.", sql: PURCHASE_PRODUCT_SYNC_SQL },
+  { number: 17, title: "All products 18% inclusive (one-time)", change: "Marks every product in your companies as Inclusive of Tax Sales and Purchase with CGST 9% + SGST 9% (18%). Run only when you want to reset all products.", sql: ALL_PRODUCTS_INCLUSIVE_18_SQL },
 ] as const;
 
 export function numberedSetupSql(script: typeof setupScripts[number]) {
