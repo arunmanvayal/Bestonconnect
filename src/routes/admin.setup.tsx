@@ -41,8 +41,9 @@ function SetupPage() {
     <div className="mx-auto max-w-4xl space-y-6">
       <header className="space-y-2">
         <h1 className="font-display text-2xl font-bold">Database Setup</h1>
-        <p className="text-sm text-muted-foreground">New database: run 01–15 in order before using the app. Existing database: run only missing steps after their prerequisites.</p>
+        <p className="text-sm text-muted-foreground">New database: run 01–16 in order before using the app. Existing database: run only missing steps after their prerequisites.</p>
         <p className="text-sm text-muted-foreground">Logo and favicon update: run 15 once (after 14). It shares only the logo of the earliest company that has one.</p>
+        <p className="text-sm text-muted-foreground">Purchase updates products: run 16 once. Step 17 is optional and one-time: it sets every product to 18% (9+9) inclusive.</p>
         <p className="text-sm text-muted-foreground">Open your connected database’s SQL Editor, paste one complete script, and run it. Stop if a step reports an error.</p>
       </header>
       <div className="divide-y divide-border border-y border-border">
