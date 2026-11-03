@@ -11,7 +11,7 @@ import { fetchAll } from "@/lib/data-transfer";
 import { fetchNextInvoiceNumber } from "@/lib/invoice-number";
 import { matchesSearch } from "@/lib/search";
 import { productInvoiceDefaults } from "@/lib/masters";
-import { nextNumericBarcode } from "@/lib/invoice-entry";
+import { nextNumericBarcode, purchaseCodeMatches } from "@/lib/invoice-entry";
 import { suggestionPosition } from "@/lib/invoice-suggestions";
 import { createPortal } from "react-dom";
 import { useEffect, useMemo, useRef, useState } from "react";
@@ -175,7 +175,11 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
   const activeLine = suggest ? lines[suggest.row] : undefined;
   const query = suggest && activeLine ? String((suggest.col === "item" ? activeLine.item_name : activeLine[suggest.col]) ?? "").toLowerCase().trim() : "";
   const matches = suggest && (suggest.col === "item" || query)
-    ? products.filter((p) => !p.deactivated && matchesSearch(query, p.name, p.barcode, p.sku, p.category, p.manufacturer, p.hsn)).slice(0, 50)
+    ? kind === "purchase"
+      ? suggest.col === "sku"
+        ? purchaseCodeMatches(products.filter((p) => !p.deactivated), query)
+        : products.filter((p) => !p.deactivated && matchesSearch(query, p.name, p.sku, p.category, p.manufacturer, p.hsn)).slice(0, 50)
+      : products.filter((p) => !p.deactivated && matchesSearch(query, p.name, p.barcode, p.sku, p.category, p.manufacturer, p.hsn)).slice(0, 50)
     : [];
   const choose = (i: number, p: any) => {
     fillFromProduct(i, p);

@@ -17,3 +17,16 @@ export function nextNumericBarcode(existing: Array<string | null | undefined>) {
   for (const b of existing) { const v = String(b ?? "").trim(); if (/^\d{1,15}$/.test(v)) max = Math.max(max, Number(v)); }
   return String(max + 1);
 }
+
+/** Purchase item-code search: exact code first, then codes starting with the query; ignores names/barcodes. */
+export function purchaseCodeMatches<T extends { sku?: string | null }>(products: T[], query: string, limit = 50): T[] {
+  const q = query.trim().toLowerCase();
+  if (!q) return [];
+  const code = (p: T) => String(p.sku ?? "").trim().toLowerCase();
+  const hits = products.filter(p => code(p).startsWith(q));
+  return hits.sort((a, b) => {
+    const ea = code(a) === q ? 0 : 1, eb = code(b) === q ? 0 : 1;
+    if (ea !== eb) return ea - eb;
+    return code(a).length - code(b).length || code(a).localeCompare(code(b), undefined, { numeric: true });
+  }).slice(0, limit);
+}
