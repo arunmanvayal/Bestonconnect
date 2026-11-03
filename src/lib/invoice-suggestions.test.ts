@@ -6,8 +6,8 @@ describe("purchase suggestion positioning", () => {
   it("keeps a bottom-row product list inside the 694×537 viewport", () => {
     const p = suggestionPosition({ left: 500, top: 450, bottom: 474, width: 160 }, { width: 694, height: 537 });
     assert.equal(p.top, 158);
-    assert.equal(p.left, 366);
-    assert.equal(p.width, 320);
+    assert.equal(p.left, 46);
+    assert.equal(p.width, 640);
     assert.equal(p.maxHeight, 288);
     assert.ok(p.top + p.maxHeight < 537);
   });

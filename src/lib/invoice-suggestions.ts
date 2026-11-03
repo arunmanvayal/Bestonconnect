@@ -1,5 +1,5 @@
 export function suggestionPosition(rect: { left: number; top: number; bottom: number; width: number }, viewport: { width: number; height: number }) {
-  const width = Math.min(Math.max(rect.width, 320), viewport.width - 16);
+  const width = Math.min(Math.max(rect.width, 640), viewport.width - 16);
   const below = viewport.height - rect.bottom - 12;
   const above = rect.top - 12;
   const useAbove = below < 160 && above > below;
