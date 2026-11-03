@@ -435,19 +435,28 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
       </div>
 
       {suggest && createPortal(
-        <div ref={listRef} role="listbox" aria-label="Product search results" className="fixed z-50 overflow-y-auto rounded-md border border-border bg-popover p-1 text-popover-foreground shadow-xl"
+        <div className="fixed z-50 flex flex-col overflow-hidden rounded-md border border-primary bg-popover text-popover-foreground shadow-xl"
           style={{ top: suggest.top, left: suggest.left, width: suggest.width, maxHeight: suggest.maxHeight }}>
-          {matches.length === 0 && <p role="status" className="px-3 py-2 text-sm text-muted-foreground">{productError ? "Products could not load. Check the connection and retry." : productsPending ? "Loading products…" : "No matching active products"}</p>}
-          {matches.map((p, idx) => (
-            <Button key={p.id} data-index={idx} role="option" aria-selected={idx === hi} type="button" variant="ghost" onPointerDown={e => e.preventDefault()} onMouseEnter={() => setHi(idx)} onClick={() => choose(suggest.row, p)}
-              className={`flex h-auto w-full items-center justify-between gap-3 rounded-sm px-3 py-2 text-left text-sm transition-colors ${idx === hi ? "bg-primary/10" : "hover:bg-muted"}`}>
-              <span className="min-w-0">
-                <span className="block truncate font-medium">{p.name}</span>
-                <span className="block truncate text-xs text-muted-foreground">{p.barcode || p.sku || "No barcode"} · Stock {Number(p.quantity)} {p.unit}</span>
-              </span>
-              <span className="shrink-0 text-xs font-semibold tabular-nums">₹{Number(isSale ? p.unit_price : p.cost_price || p.unit_price)}</span>
-            </Button>
-          ))}
+          <div className="grid grid-cols-[90px_110px_1fr_80px_64px] bg-primary text-xs font-semibold text-primary-foreground">
+            <span className="px-2 py-1.5">Barcode</span><span className="px-2 py-1.5">Item code</span><span className="px-2 py-1.5">Product name</span><span className="px-2 py-1.5 text-right">{isSale ? "Rate" : "Unit Price"}</span><span className="px-2 py-1.5 text-right">MRP</span>
+          </div>
+          <div ref={listRef} role="listbox" aria-label="Product search results" className="min-h-0 flex-1 overflow-y-auto">
+            {matches.length === 0 && <p role="status" className="px-3 py-2 text-sm text-muted-foreground">{productError ? "Products could not load. Check the connection and retry." : productsPending ? "Loading products…" : "No matching active products"}</p>}
+            {matches.map((p, idx) => (
+              <button key={p.id} data-index={idx} role="option" aria-selected={idx === hi} type="button" onPointerDown={e => e.preventDefault()} onMouseEnter={() => setHi(idx)} onClick={() => choose(suggest.row, p)}
+                className={`grid w-full grid-cols-[90px_110px_1fr_80px_64px] border-b border-border text-left text-xs ${idx === hi ? "bg-accent font-semibold text-accent-foreground" : "hover:bg-muted"}`}>
+                <span className="truncate px-2 py-1.5">{p.barcode || "—"}</span>
+                <span className="truncate px-2 py-1.5">{p.sku || "—"}</span>
+                <span className="truncate px-2 py-1.5">{p.name}</span>
+                <span className="px-2 py-1.5 text-right tabular-nums">{Number(isSale ? p.unit_price : p.cost_price || p.unit_price) || 0}</span>
+                <span className="px-2 py-1.5 text-right tabular-nums">{Number(p.mrp) || 0}</span>
+              </button>
+            ))}
+          </div>
+          <div className="flex items-center justify-between bg-primary px-3 py-1.5 text-xs text-primary-foreground">
+            <span>↑ ↓ select · Enter add · Esc close</span>
+            <span className="font-bold tracking-wide">STOCK : {matches[hi] ? `${Number(matches[hi].quantity || 0).toFixed(2)} ${matches[hi].unit ?? ""}` : "—"}</span>
+          </div>
         </div>, document.body
       )}
 
