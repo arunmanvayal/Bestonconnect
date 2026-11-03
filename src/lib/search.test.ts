@@ -10,3 +10,10 @@ describe("shared search", () => {
   it("returns all records for a blank search", () => assert.equal(matchesSearch("   ", "Steel Bolt"), true));
   it("treats punctuation as literal text", () => assert.equal(matchesSearch("%_", "M8"), false));
 });
+import { rankedSearch } from "./search";
+describe("invoice search ranking", () => {
+  it("pvc past shows PVC PASTE before CPVC PASTE", () => {
+    const items = [{ name: "CPVC PASTE 118 ML" }, { name: "CPVC PASTE 15ML TUBE" }, { name: "PVC PASTE 100ML" }, { name: "HEAVY PVC PASTE" }];
+    assert.deepEqual(rankedSearch(items, "pvc past", p => [p.name]).map(p => p.name), ["PVC PASTE 100ML", "HEAVY PVC PASTE", "CPVC PASTE 118 ML", "CPVC PASTE 15ML TUBE"]);
+  });
+});

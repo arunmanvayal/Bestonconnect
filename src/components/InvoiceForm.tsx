@@ -9,7 +9,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { fetchAll } from "@/lib/data-transfer";
 import { fetchNextInvoiceNumber } from "@/lib/invoice-number";
-import { matchesSearch } from "@/lib/search";
+import { rankedSearch } from "@/lib/search";
 import { productInvoiceDefaults } from "@/lib/masters";
 import { nextNumericBarcode, purchaseCodeMatches } from "@/lib/invoice-entry";
 import { suggestionPosition } from "@/lib/invoice-suggestions";
@@ -178,8 +178,8 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
     ? kind === "purchase"
       ? suggest.col === "sku"
         ? purchaseCodeMatches(products.filter((p) => !p.deactivated), query)
-        : products.filter((p) => !p.deactivated && matchesSearch(query, p.name, p.sku, p.category, p.manufacturer, p.hsn)).slice(0, 50)
-      : products.filter((p) => !p.deactivated && matchesSearch(query, p.name, p.barcode, p.sku, p.category, p.manufacturer, p.hsn)).slice(0, 50)
+        : rankedSearch(products.filter((p) => !p.deactivated), query, (p) => [p.name, p.sku, p.category, p.manufacturer, p.hsn])
+      : rankedSearch(products.filter((p) => !p.deactivated), query, (p) => [p.name, p.barcode, p.sku, p.category, p.manufacturer, p.hsn])
     : [];
   const choose = (i: number, p: any) => {
     fillFromProduct(i, p);
