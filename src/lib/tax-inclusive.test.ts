@@ -17,3 +17,9 @@ test("exclusive rates are unchanged", () => { expect(storedRate(100, 18, false))
 
 import { nextNumericBarcode } from "./invoice-entry";
 test("new purchase barcode continues the numeric series", () => { expect(nextNumericBarcode(["1", "7961", "BD123", "", null, "12"])).toBe("7962"); });
+
+import { purchaseCodeMatches } from "./invoice-entry";
+test("purchase item code 4 shows code 4 first and excludes others", () => {
+  const r = purchaseCodeMatches([{ sku: "6" }, { sku: "41" }, { sku: "4" }, { sku: "14" }], "4");
+  assert.deepEqual(r.map(p => p.sku), ["4", "41"]);
+});

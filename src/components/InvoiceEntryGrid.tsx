@@ -25,7 +25,7 @@ export function InvoiceEntryCells({ kind, line: l, row, taxType, update, barcode
   const rateCell = (label: string, extra?: (rate: number) => Partial<Line>) => <td><Input aria-label={`${label} row ${row + 1}`} title={l.tax_incl ? "Inclusive of tax" : undefined} className="h-8 rounded-none border-0 bg-transparent px-2 text-xs focus-visible:ring-1" data-row={row} data-col="rate" type="number" min={0} value={String(displayRate(l.rate, l.gst_rate, l.tax_incl))} onChange={e => { const rate = storedRate(number(e.target.value), l.gst_rate, l.tax_incl); update({ rate, ...(extra?.(rate) ?? {}) }); }}/></td>;
   void barcode;
   const codeCell = searchCell("sku", "Item code");
-  const barcodeCell = searchCell("barcode", "Barcode");
+  const barcodeCell = kind === "sale" ? searchCell("barcode", "Barcode") : input("barcode", "Barcode");
   const discountCell = <td><Input aria-label={`Discount percent row ${row + 1}`} data-row={row} data-col="discount" className="h-8 rounded-none border-0 bg-transparent px-2 text-xs" type="number" min={0} max={100} value={discountPercent(c.gross, l.discount) || ""} onChange={e => update({ discount: discountAmount(c.gross, number(e.target.value)) })}/></td>;
   const tax = calculated?.tax ?? (taxType === "none" ? 0 : c.tax);
   const taxable = calculated?.taxable ?? c.taxable;
