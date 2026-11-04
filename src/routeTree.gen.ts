@@ -29,6 +29,7 @@ import { Route as StockRouteImport } from './routes/stock'
 import { Route as ToolsRouteImport } from './routes/tools'
 import { Route as AdminIndexRouteImport } from './routes/admin.index'
 import { Route as AdminAccountsRouteImport } from './routes/admin.accounts'
+import { Route as AdminBarcodesRouteImport } from './routes/admin.barcodes'
 import { Route as AdminCustomersRouteImport } from './routes/admin.customers'
 import { Route as AdminLedgerRouteImport } from './routes/admin.ledger'
 import { Route as AdminMastersRouteImport } from './routes/admin.masters'
@@ -148,6 +149,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
 const AdminAccountsRoute = AdminAccountsRouteImport.update({
   id: '/accounts',
   path: '/accounts',
+  getParentRoute: () => AdminRoute,
+} as any)
+const AdminBarcodesRoute = AdminBarcodesRouteImport.update({
+  id: '/barcodes',
+  path: '/barcodes',
   getParentRoute: () => AdminRoute,
 } as any)
 const AdminCustomersRoute = AdminCustomersRouteImport.update({
@@ -271,6 +277,7 @@ export interface FileRoutesByFullPath {
   '/stock': typeof StockRoute
   '/tools': typeof ToolsRoute
   '/admin/accounts': typeof AdminAccountsRoute
+  '/admin/barcodes': typeof AdminBarcodesRoute
   '/admin/customers': typeof AdminCustomersRoute
   '/admin/ledger': typeof AdminLedgerRoute
   '/admin/masters': typeof AdminMastersRoute
@@ -312,6 +319,7 @@ export interface FileRoutesByTo {
   '/stock': typeof StockRoute
   '/tools': typeof ToolsRoute
   '/admin/accounts': typeof AdminAccountsRoute
+  '/admin/barcodes': typeof AdminBarcodesRoute
   '/admin/customers': typeof AdminCustomersRoute
   '/admin/ledger': typeof AdminLedgerRoute
   '/admin/masters': typeof AdminMastersRoute
@@ -355,6 +363,7 @@ export interface FileRoutesById {
   '/stock': typeof StockRoute
   '/tools': typeof ToolsRoute
   '/admin/accounts': typeof AdminAccountsRoute
+  '/admin/barcodes': typeof AdminBarcodesRoute
   '/admin/customers': typeof AdminCustomersRoute
   '/admin/ledger': typeof AdminLedgerRoute
   '/admin/masters': typeof AdminMastersRoute
@@ -399,6 +408,7 @@ export interface FileRouteTypes {
     | '/stock'
     | '/tools'
     | '/admin/accounts'
+    | '/admin/barcodes'
     | '/admin/customers'
     | '/admin/ledger'
     | '/admin/masters'
@@ -440,6 +450,7 @@ export interface FileRouteTypes {
     | '/stock'
     | '/tools'
     | '/admin/accounts'
+    | '/admin/barcodes'
     | '/admin/customers'
     | '/admin/ledger'
     | '/admin/masters'
@@ -482,6 +493,7 @@ export interface FileRouteTypes {
     | '/stock'
     | '/tools'
     | '/admin/accounts'
+    | '/admin/barcodes'
     | '/admin/customers'
     | '/admin/ledger'
     | '/admin/masters'
@@ -671,6 +683,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AdminAccountsRouteImport
       parentRoute: typeof AdminRoute
     }
+    '/admin/barcodes': {
+      id: '/admin/barcodes'
+      path: '/barcodes'
+      fullPath: '/admin/barcodes'
+      preLoaderRoute: typeof AdminBarcodesRouteImport
+      parentRoute: typeof AdminRoute
+    }
     '/admin/customers': {
       id: '/admin/customers'
       path: '/customers'
@@ -816,6 +835,7 @@ declare module '@tanstack/react-router' {
 
 interface AdminRouteChildren {
   AdminAccountsRoute: typeof AdminAccountsRoute
+  AdminBarcodesRoute: typeof AdminBarcodesRoute
   AdminCustomersRoute: typeof AdminCustomersRoute
   AdminLedgerRoute: typeof AdminLedgerRoute
   AdminMastersRoute: typeof AdminMastersRoute
@@ -838,6 +858,7 @@ interface AdminRouteChildren {
 
 const AdminRouteChildren: AdminRouteChildren = {
   AdminAccountsRoute: AdminAccountsRoute,
+  AdminBarcodesRoute: AdminBarcodesRoute,
   AdminCustomersRoute: AdminCustomersRoute,
   AdminLedgerRoute: AdminLedgerRoute,
   AdminMastersRoute: AdminMastersRoute,
