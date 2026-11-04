@@ -429,7 +429,14 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
           <Button variant="outline" title={`Remove row · ${shortcuts.removeRow}`} disabled={selected === null} onClick={removeSelected}><Trash2 className="h-4 w-4"/>Remove</Button>
           <Button variant="outline" title={`Refresh · ${shortcuts.refresh}`} onClick={() => { if (!lines.some(l => l.item_name.trim()) || confirm("Clear the invoice? Unsaved changes will be lost.")) reset(); }}><RefreshCw className="h-4 w-4"/>Refresh</Button>
           <Button title={`Save · ${shortcuts.save}`} onClick={() => save.mutate()} disabled={save.isPending}><Save className="h-4 w-4"/>{save.isPending ? "Saving…" : editingId ? "Update" : "Save"}</Button>
-          <Button variant="outline" title={`Print · ${shortcuts.print}`} onClick={printInvoice}><Printer className="h-4 w-4"/>Print</Button>
+          <Button variant="outline" title={`Print · ${shortcuts.print}`} onClick={printInvoice}><Printer className="h-4 w-4"/>{isSale ? "Print" : "Print Bill"}</Button>
+          {!isSale && <Button variant="outline" onClick={() => {
+            const labels = lines.filter(l => l.barcode.trim() && l.item_name.trim() && (l.quantity + l.free_qty) > 0)
+              .map(l => ({ barcode: l.barcode.trim(), name: l.item_name, mrp: Number(l.mrp) || 0, price: Number(l.sale_price) || 0, copies: Number(l.quantity) + Number(l.free_qty) }));
+            if (!labels.length) { toast.info("Add items with a barcode and quantity first"); return; }
+            sessionStorage.setItem("barcode-print-labels", JSON.stringify(labels));
+            window.open("/admin/barcodes", "_blank");
+          }}><Printer className="h-4 w-4"/>Print Barcode</Button>}
           <Button variant="outline" asChild><Link to="/admin" onClick={e => { if (lines.some(l => l.item_name.trim()) && !confirm("Close the invoice? Unsaved changes will be lost.")) e.preventDefault(); }}><X className="h-4 w-4"/>Close</Link></Button>
         </div>
       </div>
