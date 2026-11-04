@@ -34,7 +34,7 @@ const fmt = (n: number) => `₹${Number(n || 0).toFixed(2)}`;
 function Labels() {
   const { data: company } = useActiveCompany();
   const [labels, setLabels] = useState<BarcodeLabel[] | null>(null);
-  useEffect(() => { try { setLabels(JSON.parse(sessionStorage.getItem(BARCODE_KEY) || "[]")); } catch { setLabels([]); } }, []);
+  useEffect(() => { try { setLabels(JSON.parse(localStorage.getItem(BARCODE_KEY) || "[]")); } catch { setLabels([]); } }, []);
   if (!labels) return null;
   const all = labels.flatMap(l => Array.from({ length: Math.max(0, Math.floor(l.copies)) }, () => l));
   const pages: BarcodeLabel[][] = [];

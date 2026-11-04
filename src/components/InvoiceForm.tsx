@@ -434,7 +434,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
             const labels = lines.filter(l => l.barcode.trim() && l.item_name.trim() && (l.quantity + l.free_qty) > 0)
               .map(l => ({ barcode: l.barcode.trim(), name: l.item_name, mrp: Number(l.mrp) || 0, price: Number(l.sale_price) || 0, copies: Number(l.quantity) + Number(l.free_qty) }));
             if (!labels.length) { toast.info("Add items with a barcode and quantity first"); return; }
-            sessionStorage.setItem("barcode-print-labels", JSON.stringify(labels));
+            localStorage.setItem("barcode-print-labels", JSON.stringify(labels));
             window.open("/admin/barcodes", "_blank");
           }}><Printer className="h-4 w-4"/>Print Barcode</Button>}
           <Button variant="outline" asChild><Link to="/admin" onClick={e => { if (lines.some(l => l.item_name.trim()) && !confirm("Close the invoice? Unsaved changes will be lost.")) e.preventDefault(); }}><X className="h-4 w-4"/>Close</Link></Button>
