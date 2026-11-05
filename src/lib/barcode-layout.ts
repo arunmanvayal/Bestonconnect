@@ -1,5 +1,5 @@
 export type LabelLayout = { width: number; height: number; gapX: number; gapY: number; marginTop: number; marginLeft: number };
-export const DEFAULT_LAYOUT: LabelLayout = { width: 48.5, height: 25.4, gapX: 2.5, gapY: 0, marginTop: 21.5, marginLeft: 5 };
+export const DEFAULT_LAYOUT: LabelLayout = { width: 48, height: 25.4, gapX: 2.5, gapY: 0, marginTop: 21.5, marginLeft: 5 };
 export const LAYOUT_KEY = "barcode-label-layout";
 
 /** How many labels (mm sizes) fit across and down an A4 sheet (210 × 297 mm), keeping the margins on both sides. */
