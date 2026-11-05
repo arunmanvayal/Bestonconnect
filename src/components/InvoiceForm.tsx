@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { InvoiceEntryCells, invoiceColumns, invoiceWidths } from "@/components/InvoiceEntryGrid";
 import { InvoiceEntryHeader, InvoiceEntryFooter } from "@/components/InvoiceEntryDetails";
 import { InvoicePartyDialog } from "@/components/InvoicePartyDialog";
+import { SupplierInvoiceScan } from "@/components/SupplierInvoiceScan";
 import { saveInvoiceParty, type InvoiceParty } from "@/lib/invoice-party";
 import { emptyEntryDetails } from "@/lib/invoice-entry";
 import { exportInvoiceLines, importInvoiceLines } from "@/lib/invoice-transfer";
@@ -425,6 +426,20 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
               setLines([...resolved, emptyLine()]); toast.success(`${resolved.length} items imported`);
             } catch (error) { toast.error(error instanceof Error ? error.message : "Import failed"); } finally { e.target.value = ""; }
           }}/>
+          {!isSale && <SupplierInvoiceScan products={products as any} onApply={(rows, meta) => {
+            const taken = [...products.map((p: any) => p.barcode), ...lines.map(l => l.barcode)];
+            const built: Line[] = rows.map(r => {
+              const p: any = r.product_id ? products.find((x: any) => x.id === r.product_id) : null;
+              const barcode = p ? nextNumericBarcode(taken) : ""; if (barcode) taken.push(barcode);
+              const base: Line = p ? { ...emptyLine(), product_id: p.id, item_name: p.name, barcode, ...productInvoiceDefaults(p, kind, h.tax_type), tax_incl: !!p.purchase_tax_incl, unit_factor: 1, main_unit: p.unit, alt_unit: p.alt_unit || "", conv_factor: Number(p.conv_factor || 1) } : { ...emptyLine(), item_name: r.name };
+              return { ...base, quantity: Number(r.quantity) || 0, rate: Number(r.rate) || 0, ...(r.gst_rate != null && h.tax_type !== "none" ? { gst_rate: Number(r.gst_rate) } : {}), ...(r.mrp != null ? { mrp: Number(r.mrp) } : {}) };
+            });
+            const keep = lines.filter(l => l.item_name.trim());
+            setLines([...keep, ...built, emptyLine()]);
+            if (meta.bill_no && !h.ref_no) set("ref_no", meta.bill_no);
+            if (meta.supplier && !h.party_name) set("party_name", meta.supplier);
+            toast.success(`${built.length} items added to the draft — review and Save`);
+          }} />}
           <Button variant="outline" className="sm:mr-auto" onClick={() => isSale ? exportInvoiceLines(lines, billNo) : importRef.current?.click()}>{isSale ? <Download className="h-4 w-4"/> : <Upload className="h-4 w-4"/>}{isSale ? "Export" : "Import"}</Button>
           <Button variant="outline" title={`Remove row · ${shortcuts.removeRow}`} disabled={selected === null} onClick={removeSelected}><Trash2 className="h-4 w-4"/>Remove</Button>
           <Button variant="outline" title={`Refresh · ${shortcuts.refresh}`} onClick={() => { if (!lines.some(l => l.item_name.trim()) || confirm("Clear the invoice? Unsaved changes will be lost.")) reset(); }}><RefreshCw className="h-4 w-4"/>Refresh</Button>
