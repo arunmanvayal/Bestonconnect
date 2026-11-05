@@ -49,7 +49,7 @@ export const extractSupplierInvoice = createServerFn({ method: "POST" })
         system: "You read Indian supplier purchase invoices (GST bills). Extract every product line exactly as printed. quantity = billed quantity, rate = unit rate before tax. Do not invent items; use null when a value is not shown.",
         messages: [{ role: "user", content: [
           { type: "text", text: "Extract the supplier name, bill number, bill date and all product lines from this invoice." },
-          isPdf ? { type: "file", data: data.dataUrl, mediaType: "application/pdf" } : { type: "image", image: data.dataUrl, mediaType: data.mimeType },
+          { type: "file", data: data.dataUrl, mediaType: isPdf ? "application/pdf" : data.mimeType },
         ] }],
         providerOptions: { openai: { forceReasoning: true, reasoningEffort: "low", reasoningSummary: "auto", store: false, include: ["reasoning.encrypted_content"] } },
       });
