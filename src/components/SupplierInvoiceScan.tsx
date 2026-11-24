@@ -23,7 +23,7 @@ export function SupplierInvoiceScan({ products, onApply }: { products: Product[]
   const [meta, setMeta] = useState<Omit<ExtractedInvoice, "items">>({ supplier: null, bill_no: null, bill_date: null });
   const [rows, setRows] = useState<ScanRow[]>([]);
 
-  const match = (name: string) => rankedSearch(products, name, ["name", "sku"] as any, 1)[0]?.id ?? null;
+  const match = (name: string) => rankedSearch(products, name, product => [product.name, product.sku], 1)[0]?.id ?? null;
 
   async function upload(file: File) {
     if (!sb) return;
