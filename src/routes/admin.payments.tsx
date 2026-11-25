@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { AppLayout } from "@/components/AppLayout";
+import { Check, ChevronsUpDown } from "lucide-react";
 import { SupabaseGate, money } from "@/components/SupabaseGate";
 import { useSupabase } from "@/lib/supabase";
 import { matchesSearch } from "@/lib/search";
@@ -14,6 +15,8 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Command, CommandGroup, CommandInput, CommandItem, CommandList } from "@/components/ui/command";
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table";
 import { useWorkspaceCommands, useWorkspacePreferences } from "@/lib/workspace-preferences";
 
@@ -46,6 +49,8 @@ function PaymentsInner() {
   const [form, setForm] = useState({ partyKey: "", party_name: "", amount: "", mode: "cash", pay_date: today(), reference: "", notes: "" });
   const [historyParty, setHistoryParty] = useState<string>("all");
   const [search, setSearch] = useState("");
+  const [partyPickerOpen, setPartyPickerOpen] = useState(false);
+  const [partySearch, setPartySearch] = useState("");
   const { shortcuts } = useWorkspacePreferences();
 
   const { data, isLoading } = useQuery({ queryKey: ["outstanding"], queryFn: () => fetchOutstanding(sb) });
@@ -66,6 +71,15 @@ function PaymentsInner() {
     }
     return opts.sort((a, b) => b.balance - a.balance);
   }, [outstanding, parties, side]);
+  const matchingParties = partyOptions.filter(option => matchesSearch(partySearch, option.name));
+  const selectedParty = partyOptions.find(option => option.key === form.partyKey);
+  const chooseParty = (key: string) => {
+    const option = partyOptions.find(item => item.key === key);
+    if (!option) return;
+    setForm(previous => ({ ...previous, partyKey: key, party_name: option.name, amount: option.balance > 0 ? String(option.balance) : previous.amount }));
+    setPartyPickerOpen(false);
+    setPartySearch("");
+  };
 
   const save = useMutation({
     mutationFn: async () => {
@@ -110,7 +124,7 @@ function PaymentsInner() {
       <Card>
         <CardHeader className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center">
           <CardTitle>New {kind === "receipt" ? "Receipt" : "Payment"}</CardTitle>
-          <Tabs value={kind} onValueChange={(v) => { setKind(v as PayKind); setForm({ ...form, partyKey: "" }); }}>
+          <Tabs value={kind} onValueChange={(v) => { setKind(v as PayKind); setForm({ ...form, partyKey: "" }); setPartyPickerOpen(false); setPartySearch(""); }}>
             <TabsList className="grid h-auto grid-cols-2">
               <TabsTrigger className="whitespace-normal text-center" value="receipt">Receipt (from customer)</TabsTrigger>
               <TabsTrigger className="whitespace-normal text-center" value="payment">Payment (to supplier)</TabsTrigger>
@@ -121,20 +135,27 @@ function PaymentsInner() {
           <form className="grid gap-4 md:grid-cols-3" onSubmit={(e) => { e.preventDefault(); save.mutate(); }}>
             <div className="space-y-2 md:col-span-2">
               <Label>{kind === "receipt" ? "Customer" : "Supplier"} *</Label>
-              <Select value={form.partyKey} onValueChange={(v) => {
-                const o = partyOptions.find((x) => x.key === v);
-                setForm({ ...form, partyKey: v, amount: o && o.balance > 0 ? String(o.balance) : form.amount });
-              }}>
-                <SelectTrigger><SelectValue placeholder="Select party" /></SelectTrigger>
-                <SelectContent>
-                  {partyOptions.length === 0 && <div className="p-2 text-sm text-muted-foreground">No parties yet</div>}
-                  {partyOptions.map((o) => (
-                    <SelectItem key={o.key} value={o.key}>
-                      {o.name}{o.balance !== 0 ? ` — due ${money(o.balance)}` : ""}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+              <Popover open={partyPickerOpen} onOpenChange={next => { setPartyPickerOpen(next); if (!next) setPartySearch(""); }}>
+                <PopoverTrigger asChild>
+                  <Button type="button" variant="outline" aria-label={`Select ${side}`} aria-expanded={partyPickerOpen} className="w-full justify-between font-normal">
+                    <span className="truncate">{selectedParty ? `${selectedParty.name}${selectedParty.balance !== 0 ? ` — due ${money(selectedParty.balance)}` : ""}` : `Select ${side}`}</span><ChevronsUpDown className="ml-2 h-4 w-4 shrink-0 text-muted-foreground" />
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent align="start" className="w-[var(--radix-popover-trigger-width)] p-0">
+                  <Command shouldFilter={false}>
+                    <CommandInput aria-label={`Search ${side}s`} placeholder={`Search ${side}s…`} value={partySearch} onValueChange={setPartySearch} />
+                    <CommandList className="max-h-64">
+                      <CommandGroup>
+                        {matchingParties.map(option => <CommandItem key={option.key} value={option.key} onSelect={() => chooseParty(option.key)} className="justify-between gap-2">
+                          <span className="truncate">{option.name}{option.balance !== 0 ? ` — due ${money(option.balance)}` : ""}</span>
+                          {form.partyKey === option.key && <Check className="h-4 w-4 shrink-0" />}
+                        </CommandItem>)}
+                      </CommandGroup>
+                    </CommandList>
+                    {matchingParties.length === 0 && <p className="px-3 py-2 text-sm text-muted-foreground">No matching {side}s.</p>}
+                  </Command>
+                </PopoverContent>
+              </Popover>
               {selected && <p className="text-xs text-muted-foreground">Billed on credit {money(selected.billed)} · Settled {money(selected.settled)} · Balance {money(selected.balance)}</p>}
             </div>
             <div className="space-y-2"><Label>Date</Label><Input type="date" value={form.pay_date} onChange={(e) => setForm({ ...form, pay_date: e.target.value })} /></div>

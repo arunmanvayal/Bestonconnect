@@ -25,3 +25,17 @@ export function rankedSearch<T>(items: T[], query: string, fields: (item: T) => 
     .sort((a, b) => a.r - b.r || a.name.length - b.name.length || a.name.localeCompare(b.name, undefined, { numeric: true }))
     .slice(0, limit).map(x => x.item);
 }
+
+/** Move a keyboard highlight through a filtered list without leaving its bounds. */
+export function moveSelectionIndex(current: number, count: number, key: string): number {
+  if (count <= 0) return 0;
+  const index = Math.max(0, Math.min(current, count - 1));
+  if (key === "ArrowDown") return Math.min(index + 1, count - 1);
+  if (key === "ArrowUp") return Math.max(index - 1, 0);
+  return index;
+}
+
+/** Return the highlighted option for Enter-key selection. */
+export function activeOption<T>(options: readonly T[], index: number): T | undefined {
+  return Number.isInteger(index) && index >= 0 ? options[index] : undefined;
+}

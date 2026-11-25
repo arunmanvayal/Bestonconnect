@@ -1,8 +1,8 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Plus, Save, Search } from "lucide-react";
 import type { Kind } from "@/lib/books";
 import { EMPTY_PARTY, invoicePartyType, type InvoiceParty, type PartyDraft } from "@/lib/invoice-party";
-import { matchesSearch } from "@/lib/search";
+import { activeOption, matchesSearch, moveSelectionIndex } from "@/lib/search";
 import { useWorkspaceCommands } from "@/lib/workspace-preferences";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -17,10 +17,25 @@ export function InvoicePartyDialog({ open, onOpenChange, kind, parties, initialN
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const formRef = useRef<HTMLFormElement>(null);
+  const resultsRef = useRef<HTMLDivElement>(null);
+  const [activeIndex, setActiveIndex] = useState(0);
   const partyType = invoicePartyType(kind);
   const label = partyType === "supplier" ? "Supplier" : "Customer";
   const rows = parties.filter(p => (p.party_type ?? "customer") === partyType && matchesSearch(query, p.name, p.code, p.company, p.phone, p.email, p.address, p.gstin, p.area));
+  useEffect(() => {
+    resultsRef.current?.querySelector<HTMLElement>(`[data-index="${activeIndex}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [activeIndex]);
   useWorkspaceCommands({ save: () => { if (open && creating && !busy) formRef.current?.requestSubmit(); } });
+
+  const onSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      setActiveIndex(current => moveSelectionIndex(current, rows.length, event.key));
+    } else if (event.key === "Enter") {
+      const party = activeOption(rows, activeIndex);
+      if (party) { event.preventDefault(); event.stopPropagation(); onSelect(party); setQuery(""); setActiveIndex(0); }
+    }
+  };
 
   const submit = async () => {
     if (busy) return;
@@ -36,9 +51,9 @@ export function InvoicePartyDialog({ open, onOpenChange, kind, parties, initialN
     <DialogContent className="max-h-[88dvh] overflow-y-auto sm:max-w-2xl" aria-describedby={undefined}>
       <DialogHeader><DialogTitle>{creating ? `New ${label}` : `Select ${label}`}</DialogTitle></DialogHeader>
       {!creating ? <>
-        <div className="flex gap-2"><div className="relative min-w-0 flex-1"><Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"/><Input aria-label={`Search ${partyType}s`} placeholder={`Search ${partyType}s`} className="pl-8" value={query} onChange={e => setQuery(e.target.value)}/></div><Button onClick={() => { setCreating(true); setError(""); setDraft(previous => previous.name ? previous : { ...previous, name: initialName }); }}><Plus className="h-4 w-4"/>Add {label}</Button></div>
-        <div className="max-h-80 overflow-auto divide-y divide-border border border-border">
-          {rows.map(p => <Button key={p.id} variant="ghost" className="h-auto w-full justify-start rounded-none px-3 py-3 text-left" onClick={() => onSelect(p)}><span className="min-w-0"><span className="block break-words font-semibold">{p.name}</span><span className="block break-words text-xs text-muted-foreground">{[p.phone || p.contact_no, p.company, p.address].filter(Boolean).join(" · ")}</span></span></Button>)}
+        <div className="flex gap-2"><div className="relative min-w-0 flex-1"><Search className="pointer-events-none absolute left-2 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground"/><Input aria-label={`Search ${partyType}s`} aria-controls={`invoice-party-results-${partyType}`} aria-activedescendant={rows.length ? `invoice-party-option-${activeIndex}` : undefined} aria-expanded="true" placeholder={`Search ${partyType}s`} className="pl-8" value={query} onChange={e => { setQuery(e.target.value); setActiveIndex(0); }} onKeyDown={onSearchKeyDown}/></div><Button onClick={() => { setCreating(true); setError(""); setDraft(previous => previous.name ? previous : { ...previous, name: initialName }); }}><Plus className="h-4 w-4"/>Add {label}</Button></div>
+        <div ref={resultsRef} id={`invoice-party-results-${partyType}`} role="listbox" aria-label={`${label} matches`} className="max-h-80 overflow-auto divide-y divide-border border border-border">
+          {rows.map((p, index) => <Button key={p.id} id={`invoice-party-option-${index}`} data-index={index} role="option" aria-selected={index === activeIndex} variant="ghost" className={`h-auto w-full justify-start rounded-none px-3 py-3 text-left ${index === activeIndex ? "bg-accent text-accent-foreground" : ""}`} onMouseEnter={() => setActiveIndex(index)} onClick={() => { onSelect(p); setQuery(""); setActiveIndex(0); }}><span className="min-w-0"><span className="block break-words font-semibold">{p.name}</span><span className="block break-words text-xs text-muted-foreground">{[p.phone || p.contact_no, p.company, p.address].filter(Boolean).join(" · ")}</span></span></Button>)}
           {!rows.length && <p className="p-4 text-sm text-muted-foreground">No {partyType}s found.</p>}
         </div>
       </> : <form ref={formRef} onSubmit={e => { e.preventDefault(); void submit(); }} className="space-y-4">

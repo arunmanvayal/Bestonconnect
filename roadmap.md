@@ -36,6 +36,7 @@
 - [x] Correct mutation refreshes and rerun isolated financial/regression tests.
 - [ ] Online payment collection requires confirmed payment provider setup; no money collection will be simulated.
 - [x] Fix purchase product suggestion visibility and selection; isolated pointer/keyboard checks passed at 694×537 and 1280×900; 90 regression tests passed.
+- [x] Make highlighted search results selectable with Enter across invoices, returns, receipts, payments and party pickers; 108 regression tests pass.
 - [x] Separate Setup SQL into 12 numbered, described, individually copyable and downloadable scripts; step 11 download verified in the preview.
 - [x] Connect the dashboard logo to the storefront and crawlable square favicon; Setup 14 added, isolated logo/privacy checks and 93 regression tests passed.
 - [ ] Install Setup 14 and verify the real uploaded public logo (external database owner must run the script; current public branding endpoint reports unavailable).

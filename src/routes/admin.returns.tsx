@@ -1,12 +1,12 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { Search, Undo2 } from "lucide-react";
 import { AppLayout } from "@/components/AppLayout";
 import { SupabaseGate, money } from "@/components/SupabaseGate";
 import { useSupabase } from "@/lib/supabase";
-import { matchesSearch } from "@/lib/search";
+import { activeOption, matchesSearch, moveSelectionIndex } from "@/lib/search";
 import { fetchSearchRecords } from "@/lib/search-data";
 import { returnLineTotals, moneyRound } from "@/lib/invoice-calculations";
 import { loadReturnable, postSalesReturn, type ReturnLine } from "@/lib/books";
@@ -47,6 +47,8 @@ function ReturnsInner() {
   const [date, setDate] = useState(today());
   const [mode, setMode] = useState("credit");
   const [reason, setReason] = useState("");
+  const [activeBillIndex, setActiveBillIndex] = useState(0);
+  const resultsRef = useRef<HTMLDivElement>(null);
   const { shortcuts } = useWorkspacePreferences();
 
   const { data: invoices = [] } = useQuery({
@@ -64,6 +66,20 @@ function ReturnsInner() {
 
   const term = q.toLowerCase().trim();
   const found = invoices.filter((i: any) => matchesSearch(q, i.bill_no, i.party_name)).slice(0, 12);
+  useEffect(() => {
+    resultsRef.current?.querySelector<HTMLElement>(`[data-index="${activeBillIndex}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [activeBillIndex, found.length]);
+
+  const onBillSearchKeyDown = (event: React.KeyboardEvent<HTMLInputElement>) => {
+    if (!term || found.length === 0) return;
+    if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+      event.preventDefault();
+      setActiveBillIndex(current => moveSelectionIndex(current, found.length, event.key));
+    } else if (event.key === "Enter") {
+      const bill = activeOption(found, activeBillIndex);
+      if (bill) { event.preventDefault(); void openInvoice(bill); }
+    }
+  };
 
   const openInvoice = async (i: any) => {
     try { const loaded = await loadReturnable(sb, i.id); setInv(i); setMode(i.payment_mode === "credit" ? "credit" : i.payment_mode === "cash" ? "cash" : "bank"); setLines(loaded); } catch (e: any) { toast.error(e.message); }
@@ -105,12 +121,12 @@ function ReturnsInner() {
           <CardContent className="space-y-3">
             <div className="relative">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input className="pl-9" placeholder="Bill no or customer name" value={q} onChange={(e) => setQ(e.target.value)} />
+              <Input aria-label="Search sale bills" aria-controls="sales-return-matches" aria-activedescendant={term && found.length ? `sales-return-match-${activeBillIndex}` : undefined} aria-expanded={!!term && found.length > 0} className="pl-9" placeholder="Bill no or customer name" value={q} onChange={(e) => { setQ(e.target.value); setActiveBillIndex(0); }} onKeyDown={onBillSearchKeyDown} />
             </div>
-            <div className="max-h-96 space-y-1 overflow-y-auto">
+            <div ref={resultsRef} id="sales-return-matches" role="listbox" aria-label="Matching sale bills" className="max-h-96 space-y-1 overflow-y-auto">
               {found.length === 0 && <p className="text-sm text-muted-foreground">No sale bills found.</p>}
-              {found.map((i: any) => (
-                <button key={i.id} onClick={() => openInvoice(i)} className={`flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-left text-sm transition-colors ${inv?.id === i.id ? "bg-primary/10" : "hover:bg-muted"}`}>
+              {found.map((i: any, index: number) => (
+                <button key={i.id} id={`sales-return-match-${index}`} data-index={index} role="option" aria-selected={index === activeBillIndex} onMouseEnter={() => setActiveBillIndex(index)} onClick={() => openInvoice(i)} className={`flex w-full items-center justify-between gap-2 rounded-xl px-3 py-2 text-left text-sm transition-colors ${index === activeBillIndex ? "bg-accent text-accent-foreground" : inv?.id === i.id ? "bg-primary/10" : "hover:bg-muted"}`}>
                   <span className="min-w-0"><span className="block font-mono font-medium">{i.bill_no}</span><span className="block truncate text-xs text-muted-foreground">{i.party_name || "Walk-in"} · {i.bill_date} · {i.payment_mode}</span></span>
                   <span className="shrink-0 font-semibold tabular-nums">{money(i.net_total)}</span>
                 </button>

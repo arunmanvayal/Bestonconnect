@@ -10,7 +10,7 @@ import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
 import { fetchAll } from "@/lib/data-transfer";
 import { fetchNextInvoiceNumber } from "@/lib/invoice-number";
-import { rankedSearch } from "@/lib/search";
+import { activeOption, moveSelectionIndex, rankedSearch } from "@/lib/search";
 import { productInvoiceDefaults } from "@/lib/masters";
 import { nextNumericBarcode, purchaseCodeMatches } from "@/lib/invoice-entry";
 import { suggestionPosition } from "@/lib/invoice-suggestions";
@@ -57,6 +57,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
   const [lookup, setLookup] = useState("");
   const [loadingBill, setLoadingBill] = useState(false);
   const [matchingBills, setMatchingBills] = useState<any[]>([]);
+  const [matchingBillIndex, setMatchingBillIndex] = useState(0);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [partyOpen, setPartyOpen] = useState(false);
   const isSale = kind === "sale";
@@ -151,6 +152,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
   const [suggest, setSuggest] = useState<({ row: number; col: SearchCol } & ReturnType<typeof suggestionPosition>) | null>(null);
   const suggestionAnchor = useRef<HTMLElement | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
+  const billMatchesRef = useRef<HTMLDivElement>(null);
   const [hi, setHi] = useState(0);
   const openSuggest = (i: number, el: HTMLElement, col: SearchCol = "item") => {
     suggestionAnchor.current = el;
@@ -173,6 +175,9 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
   useEffect(() => {
     listRef.current?.querySelector<HTMLElement>(`[data-index="${hi}"]`)?.scrollIntoView({ block: "nearest" });
   }, [hi, suggest?.row, suggest?.col]);
+  useEffect(() => {
+    billMatchesRef.current?.querySelector<HTMLElement>(`[data-index="${matchingBillIndex}"]`)?.scrollIntoView({ block: "nearest" });
+  }, [matchingBillIndex, matchingBills.length]);
   const activeLine = suggest ? lines[suggest.row] : undefined;
   const query = suggest && activeLine ? String((suggest.col === "item" ? activeLine.item_name : activeLine[suggest.col]) ?? "").toLowerCase().trim() : "";
   const matches = suggest && (suggest.col === "item" || query)
@@ -191,15 +196,25 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
     }, 0);
   };
   const onSearchKeyDown = (i: number, col: SearchCol, e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (suggest?.row === i && e.key === "Escape") { e.preventDefault(); setSuggest(null); return; }
+    if (suggest?.row === i && matches.length > 0) {
+      if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+        e.preventDefault();
+        setHi(current => moveSelectionIndex(current, matches.length, e.key));
+        return;
+      }
+      if (e.key === "Enter" && query) {
+        const selectedProduct = activeOption(matches, hi) ?? matches[0];
+        if (selectedProduct) {
+          e.preventDefault(); e.stopPropagation(); choose(i, selectedProduct);
+          return;
+        }
+      }
+    }
     if (col !== "item" && e.key === "Enter") {
       const exact = findByCode(e.currentTarget.value);
-      if (exact) { e.preventDefault(); e.stopPropagation(); choose(i, exact); return; }
+      if (exact) { e.preventDefault(); e.stopPropagation(); choose(i, exact); }
     }
-    if (!suggest || suggest.row !== i || matches.length === 0) return;
-    if (e.key === "ArrowDown") { e.preventDefault(); setHi((h) => Math.min(h + 1, matches.length - 1)); }
-    else if (e.key === "ArrowUp") { e.preventDefault(); setHi((h) => Math.max(h - 1, 0)); }
-    else if (e.key === "Enter" && query) { e.preventDefault(); e.stopPropagation(); choose(i, matches[hi] ?? matches[0]); }
-    else if (e.key === "Escape") setSuggest(null);
   };
   const onItemKeyDown = (i: number, e: React.KeyboardEvent<HTMLInputElement>) => onSearchKeyDown(i, "item", e);
 
@@ -231,7 +246,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
   };
   const openParty = () => { setSuggest(null); setPartyOpen(true); };
 
-  const reset = () => { setH(emptyHeader(kind)); setLines([emptyLine()]); setSelected(null); setEditingId(null); setMatchingBills([]); };
+  const reset = () => { setH(emptyHeader(kind)); setLines([emptyLine()]); setSelected(null); setEditingId(null); setMatchingBills([]); setMatchingBillIndex(0); };
 
   const loadBill = async (no?: string, invoiceId?: string) => {
     if (!sb) return;
@@ -244,8 +259,9 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
     const search = sb.from("invoices").select("*").eq("kind", kind);
     const { data: inv, error } = await (invoiceId ? search.eq("id", invoiceId) : search.ilike("bill_no", q.replace(/[\\%_]/g, "\\$&"))).order("created_at", { ascending: false });
     if (error) throw error;
-    if (inv && inv.length > 1) { setMatchingBills(inv); return; }
+    if (inv && inv.length > 1) { setMatchingBills(inv); setMatchingBillIndex(0); return; }
     setMatchingBills([]);
+    setMatchingBillIndex(0);
     const bill = inv?.[0];
     if (!bill) { toast.error(`Bill ${q} not found`); return; }
     const { data: items, error: itemError } = await sb.from("invoice_items").select("*").eq("invoice_id", bill.id);
@@ -348,15 +364,24 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
       <div className="invoice-entry-title grid grid-cols-[minmax(0,1fr)_auto] items-center gap-2 border-b border-border px-3">
         <div className="flex min-w-0 items-center gap-2"><FileText className="h-4 w-4 shrink-0 text-primary"/><h1 className="truncate text-sm font-semibold">{isSale ? "Retail Invoice" : "Purchase Invoice"}</h1></div>
         <div className="flex shrink-0 items-center gap-1">
-          {<><Input aria-label="Open bill number" className="invoice-lookup" placeholder="Bill number" value={lookup} onChange={e => setLookup(e.target.value)} onKeyDown={e => { if (e.key === "Enter") { e.preventDefault(); void loadBill(); } }}/><Button size="sm" variant="secondary" disabled={loadingBill || save.isPending} onClick={() => void loadBill()}><Search className="h-3 w-3"/>Open</Button></>}
+          {<><Input aria-label="Open bill number" aria-expanded={matchingBills.length > 0} className="invoice-lookup" placeholder="Bill number" value={lookup} onChange={e => { setLookup(e.target.value); setMatchingBills([]); setMatchingBillIndex(0); }} onKeyDown={e => {
+            if ((e.key === "ArrowDown" || e.key === "ArrowUp") && matchingBills.length > 0) {
+              e.preventDefault();
+              setMatchingBillIndex(current => moveSelectionIndex(current, matchingBills.length, e.key));
+            } else if (e.key === "Enter") {
+              e.preventDefault();
+              const selectedBill = activeOption(matchingBills, matchingBillIndex);
+              void loadBill(selectedBill?.bill_no, selectedBill?.id);
+            }
+          }}/><Button size="sm" variant="secondary" disabled={loadingBill || save.isPending} onClick={() => void loadBill()}><Search className="h-3 w-3"/>Open</Button></>}
           {editingId && <><Button size="sm" variant="outline" onClick={() => window.open(`/admin/invoice/${editingId}`, "_blank")}><Eye className="h-3 w-3"/>Preview</Button><Button size="sm" variant="ghost" onClick={reset}>New bill</Button></>}
           <Button size="sm" variant="ghost" title="Recent invoices" aria-label="Recent invoices" onClick={() => setHistoryOpen(true)}><History className="h-4 w-4"/></Button>
         </div>
       </div>
 
-      {matchingBills.length > 0 && <div className="overflow-x-auto rounded-lg border border-border bg-card">
+      {matchingBills.length > 0 && <div ref={billMatchesRef} className="overflow-x-auto rounded-lg border border-border bg-card">
         <table className="w-full text-sm"><thead><tr className="border-b border-border text-left"><th className="p-3">Bill No</th><th>Date</th><th>Customer</th><th>Total</th><th /></tr></thead>
-          <tbody>{matchingBills.map((bill) => <tr key={bill.id} className="border-b border-border"><td className="p-3">{bill.bill_no}</td><td>{bill.bill_date}</td><td>{bill.party_name || "Walk-in"}</td><td>{money(bill.net_total)}</td><td className="p-2"><Button variant="outline" size="sm" disabled={loadingBill} onClick={() => void loadBill(bill.bill_no, bill.id)}>Open</Button></td></tr>)}</tbody>
+          <tbody>{matchingBills.map((bill, index) => <tr key={bill.id} data-index={index} className={`border-b border-border ${index === matchingBillIndex ? "bg-accent/60" : ""}`}><td className="p-3">{bill.bill_no}</td><td>{bill.bill_date}</td><td>{bill.party_name || "Walk-in"}</td><td>{money(bill.net_total)}</td><td className="p-2"><Button variant="outline" size="sm" disabled={loadingBill} onMouseEnter={() => setMatchingBillIndex(index)} onClick={() => void loadBill(bill.bill_no, bill.id)}>Open</Button></td></tr>)}</tbody>
         </table>
       </div>}
 

@@ -1,6 +1,6 @@
 import { describe, it } from "node:test";
 import assert from "node:assert/strict";
-import { matchesSearch } from "./search";
+import { activeOption, matchesSearch, moveSelectionIndex } from "./search";
 
 describe("shared search", () => {
   it("ignores case and excess whitespace", () => assert.equal(matchesSearch("  LED   BULB ", "Led bulb"), true));
@@ -9,6 +9,21 @@ describe("shared search", () => {
   it("does not turn missing fields into searchable text", () => assert.equal(matchesSearch("undefined", undefined, null), false));
   it("returns all records for a blank search", () => assert.equal(matchesSearch("   ", "Steel Bolt"), true));
   it("treats punctuation as literal text", () => assert.equal(matchesSearch("%_", "M8"), false));
+});
+
+describe("keyboard selection for filtered lists", () => {
+  it("moves the highlighted result with arrows and keeps it within the list", () => {
+    assert.equal(moveSelectionIndex(0, 3, "ArrowDown"), 1);
+    assert.equal(moveSelectionIndex(2, 3, "ArrowDown"), 2);
+    assert.equal(moveSelectionIndex(2, 3, "ArrowUp"), 1);
+    assert.equal(moveSelectionIndex(0, 3, "ArrowUp"), 0);
+    assert.equal(moveSelectionIndex(0, 0, "ArrowDown"), 0);
+  });
+  it("Enter returns the highlighted result instead of the first result", () => {
+    const options = ["first", "second", "highlighted"];
+    assert.equal(activeOption(options, 2), "highlighted");
+    assert.equal(activeOption(options, 4), undefined);
+  });
 });
 import { rankedSearch } from "./search";
 describe("invoice search ranking", () => {
