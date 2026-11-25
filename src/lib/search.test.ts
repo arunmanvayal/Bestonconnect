@@ -16,4 +16,13 @@ describe("invoice search ranking", () => {
     const items = [{ name: "CPVC PASTE 118 ML" }, { name: "CPVC PASTE 15ML TUBE" }, { name: "PVC PASTE 100ML" }, { name: "HEAVY PVC PASTE" }];
     assert.deepEqual(rankedSearch(items, "pvc past", p => [p.name]).map(p => p.name), ["PVC PASTE 100ML", "HEAVY PVC PASTE", "CPVC PASTE 118 ML", "CPVC PASTE 15ML TUBE"]);
   });
+  it("finds supplier-invoice matches by item code and barcode", () => {
+    const products = [
+      { id: "pvc", name: "PVC PASTE 100ML", sku: "PP-18", barcode: "8901001" },
+      { id: "wire", name: "STAY WIRE WHITE", sku: "SW-02", barcode: "8901002" },
+    ];
+    const fields = (product: typeof products[number]) => [product.name, product.sku, product.barcode];
+    assert.deepEqual(rankedSearch(products, "PP-18", fields).map(product => product.id), ["pvc"]);
+    assert.deepEqual(rankedSearch(products, "8901002", fields).map(product => product.id), ["wire"]);
+  });
 });
