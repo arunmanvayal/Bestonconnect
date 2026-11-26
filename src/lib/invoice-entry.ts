@@ -7,9 +7,18 @@ export const emptyEntryDetails = (date: string): EntryDetails => ({ cost_centre:
 export function discountAmount(gross: number, percent: number) { return Math.round(Math.max(0, gross) * Math.min(100, Math.max(0, percent)) * 100 / 100) / 100; }
 export function discountPercent(gross: number, amount: number) { return gross > 0 ? Math.round(amount / gross * 10000) / 100 : 0; }
 /** Rate shown in the entry grid: tax-inclusive lines show the price with GST included. */
-export function displayRate(rate: number, gst: number, inclusive?: boolean) { return inclusive ? Math.round(rate * (1 + gst / 100) * 100) / 100 : rate; }
+export function displayRate(rate: number, gst: number, inclusive?: boolean) { return inclusive ? rate * (1 + gst / 100) : rate; }
 /** Converts a typed grid rate to the stored pre-tax rate. */
 export function storedRate(typed: number, gst: number, inclusive?: boolean) { return inclusive ? typed / (1 + gst / 100) : typed; }
+
+/** Accept intermediate decimal text without stripping the decimal point or zero digits. */
+export function parseEntryDecimal(text: string): number | null {
+  if (!/^\d*(?:\.\d*)?$/.test(text)) return null;
+  const value = text === "" || text === "." ? 0 : Number(text);
+  return Number.isFinite(value) ? value : null;
+}
+
+export function salePriceFromProfit(rate: number, profit: number) { return rate * (1 + profit / 100); }
 
 /** Next purchase barcode: continues the highest purely numeric barcode series (1, 2, 3 …). */
 export function nextNumericBarcode(existing: Array<string | null | undefined>) {

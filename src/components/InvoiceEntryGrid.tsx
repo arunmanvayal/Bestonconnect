@@ -1,6 +1,7 @@
 import type { Line, Kind } from "@/lib/books";
 import { lineCalc } from "@/lib/books";
-import { discountAmount, discountPercent, displayRate, storedRate } from "@/lib/invoice-entry";
+import { discountAmount, discountPercent, displayRate, storedRate, salePriceFromProfit } from "@/lib/invoice-entry";
+import { InvoiceDecimalInput } from "@/components/InvoiceDecimalInput";
 import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from "@/components/ui/select";
 import { Input } from "@/components/ui/input";
 
@@ -16,17 +17,19 @@ type Props = { kind: Kind; line: Line; row: number; taxType: string; update: (pa
 export function InvoiceEntryCells({ kind, line: l, row, taxType, update, barcode, item, search, calculated }: Props) {
   const c = lineCalc(l);
   const number = (v: string) => Number(v) || 0;
-  const input = (key: keyof Line, label: string, numeric = false, change?: (value: string) => void) => <td><Input aria-label={`${label} row ${row + 1}`} className="h-8 rounded-none border-0 bg-transparent px-2 text-xs focus-visible:ring-1" data-row={row} data-col={key === "quantity" ? "qty" : key} type={numeric ? "number" : "text"} min={numeric ? 0 : undefined} value={String(l[key] ?? "")} onChange={e => change ? change(e.target.value) : update({ [key]: numeric ? number(e.target.value) : e.target.value })}/></td>;
+  const input = (key: keyof Line, label: string, numeric = false, change?: (value: string) => void) => <td>{numeric
+    ? <InvoiceDecimalInput key={`${key}:${l.product_id}`} aria-label={`${label} row ${row + 1}`} className="h-8 rounded-none border-0 bg-transparent px-2 text-xs focus-visible:ring-1" data-row={row} data-col={key === "quantity" ? "qty" : key} value={Number(l[key] ?? 0)} onValueChange={value => change ? change(String(value)) : update({ [key]: value })}/>
+    : <Input aria-label={`${label} row ${row + 1}`} className="h-8 rounded-none border-0 bg-transparent px-2 text-xs focus-visible:ring-1" data-row={row} data-col={key} value={String(l[key] ?? "")} onChange={e => change ? change(e.target.value) : update({ [key]: e.target.value })}/>}</td>;
   const searchCell = (key: ProductSearchCol, label: string) => <td><Input aria-label={`${label} row ${row + 1}`} autoComplete="off" className="h-8 rounded-none border-0 bg-transparent px-2 text-xs focus-visible:ring-1" data-row={row} data-col={key} value={String(l[key] ?? "")}
     onChange={e => { update({ [key]: e.target.value }); search?.open(key, e.currentTarget); }}
     onFocus={e => { if (e.currentTarget.value) search?.open(key, e.currentTarget); }}
     onBlur={() => setTimeout(() => search?.close(), 150)}
     onKeyDown={e => search?.keyDown(key, e)}/></td>;
-  const rateCell = (label: string, extra?: (rate: number) => Partial<Line>) => <td><Input aria-label={`${label} row ${row + 1}`} title={l.tax_incl ? "Inclusive of tax" : undefined} className="h-8 rounded-none border-0 bg-transparent px-2 text-xs focus-visible:ring-1" data-row={row} data-col="rate" type="number" min={0} value={String(displayRate(l.rate, l.gst_rate, l.tax_incl))} onChange={e => { const rate = storedRate(number(e.target.value), l.gst_rate, l.tax_incl); update({ rate, ...(extra?.(rate) ?? {}) }); }}/></td>;
+  const rateCell = (label: string, extra?: (rate: number) => Partial<Line>) => <td><InvoiceDecimalInput key={`rate:${l.product_id}`} aria-label={`${label} row ${row + 1}`} title={l.tax_incl ? "Inclusive of tax" : undefined} className="h-8 rounded-none border-0 bg-transparent px-2 text-xs focus-visible:ring-1" data-row={row} data-col="rate" value={l.rate} formatValue={rate => String(displayRate(rate, l.gst_rate, l.tax_incl))} toStoredValue={typed => storedRate(typed, l.gst_rate, l.tax_incl)} onValueChange={rate => update({ rate, ...(extra?.(rate) ?? {}) })}/></td>;
   void barcode;
   const codeCell = searchCell("sku", "Item code");
   const barcodeCell = kind === "sale" ? searchCell("barcode", "Barcode") : input("barcode", "Barcode");
-  const discountCell = <td><Input aria-label={`Discount percent row ${row + 1}`} data-row={row} data-col="discount" className="h-8 rounded-none border-0 bg-transparent px-2 text-xs" type="number" min={0} max={100} value={discountPercent(c.gross, l.discount) || ""} onChange={e => update({ discount: discountAmount(c.gross, number(e.target.value)) })}/></td>;
+  const discountCell = <td><InvoiceDecimalInput key={`discount:${l.product_id}`} aria-label={`Discount percent row ${row + 1}`} data-row={row} data-col="discount" className="h-8 rounded-none border-0 bg-transparent px-2 text-xs" value={l.discount} formatValue={amount => String(discountPercent(c.gross, amount) || "")} toStoredValue={percent => discountAmount(c.gross, percent)} onValueChange={discount => update({ discount })}/></td>;
   const tax = calculated?.tax ?? (taxType === "none" ? 0 : c.tax);
   const taxable = calculated?.taxable ?? c.taxable;
   return <>
@@ -36,9 +39,9 @@ export function InvoiceEntryCells({ kind, line: l, row, taxType, update, barcode
     {input("quantity", "Quantity", true)}
     {kind === "sale" ? <>{input("serial_no", "Serial number")}{input("mrp", "MRP", true)}{rateCell("Rate")}<td className="px-2 text-right tabular-nums">{c.gross.toFixed(2)}</td></> : <>
       {input("free_qty", "Free quantity", true)}
-      {rateCell("Unit price", rate => ({ sale_price: Math.round(rate * (1 + l.profit_pct / 100) * 100) / 100 }))}
-      {input("profit_pct", "Profit percent", true, v => { const profit_pct = number(v); update({ profit_pct, sale_price: Math.round(l.rate * (1 + profit_pct / 100) * 100) / 100 }); })}
-      <td className="px-2 text-right tabular-nums">{l.rate.toFixed(2)}</td>
+      {rateCell("Unit price", rate => ({ sale_price: salePriceFromProfit(rate, l.profit_pct) }))}
+      {input("profit_pct", "Profit percent", true, v => { const profit_pct = number(v); update({ profit_pct, sale_price: salePriceFromProfit(l.rate, profit_pct) }); })}
+      <td className="px-2 text-right tabular-nums">{l.rate}</td>
       {input("sale_price", "Sale price", true)}{input("mrp", "MRP", true)}
     </>}
     {discountCell}<td className="px-2 text-right tabular-nums">{taxable.toFixed(2)}</td>
