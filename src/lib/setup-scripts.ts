@@ -8,6 +8,7 @@ import { FINANCIAL_TRANSACTIONS_SQL } from "@/lib/financial-transactions-sql";
 import { FINANCIAL_IMPORT_SQL } from "@/lib/financial-import-sql";
 import { STOCK_BARCODE_FAST_SQL } from "@/lib/stock-barcode-fast-sql";
 import { SHOP_BRAND_SQL, SHOP_BRAND_LOGO_FIX_SQL } from "@/lib/shop-brand-sql";
+import { CANCEL_TRANSACTIONS_SQL } from "@/lib/cancel-sql";
 import { PURCHASE_PRODUCT_SYNC_SQL, ALL_PRODUCTS_INCLUSIVE_18_SQL } from "@/lib/purchase-product-sync-sql";
 
 export const setupScripts = [
@@ -28,6 +29,7 @@ export const setupScripts = [
   { number: 15, title: "Logo fix: use the company that has a logo", change: "The shop and browser/Google icon now use the earliest company with an uploaded logo, so an older company without a logo no longer blocks it.", sql: SHOP_BRAND_LOGO_FIX_SQL },
   { number: 16, title: "Purchase bill updates product details", change: "Saving a purchase bill copies the latest GST %, purchase rate, sale price and MRP of each item back to the product.", sql: PURCHASE_PRODUCT_SYNC_SQL },
   { number: 17, title: "All products 18% inclusive (one-time)", change: "Marks every product in your companies as Inclusive of Tax Sales and Purchase with CGST 9% + SGST 9% (18%). Run only when you want to reset all products.", sql: ALL_PRODUCTS_INCLUSIVE_18_SQL },
+  { number: 18, title: "Cancel bills and returns", change: "Adds Cancel for saved sales bills, purchase bills and sales returns; stock and ledger are reversed together.", sql: CANCEL_TRANSACTIONS_SQL },
 ] as const;
 
 export function numberedSetupSql(script: typeof setupScripts[number]) {

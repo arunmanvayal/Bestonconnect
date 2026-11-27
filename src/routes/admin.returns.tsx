@@ -9,7 +9,7 @@ import { useSupabase } from "@/lib/supabase";
 import { activeOption, matchesSearch, moveSelectionIndex } from "@/lib/search";
 import { fetchSearchRecords } from "@/lib/search-data";
 import { returnLineTotals, moneyRound } from "@/lib/invoice-calculations";
-import { loadReturnable, postSalesReturn, type ReturnLine } from "@/lib/books";
+import { cancelSalesReturn, loadReturnable, postSalesReturn, type ReturnLine } from "@/lib/books";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -96,6 +96,11 @@ function ReturnsInner() {
       setInv(null); setLines([]); setReason("");
     },
     onError: (e: any) => toast.error(e.message ?? "Could not save return"),
+  });
+  const cancelReturn = useMutation({
+    mutationFn: async (r: any) => { if (!confirm(`Cancel return ${r.return_no}? Stock and customer balance will be reversed.`)) return false; await cancelSalesReturn(sb, r.id); return true; },
+    onSuccess: (done) => { if (done) { toast.success("Return cancelled — stock and balance reversed"); qc.invalidateQueries(); setInv(null); setLines([]); } },
+    onError: (e: any) => toast.error(e.message ?? "Could not cancel return"),
   });
   useWorkspaceCommands({ save: () => save.mutate(), refresh: () => { setInv(null); setLines([]); setReason(""); }, focusProduct: () => document.querySelector<HTMLInputElement>('input[placeholder="Bill no or customer name"]')?.focus() });
 
@@ -186,9 +191,9 @@ function ReturnsInner() {
         <CardContent className="overflow-x-auto p-0">
           {returns.length === 0 ? <p className="p-4 text-sm text-muted-foreground">No returns yet.</p> : (
             <table className="w-full min-w-[640px] text-sm">
-              <thead className="text-left text-muted-foreground"><tr><th className="px-4 py-2">Return No</th><th>Date</th><th>Bill</th><th>Customer</th><th>Refund</th><th>Reason</th><th className="px-4 text-right">Amount</th></tr></thead>
+              <thead className="text-left text-muted-foreground"><tr><th className="px-4 py-2">Return No</th><th>Date</th><th>Bill</th><th>Customer</th><th>Refund</th><th>Reason</th><th className="px-4 text-right">Amount</th><th /></tr></thead>
               <tbody>{returns.map((r) => (
-                <tr key={r.id} className="border-t border-border"><td className="px-4 py-2 font-mono">{r.return_no}</td><td>{r.return_date}</td><td className="font-mono">{r.bill_no}</td><td>{r.party_name || "Walk-in"}</td><td className="capitalize">{r.refund_mode === "credit" ? "Balance reduced" : r.refund_mode}</td><td className="text-muted-foreground">{r.reason}</td><td className="px-4 text-right font-semibold tabular-nums">{money(r.amount)}</td></tr>
+                <tr key={r.id} className="border-t border-border"><td className="px-4 py-2 font-mono">{r.return_no}</td><td>{r.return_date}</td><td className="font-mono">{r.bill_no}</td><td>{r.party_name || "Walk-in"}</td><td className="capitalize">{r.refund_mode === "credit" ? "Balance reduced" : r.refund_mode}</td><td className="text-muted-foreground">{r.reason}</td><td className="px-4 text-right font-semibold tabular-nums">{money(r.amount)}</td><td className="px-2"><Button size="sm" variant="destructive" disabled={cancelReturn.isPending} onClick={() => cancelReturn.mutate(r)}>Cancel</Button></td></tr>
               ))}</tbody>
             </table>
           )}

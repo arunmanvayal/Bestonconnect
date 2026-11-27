@@ -22,7 +22,7 @@ import { Trash2, RefreshCw, Save, Printer, Plus, FileText, Columns3, Search, Eye
 import { toast } from "sonner";
 import { useSupabase } from "@/lib/supabase";
 import { money } from "@/components/SupabaseGate";
-import { type Header, type Kind, type Line, postInvoice, updateInvoice, totals, allocatedInvoiceLines } from "@/lib/books";
+import { type Header, type Kind, type Line, postInvoice, updateInvoice, cancelInvoice, totals, allocatedInvoiceLines } from "@/lib/books";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { useWorkspaceCommands, useWorkspacePreferences } from "@/lib/workspace-preferences";
@@ -336,6 +336,15 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
   });
 
   const lastSavedId = useRef<string | null>(null);
+  const cancelBill = useMutation({
+    mutationFn: async () => {
+      if (!sb || !editingId) throw new Error("Open a saved bill first");
+      if (!confirm(`Cancel bill ${billNo}? It will be removed and stock and ledger reversed. This cannot be undone.`)) return false;
+      await cancelInvoice(sb, editingId); return true;
+    },
+    onSuccess: (done) => { if (!done) return; toast.success(`Bill ${billNo} cancelled — stock and ledger reversed`); lastSavedId.current = null; void qc.invalidateQueries(); reset(); },
+    onError: (e: any) => toast.error(e.message ?? "Could not cancel bill"),
+  });
   const printInvoice = () => {
     if (!lastSavedId.current) { toast.info("Save the bill first, then print it on A4"); return; }
     window.open(`/admin/invoice/${lastSavedId.current}?print=1`, "_blank");
@@ -488,6 +497,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
           <Button variant="outline" title={`Remove row · ${shortcuts.removeRow}`} disabled={selected === null} onClick={removeSelected}><Trash2 className="h-4 w-4"/>Remove</Button>
           <Button variant="outline" title={`Refresh · ${shortcuts.refresh}`} onClick={() => { if (!lines.some(l => l.item_name.trim()) || confirm("Clear the invoice? Unsaved changes will be lost.")) reset(); }}><RefreshCw className="h-4 w-4"/>Refresh</Button>
           <Button title={`Save · ${shortcuts.save}`} onClick={() => save.mutate()} disabled={save.isPending}><Save className="h-4 w-4"/>{save.isPending ? "Saving…" : editingId ? "Update" : "Save"}</Button>
+          {editingId && <Button variant="destructive" disabled={cancelBill.isPending} onClick={() => cancelBill.mutate()}><X className="h-4 w-4"/>{cancelBill.isPending ? "Cancelling…" : "Cancel Bill"}</Button>}
           <Button variant="outline" title={`Print · ${shortcuts.print}`} onClick={printInvoice}><Printer className="h-4 w-4"/>{isSale ? "Print" : "Print Bill"}</Button>
           {!isSale && <Button variant="outline" onClick={() => {
             const labels = lines.filter(l => l.barcode.trim() && l.item_name.trim() && (l.quantity + l.free_qty) > 0)

@@ -117,6 +117,14 @@ export async function updateInvoice(sb: SupabaseClient, kind: Kind, invoiceId: s
   return atomicSave<string>(sb, "post_financial_invoice", { _kind: kind, _header: h, _lines: lines, _invoice_id: invoiceId });
 }
 
+async function cancelRpc(sb: SupabaseClient, fn: string, args: Record<string, string>) {
+  const { error } = await sb.rpc(fn, args);
+  if (error) throw new Error(error.code === "PGRST202" || error.code === "42883" ? "Run Setup 18 (Cancel bills and returns) on the Setup page first." : error.message);
+}
+/** Cancels a saved bill: stock and ledger are reversed in one transaction. */
+export const cancelInvoice = (sb: SupabaseClient, id: string) => cancelRpc(sb, "cancel_financial_invoice", { _invoice_id: id });
+export const cancelSalesReturn = (sb: SupabaseClient, id: string) => cancelRpc(sb, "cancel_sales_return", { _return_id: id });
+
 export const updateSalesInvoice = (sb: SupabaseClient, id: string, h: Header, lines: Line[]) => updateInvoice(sb, "sale", id, h, lines);
 
 /** Live account balances = opening balance + ledger activity. */
