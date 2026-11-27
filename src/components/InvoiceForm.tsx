@@ -146,7 +146,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
     if (!fresh) return;
     const line = lines[current.row];
     if (!line || line.product_id !== fresh.id) return;
-    updateLine(current.row, { item_name: fresh.name, sku: fresh.sku ?? "", ...(isSale ? { barcode: fresh.barcode || fresh.sku || line.barcode } : {}), ...productInvoiceDefaults(fresh, kind, h.tax_type), tax_incl: !!(isSale ? fresh.sale_tax_incl : fresh.purchase_tax_incl), main_unit: fresh.unit, alt_unit: fresh.alt_unit || "", conv_factor: Number(fresh.conv_factor || 1) });
+    updateLine(current.row, { item_name: fresh.name, ...(isSale ? { barcode: fresh.barcode || fresh.sku || line.barcode } : {}), ...productInvoiceDefaults(fresh, kind, h.tax_type), tax_incl: !!(isSale ? fresh.sale_tax_incl : fresh.purchase_tax_incl), main_unit: fresh.unit, alt_unit: fresh.alt_unit || "", conv_factor: Number(fresh.conv_factor || 1) });
   };
 
   const findByCode = (code: string) => {
