@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { InvoiceEntryCells, invoiceColumns, invoiceWidths } from "@/components/InvoiceEntryGrid";
 import { InvoiceEntryHeader, InvoiceEntryFooter } from "@/components/InvoiceEntryDetails";
 import { InvoicePartyDialog } from "@/components/InvoicePartyDialog";
+import { ProductEditor } from "@/components/ProductEditor";
 import { SupplierInvoiceScan } from "@/components/SupplierInvoiceScan";
 import { saveInvoiceParty, type InvoiceParty } from "@/lib/invoice-party";
 import { emptyEntryDetails } from "@/lib/invoice-entry";
@@ -60,6 +61,8 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
   const [matchingBillIndex, setMatchingBillIndex] = useState(0);
   const [historyOpen, setHistoryOpen] = useState(false);
   const [partyOpen, setPartyOpen] = useState(false);
+  const [productEdit, setProductEdit] = useState<{ row: number; product: any } | null>(null);
+  const [productMenu, setProductMenu] = useState<{ row: number; x: number; y: number } | null>(null);
   const isSale = kind === "sale";
   const { shortcuts, columnWidths, setColumnWidths, resetColumnWidths } = useWorkspacePreferences();
   const partyRef = useRef<HTMLInputElement>(null);
@@ -129,6 +132,22 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
       product_id: p.id, item_name: p.name, barcode: code ?? (isSale ? p.barcode || p.sku || "" : genBarcode()),
       ...productInvoiceDefaults(p, kind, h.tax_type), tax_incl: !!(isSale ? p.sale_tax_incl : p.purchase_tax_incl), unit_factor: 1, main_unit: p.unit, alt_unit: p.alt_unit || "", conv_factor: Number(p.conv_factor || 1), quantity: lines[i]?.quantity || 1,
     });
+
+  const openProductEdit = (row: number) => {
+    setProductMenu(null);
+    const product = products.find((p: any) => p.id === lines[row]?.product_id);
+    if (!product) { toast.info("Select a product in this row first"); return; }
+    setSuggest(null); setProductEdit({ row, product });
+  };
+  const closeProductEdit = async () => {
+    const current = productEdit; setProductEdit(null);
+    if (!current || !sb) return;
+    const { data: fresh } = await sb.from("products").select("*").eq("id", current.product.id).maybeSingle();
+    if (!fresh) return;
+    const line = lines[current.row];
+    if (!line || line.product_id !== fresh.id) return;
+    updateLine(current.row, { item_name: fresh.name, sku: fresh.sku ?? "", ...(isSale ? { barcode: fresh.barcode || fresh.sku || line.barcode } : {}), ...productInvoiceDefaults(fresh, kind, h.tax_type), tax_incl: !!(isSale ? fresh.sale_tax_incl : fresh.purchase_tax_incl), main_unit: fresh.unit, alt_unit: fresh.alt_unit || "", conv_factor: Number(fresh.conv_factor || 1) });
+  };
 
   const findByCode = (code: string) => {
     const c = code.trim().toLowerCase();
@@ -332,7 +351,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
     const input = tbodyRef.current?.querySelector<HTMLInputElement>(`input[data-row="${row}"][data-col="item"]`);
     input?.focus(); input?.select();
   };
-  useWorkspaceCommands({ save: () => { if (!partyOpen) save.mutate(); }, addRow: () => { if (!partyOpen) addRow(); }, removeRow: () => { if (!partyOpen) removeSelected(); }, print: () => { if (!partyOpen) printInvoice(); }, refresh: () => { if (!partyOpen) reset(); }, focusProduct: () => { if (!partyOpen) focusProduct(); }, focusParty: openParty });
+  useWorkspaceCommands({ save: () => { if (!partyOpen && !productEdit) save.mutate(); }, addRow: () => { if (!partyOpen && !productEdit) addRow(); }, removeRow: () => { if (!partyOpen && !productEdit) removeSelected(); }, print: () => { if (!partyOpen && !productEdit) printInvoice(); }, refresh: () => { if (!partyOpen && !productEdit) reset(); }, focusProduct: () => { if (!partyOpen && !productEdit) focusProduct(); }, focusParty: openParty });
 
   const startResize = (index: number, event: React.PointerEvent<HTMLSpanElement>) => {
     event.preventDefault();
@@ -400,7 +419,7 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
                 <tbody ref={tbodyRef} onKeyDown={onGridKeyDown}>
                   {lines.map((l, i) => {
                     return (
-                      <tr key={i} onClick={() => setSelected(i)} className={`border-b border-border ${selected === i ? "bg-primary/10" : ""}`}>
+                      <tr key={i} onClick={() => setSelected(i)} onDoubleClick={() => { if (l.product_id) openProductEdit(i); }} onContextMenu={e => { if (!l.product_id) return; e.preventDefault(); setSelected(i); setProductMenu({ row: i, x: e.clientX, y: e.clientY }); }} className={`border-b border-border ${selected === i ? "bg-primary/10" : ""}`}>
                         <InvoiceEntryCells kind={kind} line={l} row={i} taxType={h.tax_type} calculated={allocated[i]} update={patch => updateLine(i, patch)} barcode={value => onBarcode(i, value)} search={{ open: (col, el) => openSuggest(i, el, col), keyDown: (col, e) => onSearchKeyDown(i, col, e), close: () => setSuggest(s => s?.row === i && s.col !== "item" ? null : s) }} item={
                           <Input aria-label={`Item Name row ${i + 1}`} className={cellInput} data-row={i} data-col="item" autoComplete="off" placeholder="Search item…" value={l.item_name}
                             onFocus={e => openSuggest(i, e.currentTarget)}
@@ -507,6 +526,14 @@ export function InvoiceForm({ kind }: { kind: Kind }) {
         </div>, document.body
       )}
 
+      {productMenu && createPortal(<div className="fixed inset-0 z-50" onClick={() => setProductMenu(null)} onContextMenu={e => { e.preventDefault(); setProductMenu(null); }}>
+        <div role="menu" className="absolute min-w-40 rounded-md border border-border bg-popover p-1 text-sm text-popover-foreground shadow-md" style={{ left: productMenu.x, top: productMenu.y }} onClick={e => e.stopPropagation()}>
+          <button type="button" role="menuitem" autoFocus className="w-full rounded-sm px-3 py-1.5 text-left hover:bg-accent hover:text-accent-foreground focus:bg-accent focus:outline-none" onClick={() => openProductEdit(productMenu.row)}>Edit product</button>
+        </div>
+      </div>, document.body)}
+      <Dialog open={!!productEdit} onOpenChange={open => { if (!open) void closeProductEdit(); }}><DialogContent className="max-h-[90dvh] overflow-auto sm:max-w-4xl"><DialogTitle>Edit product</DialogTitle>
+        {productEdit && <ProductEditor product={productEdit.product} onClose={() => void closeProductEdit()} />}
+      </DialogContent></Dialog>
       <InvoicePartyDialog open={partyOpen} onOpenChange={setPartyOpen} kind={kind} parties={parties} initialName={h.party_name} onSelect={selectParty} onSave={async draft => {
         if (!sb) throw new Error("Database connection unavailable");
         const party = await saveInvoiceParty(sb, kind, draft);
