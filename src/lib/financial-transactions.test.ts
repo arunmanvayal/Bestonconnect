@@ -40,6 +40,31 @@ async function rpc(db:PGlite,name:string,args:unknown[]){
 async function n(db:PGlite,sql:string){const q=await db.query<{v:string|number}>(sql);return Number(q.rows[0]?.v);}
 async function snapshot(db:PGlite){return (await db.query(`select jsonb_build_object(${['products','customers','accounts','journal_entries','journal_lines','invoices','invoice_items','payments','sales_returns','sales_return_items','stock_movements','financial_requests'].map(t=>`'${t}',(select coalesce(jsonb_agg(x order by x::text),'[]') from (select to_jsonb(t) x from ${t} t) s)`).join(',')}) data`)).rows;}
 describe('real PostgreSQL financial matrix',()=>{
+ for (const [partyType, partyId] of [['customer', customer], ['supplier', supplier]]) {
+  it(`deletes an unused ${partyType} and reads back its removal`, async()=>{
+   const db=await database();try{
+    const deleted=await db.query<{id:string}>('delete from customers where id=$1 returning id',[partyId]);
+    assert.equal(deleted.rows[0]?.id,partyId);
+    assert.equal(await n(db,`select count(*) v from customers where id='${partyId}'`),0);
+    assert.equal(await n(db,'select count(*) v from customers'),1);
+   }finally{await db.close();}
+  });
+  it(`preserves a ${partyType} with an opening balance`, async()=>{
+   const db=await database();try{
+    await db.query('update customers set opening_balance=100 where id=$1',[partyId]);
+    await assert.rejects(db.query('delete from customers where id=$1 returning id',[partyId]),/opening balance/);
+    assert.equal(await n(db,`select opening_balance v from customers where id='${partyId}'`),100);
+   }finally{await db.close();}
+  });
+  it(`preserves a ${partyType} with invoice history`, async()=>{
+   const db=await database();try{
+    await rpc(db,'post_financial_invoice',[partyType==='customer'?'sale':'purchase',{...header,party_id:partyId,party_name:partyType==='customer'?'Customer':'Supplier'},[line],crypto.randomUUID(),null]);
+    const before=await snapshot(db);
+    await assert.rejects(db.query('delete from customers where id=$1 returning id',[partyId]),/linked business history/);
+    assert.deepEqual(await snapshot(db),before);
+   }finally{await db.close();}
+  });
+ }
  it('GST, IGST and No Tax × cash and credit for sales and purchase reconcile with settlements, edits and partial/full returns',async()=>{
   const db=await database();
   try{

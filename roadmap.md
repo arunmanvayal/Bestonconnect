@@ -43,3 +43,6 @@
 - [x] Connect the dashboard logo to the storefront and crawlable square favicon; Setup 14 added, isolated logo/privacy checks and 93 regression tests passed.
 - [ ] Install Setup 14 and verify the real uploaded public logo (external database owner must run the script; current public branding endpoint reports unavailable).
 - [ ] Publish favicon changes and confirm Google's refreshed icon (owner publishing and Google's recrawl required; Search Console is not connected).
+
+- [x] Add confirmed customer and supplier deletion to Masters and improve existing deletion controls; 14 financial tests pass, including unused-record deletion and balance/history protection for both types.
+- [ ] Verify signed-in customer and supplier deletion on Masters and Customers & Suppliers (external owner session unavailable; login boundaries and preview build checked).

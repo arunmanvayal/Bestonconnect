@@ -82,10 +82,15 @@ function CustomersInner() {
   const removeCustomer = useMutation({
     mutationFn: async (id: string) => {
       if (!supabase) throw new Error("Connection unavailable");
-      const { error } = await supabase.from("customers").delete().eq("id", id);
+      const { error } = await supabase.from("customers").delete().eq("id", id).select("id").single();
       if (error) throw error;
     },
-    onSuccess: () => qc.invalidateQueries(),
+    onSuccess: (_data, id) => {
+      if (sel?.id === id) setSel(null);
+      if (editId === id) { setEditId(null); setForm(EMPTY); setOpen(false); }
+      void qc.invalidateQueries();
+      toast.success("Customer or supplier deleted");
+    },
     onError: (error: any) => toast.error(error.message || "Party cannot be deleted"),
   });
 
@@ -182,7 +187,7 @@ function CustomersInner() {
                     <TableCell>{c.phone}</TableCell>
                     <TableCell>
                       <Button variant="ghost" size="icon" aria-label={`Edit ${c.name}`} onClick={() => { setEditId(c.id); setForm({ ...EMPTY, ...Object.fromEntries(Object.keys(EMPTY).map(key=>[key,String(c[key] ?? EMPTY[key as keyof typeof EMPTY])])) }); setOpen(true); }}><Pencil className="h-4 w-4"/></Button>
-                      <Button variant="ghost" size="icon" onClick={(e) => { e.stopPropagation(); if (confirm(`Delete ${c.name}?`)) removeCustomer.mutate(c.id); }}>
+                      <Button variant="ghost" size="icon" disabled={removeCustomer.isPending} aria-label={`Delete ${c.party_type === "supplier" ? "supplier" : "customer"} ${c.name}`} title="Delete customer or supplier" onClick={(e) => { e.stopPropagation(); if (confirm(`Delete ${c.name}? This cannot be undone.`)) removeCustomer.mutate(c.id); }}>
                         <Trash2 className="h-4 w-4 text-destructive" />
                       </Button>
                     </TableCell>
